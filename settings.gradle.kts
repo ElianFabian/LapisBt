@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "LapisFit"
 include(":app")
-include(":LapisFit")
+include(":lapisfit")

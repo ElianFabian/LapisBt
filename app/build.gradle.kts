@@ -38,19 +38,21 @@ android {
 
 dependencies {
 
-	implementation(libs.androidx.core.ktx)
-	implementation(libs.androidx.lifecycle.runtime.ktx)
-	implementation(libs.androidx.activity.compose)
-	implementation(platform(libs.androidx.compose.bom))
+	implementation(project(":lapisfit"))
+
+	implementation(libs.androidx.coreKtx)
+	implementation(libs.androidx.lifecycleRuntimeKtx)
+	implementation(libs.androidx.activityCompose)
+	implementation(platform(libs.androidx.composeBom))
 	implementation(libs.androidx.ui)
 	implementation(libs.androidx.ui.graphics)
-	implementation(libs.androidx.ui.tooling.preview)
+	implementation(libs.androidx.ui.toolingPreview)
 	implementation(libs.androidx.material3)
 	testImplementation(libs.junit)
 	androidTestImplementation(libs.androidx.junit)
-	androidTestImplementation(libs.androidx.espresso.core)
-	androidTestImplementation(platform(libs.androidx.compose.bom))
-	androidTestImplementation(libs.androidx.ui.test.junit4)
+	androidTestImplementation(libs.androidx.espressoCore)
+	androidTestImplementation(platform(libs.androidx.composeBom))
+	androidTestImplementation(libs.androidx.ui.testJunit4)
 	debugImplementation(libs.androidx.ui.tooling)
-	debugImplementation(libs.androidx.ui.test.manifest)
+	debugImplementation(libs.androidx.ui.testManifest)
 }
