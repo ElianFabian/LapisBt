@@ -1,4 +1,4 @@
-package com.elianfabian.lapisfit.broadcast_receiver
+package com.elianfabian.lapisbt.broadcast_receiver
 
 import android.bluetooth.BluetoothAdapter
 import android.content.BroadcastReceiver

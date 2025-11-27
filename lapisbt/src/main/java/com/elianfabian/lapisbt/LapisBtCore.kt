@@ -1,12 +1,12 @@
-package com.elianfabian.lapisfit
+package com.elianfabian.lapisbt
 
 import android.content.Context
-import com.elianfabian.lapisfit.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
 
-interface LapisFitCore {
+interface LapisBtCore {
 
 	val devices: StateFlow<List<BluetoothDevice>>
 
@@ -95,7 +95,7 @@ interface LapisFitCore {
 
 
 	companion object {
-		fun newInstance(context: Context): LapisFitCore = LapisFitCoreImpl(
+		fun newInstance(context: Context): LapisBtCore = LapisBtCoreImpl(
 			context = context,
 		)
 	}

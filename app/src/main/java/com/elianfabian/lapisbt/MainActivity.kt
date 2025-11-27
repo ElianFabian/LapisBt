@@ -1,4 +1,4 @@
-package com.elianfabian.lapisfit
+package com.elianfabian.lapisbt
 
 import android.Manifest
 import android.os.Bundle
@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -16,7 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.elianfabian.lapisfit.ui.theme.LapisFitTheme
+import com.elianfabian.lapisbt.ui.theme.LapisBtTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -52,7 +51,7 @@ class MainActivity : ComponentActivity() {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
 		setContent {
-			LapisFitTheme {
+			LapisBtTheme {
 				Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 					Column {
 						Greeting(
@@ -91,7 +90,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-	LapisFitTheme {
+	LapisBtTheme {
 		Greeting("Android")
 	}
 }

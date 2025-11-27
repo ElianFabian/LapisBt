@@ -1,4 +1,4 @@
-package com.elianfabian.lapisfit.model
+package com.elianfabian.lapisbt.model
 
 data class BluetoothDevice(
 	val address: String,

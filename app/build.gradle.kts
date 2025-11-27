@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-	namespace = "com.elianfabian.lapisfit"
+	namespace = "com.elianfabian.lapisbt"
 	compileSdk = 36
 
 	defaultConfig {
-		applicationId = "com.elianfabian.lapisfit"
+		applicationId = "com.elianfabian.lapisbt"
 		minSdk = 21
 		targetSdk = 36
 		versionCode = 1
@@ -38,8 +38,7 @@ android {
 
 dependencies {
 
-	implementation(project(":lapisfit"))
-
+	implementation(project(":lapisbt"))
 	implementation(libs.androidx.coreKtx)
 	implementation(libs.androidx.lifecycleRuntimeKtx)
 	implementation(libs.androidx.activityCompose)

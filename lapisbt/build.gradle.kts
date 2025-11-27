@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-	namespace = "com.elianfabian.lapisfit"
+	namespace = "com.elianfabian.lapisbt"
 	compileSdk = 36
 
 	defaultConfig {

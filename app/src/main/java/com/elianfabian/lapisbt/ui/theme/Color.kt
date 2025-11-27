@@ -1,4 +1,4 @@
-package com.elianfabian.lapisfit.ui.theme
+package com.elianfabian.lapisbt.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,4 +1,4 @@
-package com.elianfabian.lapisfit
+package com.elianfabian.lapisbt
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -27,14 +27,14 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.core.content.ContextCompat
-import com.elianfabian.lapisfit.broadcast_receiver.BluetoothDeviceConnectionBroadcastReceiver
-import com.elianfabian.lapisfit.broadcast_receiver.BluetoothDeviceNameChangeBroadcastReceiver
-import com.elianfabian.lapisfit.broadcast_receiver.BluetoothDiscoveryStateChangeBroadcastReceiver
-import com.elianfabian.lapisfit.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
-import com.elianfabian.lapisfit.broadcast_receiver.DeviceBondStateChangeBroadcastReceiver
-import com.elianfabian.lapisfit.broadcast_receiver.DeviceFoundBroadcastReceiver
-import com.elianfabian.lapisfit.model.BluetoothDevice
-import com.elianfabian.lapisfit.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceConnectionBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceNameChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDiscoveryStateChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.DeviceBondStateChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
+import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,9 +55,9 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-internal class LapisFitCoreImpl(
+internal class LapisBtCoreImpl(
 	private val context: Context,
-) : LapisFitCore {
+) : LapisBtCore {
 
 	private val _bluetoothAdapter by lazy {
 		val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: throw IllegalStateException("Couldn't get the BluetoothManager")
@@ -81,7 +81,7 @@ internal class LapisFitCoreImpl(
 	private val _scannedDevices = MutableSharedFlow<BluetoothDevice>()
 	override val scannedDevices = _scannedDevices.asSharedFlow()
 
-	private val _events = MutableSharedFlow<LapisFitCore.Event>()
+	private val _events = MutableSharedFlow<LapisBtCore.Event>()
 	override val events = _events.asSharedFlow()
 
 	private val _bluetoothDeviceName = MutableStateFlow(
@@ -104,9 +104,9 @@ internal class LapisFitCoreImpl(
 
 	private val _bluetoothState = MutableStateFlow(
 		if (_bluetoothAdapter?.isEnabled == true) {
-			LapisFitCore.BluetoothState.On
+			LapisBtCore.BluetoothState.On
 		}
-		else LapisFitCore.BluetoothState.Off
+		else LapisBtCore.BluetoothState.Off
 	)
 	override val state = _bluetoothState.asStateFlow()
 
@@ -198,16 +198,16 @@ internal class LapisFitCoreImpl(
 		onStateChange = { state ->
 			when (state) {
 				BluetoothAdapter.STATE_ON -> {
-					_bluetoothState.value = LapisFitCore.BluetoothState.On
+					_bluetoothState.value = LapisBtCore.BluetoothState.On
 				}
 				BluetoothAdapter.STATE_TURNING_ON -> {
-					_bluetoothState.value = LapisFitCore.BluetoothState.TurningOn
+					_bluetoothState.value = LapisBtCore.BluetoothState.TurningOn
 				}
 				BluetoothAdapter.STATE_OFF -> {
-					_bluetoothState.value = LapisFitCore.BluetoothState.Off
+					_bluetoothState.value = LapisBtCore.BluetoothState.Off
 				}
 				BluetoothAdapter.STATE_TURNING_OFF -> {
-					_bluetoothState.value = LapisFitCore.BluetoothState.TurningOff
+					_bluetoothState.value = LapisBtCore.BluetoothState.TurningOff
 				}
 			}
 		}
@@ -232,7 +232,7 @@ internal class LapisFitCoreImpl(
 
 					if (wasConnected) {
 						_events.emit(
-							LapisFitCore.Event.OnDeviceDisconnected(
+							LapisBtCore.Event.OnDeviceDisconnected(
 								disconnectedDevice = _devices.value.find { it.address == androidDevice.address } ?: run {
 									println("$$$ not found: $androidDevice")
 									return@launch
@@ -342,14 +342,14 @@ internal class LapisFitCoreImpl(
 		return adapter.cancelDiscovery()
 	}
 
-	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisBtCore.ConnectionResult {
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
 			serviceUuid = serviceUuid,
 		)
 	}
 
-	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisBtCore.ConnectionResult {
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
 			serviceUuid = serviceUuid,
@@ -364,14 +364,14 @@ internal class LapisFitCoreImpl(
 		_bluetoothServerSocketByServiceUuid.remove(serviceUuid)
 	}
 
-	override suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): LapisBtCore.ConnectionResult {
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
 		)
 	}
 
-	override suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): LapisBtCore.ConnectionResult {
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
@@ -421,7 +421,7 @@ internal class LapisFitCoreImpl(
 			_clientJobByAddress.remove(deviceAddress)
 
 			_events.emit(
-				LapisFitCore.Event.OnDeviceDisconnected(
+				LapisBtCore.Event.OnDeviceDisconnected(
 					disconnectedDevice = _devices.value.first { it.address == deviceAddress },
 					manuallyDisconnected = manuallyDisconnected,
 				)
@@ -519,7 +519,7 @@ internal class LapisFitCoreImpl(
 
 		_scope.launch {
 			_bluetoothState.collect { state ->
-				if (state == LapisFitCore.BluetoothState.Off) {
+				if (state == LapisBtCore.BluetoothState.Off) {
 					_bluetoothServerSocketByServiceUuid.forEach { (_, serverSocket) ->
 						serverSocket.close()
 					}
@@ -537,7 +537,7 @@ internal class LapisFitCoreImpl(
 							if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 								launch {
 									_events.emit(
-										LapisFitCore.Event.OnDeviceDisconnected(
+										LapisBtCore.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
 											manuallyDisconnected = true,
 										)
@@ -640,12 +640,12 @@ internal class LapisFitCoreImpl(
 		serviceName: String,
 		serviceUuid: UUID,
 		insecure: Boolean = false,
-	): LapisFitCore.ConnectionResult {
+	): LapisBtCore.ConnectionResult {
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!_bluetoothState.value.isOn) {
-			return LapisFitCore.ConnectionResult.CouldNotConnect
+			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
 		val adapter = _bluetoothAdapter ?: throw NullPointerException("Bluetooth adapter is null")
@@ -683,7 +683,7 @@ internal class LapisFitCoreImpl(
 		_activeBluetoothServers.update { it - serviceUuid }
 
 		if (clientSocket == null) {
-			return LapisFitCore.ConnectionResult.CouldNotConnect
+			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
 		// Should we stop scan? It is recommended, but maybe that's up to the user of this library
@@ -697,7 +697,7 @@ internal class LapisFitCoreImpl(
 		)
 
 		_events.emit(
-			LapisFitCore.Event.OnDeviceConnected(
+			LapisBtCore.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
 				manuallyConnected = false,
 			)
@@ -726,7 +726,7 @@ internal class LapisFitCoreImpl(
 
 		updateDevices()
 
-		return LapisFitCore.ConnectionResult.ConnectionEstablished(connectedDevice)
+		return LapisBtCore.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
 
 	// Both server and the device who connects have to do it insecurely to avoid the need of linking.
@@ -734,12 +734,12 @@ internal class LapisFitCoreImpl(
 		deviceAddress: String,
 		serviceUuid: UUID,
 		insecure: Boolean = false,
-	): LapisFitCore.ConnectionResult {
+	): LapisBtCore.ConnectionResult {
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!_bluetoothState.value.isOn) {
-			return LapisFitCore.ConnectionResult.CouldNotConnect
+			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
 		println("$$$$$ connectToDevice insecure: $insecure")
@@ -766,7 +766,7 @@ internal class LapisFitCoreImpl(
 		_clientSocketByAddress[connectedAndroidDevice.address] = clientSocket
 
 		if (clientSocket == null) {
-			return LapisFitCore.ConnectionResult.CouldNotConnect
+			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
 		stopScan()
@@ -781,7 +781,7 @@ internal class LapisFitCoreImpl(
 					else device
 				}
 			}
-			return LapisFitCore.ConnectionResult.CouldNotConnect
+			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
 		val connectedDevice = connectedAndroidDevice.toModel(
@@ -789,7 +789,7 @@ internal class LapisFitCoreImpl(
 		)
 
 		_events.emit(
-			LapisFitCore.Event.OnDeviceConnected(
+			LapisBtCore.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
 				manuallyConnected = true,
 			)
@@ -820,7 +820,7 @@ internal class LapisFitCoreImpl(
 
 		updateDevices()
 
-		return LapisFitCore.ConnectionResult.ConnectionEstablished(connectedDevice)
+		return LapisBtCore.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
 
 

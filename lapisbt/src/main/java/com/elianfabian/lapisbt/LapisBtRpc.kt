@@ -1,6 +1,6 @@
-package com.elianfabian.lapisfit
+package com.elianfabian.lapisbt
 
-interface LapisFitRpc {
+interface LapisBtRpc {
 
 	fun <T > getOrCreateBluetoothApiClient(deviceAddress: String): T?
 
