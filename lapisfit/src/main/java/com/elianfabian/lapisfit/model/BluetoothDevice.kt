@@ -3,6 +3,8 @@ package com.elianfabian.lapisfit.model
 data class BluetoothDevice(
 	val address: String,
 	val name: String?,
+	val type: Type,
+	val mode: Mode,
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
 ) {
@@ -19,5 +21,26 @@ data class BluetoothDevice(
 		Connecting,
 		Disconnected,
 		Disconnecting,
+	}
+
+	enum class Type {
+		Misc,
+		Computer,
+		Phone,
+		Networking,
+		AudioVideo,
+		Peripheral,
+		Imaging,
+		Wearable,
+		Toy,
+		Health,
+		Uncategorized,
+	}
+
+	enum class Mode {
+		Classic,
+		Le,
+		Dual,
+		Unknown
 	}
 }

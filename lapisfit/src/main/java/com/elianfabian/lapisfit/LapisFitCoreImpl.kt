@@ -5,6 +5,19 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO
+import android.bluetooth.BluetoothClass.Device.Major.COMPUTER
+import android.bluetooth.BluetoothClass.Device.Major.HEALTH
+import android.bluetooth.BluetoothClass.Device.Major.IMAGING
+import android.bluetooth.BluetoothClass.Device.Major.MISC
+import android.bluetooth.BluetoothClass.Device.Major.NETWORKING
+import android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL
+import android.bluetooth.BluetoothClass.Device.Major.PHONE
+import android.bluetooth.BluetoothClass.Device.Major.TOY
+import android.bluetooth.BluetoothClass.Device.Major.WEARABLE
+import android.bluetooth.BluetoothDevice.BOND_BONDED
+import android.bluetooth.BluetoothDevice.BOND_BONDING
+import android.bluetooth.BluetoothDevice.BOND_NONE
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
@@ -108,6 +121,20 @@ internal class LapisFitCoreImpl(
 	private val _activeBluetoothServers = MutableStateFlow(emptyList<UUID>())
 	override val activeBluetoothServers = _activeBluetoothServers.asStateFlow()
 
+//	override val canChangeBluetoothDeviceName: Boolean
+//		get() {
+//			val notSupportedManufacturers = listOf(
+//				"huawei",
+//				"xiaomi",
+//				"realme",
+//				"samsung",
+//			)
+//
+//			return notSupportedManufacturers.none { manufacturer ->
+//				Build.MANUFACTURER.contains(manufacturer, ignoreCase = true)
+//			}
+//		}
+
 
 	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, BluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<String, BluetoothSocket> = ConcurrentHashMap()
@@ -151,10 +178,7 @@ internal class LapisFitCoreImpl(
 
 	private val _deviceFoundReceiver = DeviceFoundBroadcastReceiver(
 		onDeviceFound = { androidDeviceFound ->
-			val newDevice = BluetoothDevice(
-				name = androidDeviceFound.name,
-				address = androidDeviceFound.address,
-				pairingState = getPairingStateFromAndroidDevice(androidDeviceFound),
+			val newDevice = androidDeviceFound.toModel(
 				connectionState = BluetoothDevice.ConnectionState.Disconnected,
 			)
 
@@ -238,7 +262,12 @@ internal class LapisFitCoreImpl(
 					if (existingDevice.address == androidDevice.address) {
 						existingDevice.copy(
 							name = androidDevice.name ?: existingDevice.name,
-							pairingState = getPairingStateFromAndroidDevice(androidDevice),
+							pairingState = when (androidDevice.bondState) {
+								BOND_BONDED -> BluetoothDevice.PairingState.Paired
+								BOND_BONDING -> BluetoothDevice.PairingState.Pairing
+								BOND_NONE -> BluetoothDevice.PairingState.None
+								else -> BluetoothDevice.PairingState.None
+							},
 						)
 					}
 					else existingDevice
@@ -320,7 +349,7 @@ internal class LapisFitCoreImpl(
 		)
 	}
 
-	override suspend fun startInsecureBluetoothServer(serviceName: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
 			serviceUuid = serviceUuid,
@@ -342,7 +371,7 @@ internal class LapisFitCoreImpl(
 		)
 	}
 
-	override suspend fun connectToDeviceInsecurely(deviceAddress: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
+	override suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): LapisFitCore.ConnectionResult {
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
@@ -454,6 +483,16 @@ internal class LapisFitCoreImpl(
 		return true
 	}
 
+	// We haven't tested this yet
+	override fun unpairDevice(deviceAddress: String): Boolean {
+		val adapter = _bluetoothAdapter ?: return false
+
+		val androidDevice = adapter.getRemoteDevice(deviceAddress)
+		val removeBondMethod = androidDevice.javaClass.getMethod("removeBond")
+
+		return removeBondMethod.invoke(androidDevice) as Boolean
+	}
+
 
 	override fun dispose() {
 		//ProcessLifecycleOwner.get().lifecycle.removeObserver(_processLifecycleObserver)
@@ -561,15 +600,6 @@ internal class LapisFitCoreImpl(
 		return Build.VERSION.SDK_INT <= 31 || ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
 	}
 
-	private fun getPairingStateFromAndroidDevice(androidDevice: AndroidBluetoothDevice): BluetoothDevice.PairingState {
-		return when (androidDevice.bondState) {
-			AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
-			AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-			AndroidBluetoothDevice.BOND_NONE -> BluetoothDevice.PairingState.None
-			else -> BluetoothDevice.PairingState.None
-		}
-	}
-
 	private fun updateDevices() {
 		if (!canEnableBluetooth) {
 			return
@@ -580,11 +610,8 @@ internal class LapisFitCoreImpl(
 			val connectedDevices = _clientSocketByAddress.keys.map { address ->
 				adapter.getRemoteDevice(address)
 			}.map { androidDevice ->
-				BluetoothDevice(
-					address = androidDevice.address,
-					name = androidDevice.name,
+				androidDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Connected,
-					pairingState = getPairingStateFromAndroidDevice(androidDevice),
 				)
 			}
 
@@ -593,11 +620,8 @@ internal class LapisFitCoreImpl(
 					return@mapNotNull null
 				}
 
-				BluetoothDevice(
-					address = androidDevice.address,
-					name = androidDevice.name,
+				androidDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Disconnected,
-					pairingState = getPairingStateFromAndroidDevice(androidDevice),
 				)
 			}
 
@@ -668,10 +692,7 @@ internal class LapisFitCoreImpl(
 		val connectedAndroidDevice = clientSocket.remoteDevice
 		_clientSocketByAddress[connectedAndroidDevice.address] = clientSocket
 
-		val connectedDevice = BluetoothDevice(
-			name = connectedAndroidDevice.name,
-			address = connectedAndroidDevice.address,
-			pairingState = getPairingStateFromAndroidDevice(connectedAndroidDevice),
+		val connectedDevice = connectedAndroidDevice.toModel(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
@@ -763,10 +784,7 @@ internal class LapisFitCoreImpl(
 			return LapisFitCore.ConnectionResult.CouldNotConnect
 		}
 
-		val connectedDevice = BluetoothDevice(
-			name = connectedAndroidDevice.name,
-			address = connectedAndroidDevice.address,
-			pairingState = getPairingStateFromAndroidDevice(connectedAndroidDevice),
+		val connectedDevice = connectedAndroidDevice.toModel(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
@@ -855,5 +873,39 @@ internal class LapisFitCoreImpl(
 				return@withContext false
 			}
 		}
+	}
+
+	private fun AndroidBluetoothDevice.toModel(connectionState: BluetoothDevice.ConnectionState): BluetoothDevice {
+		return BluetoothDevice(
+			name = this.name,
+			address = this.address,
+			type = when (this.bluetoothClass.majorDeviceClass) {
+				AUDIO_VIDEO -> BluetoothDevice.Type.AudioVideo
+				COMPUTER -> BluetoothDevice.Type.Computer
+				HEALTH -> BluetoothDevice.Type.Health
+				IMAGING -> BluetoothDevice.Type.Imaging
+				WEARABLE -> BluetoothDevice.Type.Wearable
+				MISC -> BluetoothDevice.Type.Misc
+				PHONE -> BluetoothDevice.Type.Phone
+				NETWORKING -> BluetoothDevice.Type.Networking
+				TOY -> BluetoothDevice.Type.Toy
+				PERIPHERAL -> BluetoothDevice.Type.Peripheral
+				else -> BluetoothDevice.Type.Uncategorized
+			},
+			mode = when (this.type) {
+				AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC -> BluetoothDevice.Mode.Classic
+				AndroidBluetoothDevice.DEVICE_TYPE_LE -> BluetoothDevice.Mode.Le
+				AndroidBluetoothDevice.DEVICE_TYPE_DUAL -> BluetoothDevice.Mode.Dual
+				AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN -> BluetoothDevice.Mode.Unknown
+				else -> BluetoothDevice.Mode.Unknown
+			},
+			pairingState = when (this.bondState) {
+				BOND_BONDED -> BluetoothDevice.PairingState.Paired
+				BOND_BONDING -> BluetoothDevice.PairingState.Pairing
+				BOND_NONE -> BluetoothDevice.PairingState.None
+				else -> BluetoothDevice.PairingState.None
+			},
+			connectionState = connectionState,
+		)
 	}
 }

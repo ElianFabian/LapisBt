@@ -38,20 +38,23 @@ interface LapisFitCore {
 
 	suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): ConnectionResult
 
-	suspend fun startInsecureBluetoothServer(serviceName: String, serviceUuid: UUID): ConnectionResult
+	suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): ConnectionResult
 
 	fun stopBluetoothServer(serviceUuid: UUID)
 
 	suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): ConnectionResult
 
-	suspend fun connectToDeviceInsecurely(deviceAddress: String, serviceUuid: UUID): ConnectionResult
+	suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): ConnectionResult
 
 	suspend fun disconnectFromDevice(deviceAddress: String): Boolean
 
 	suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
 
+	// I'm not sure if we should keep this since this access an internal API
+	fun unpairDevice(deviceAddress: String): Boolean
 
-	// We have to think of a proper way to implement data communication, probably just using streams
+
+	// TODO: We have to think of a proper way to implement data communication, probably just using streams
 //	suspend fun sendDataToDevice(deviceAddress: String, data: ByteArray): Boolean
 //
 //	fun observeDataFromDevice(deviceAddress: String): Flow<ByteArray>
