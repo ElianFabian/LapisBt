@@ -5,6 +5,7 @@ import java.util.UUID
 public data class BluetoothDevice(
 	val address: String,
 	val name: String?,
+	val addressType: AddressType,
 	val type: Type,
 	val mode: Mode,
 	val uuids: List<UUID>,
@@ -24,6 +25,14 @@ public data class BluetoothDevice(
 		Connecting,
 		Disconnected,
 		Disconnecting,
+	}
+
+	public enum class AddressType {
+		Public,
+		Random,
+		Anonymous,
+		Unknown,
+		NotSupported,
 	}
 
 	public enum class Type {

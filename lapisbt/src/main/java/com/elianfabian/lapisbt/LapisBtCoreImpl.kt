@@ -984,6 +984,16 @@ internal class LapisBtCoreImpl(
 		return BluetoothDevice(
 			name = this.name,
 			address = this.address,
+			addressType = if (Build.VERSION.SDK_INT >= 35) {
+				when (this.addressType) {
+					AndroidBluetoothDevice.ADDRESS_TYPE_PUBLIC -> BluetoothDevice.AddressType.Public
+					AndroidBluetoothDevice.ADDRESS_TYPE_RANDOM -> BluetoothDevice.AddressType.Random
+					AndroidBluetoothDevice.ADDRESS_TYPE_ANONYMOUS -> BluetoothDevice.AddressType.Anonymous
+					AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN -> BluetoothDevice.AddressType.Unknown
+					else -> BluetoothDevice.AddressType.Unknown
+				}
+			}
+			else BluetoothDevice.AddressType.NotSupported,
 			type = when (this.bluetoothClass.majorDeviceClass) {
 				AUDIO_VIDEO -> BluetoothDevice.Type.AudioVideo
 				COMPUTER -> BluetoothDevice.Type.Computer
