@@ -684,7 +684,7 @@ internal class LapisBtCoreImpl(
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!_bluetoothState.value.isOn) {
-			return LapisBtCore.ConnectionResult.CouldNotConnect
+			throw IllegalStateException("Can't start bluetooth server when bluetooth is off")
 		}
 
 		val adapter = _bluetoothAdapter ?: throw NullPointerException("Bluetooth adapter is null")
@@ -778,7 +778,7 @@ internal class LapisBtCoreImpl(
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!_bluetoothState.value.isOn) {
-			return LapisBtCore.ConnectionResult.CouldNotConnect
+			throw IllegalStateException("Can't connect to device when bluetooth if off")
 		}
 
 		println("$$$$$ connectToDevice insecure: $insecure")
