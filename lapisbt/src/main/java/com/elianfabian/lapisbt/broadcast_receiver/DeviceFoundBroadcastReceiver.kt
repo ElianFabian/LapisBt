@@ -9,6 +9,7 @@ internal class DeviceFoundBroadcastReceiver(
 	private val onDeviceFound: (device: AndroidBluetoothDevice) -> Unit,
 ) : BroadcastReceiver() {
 
+	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		if (intent.action == AndroidBluetoothDevice.ACTION_FOUND) {
 			val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE)

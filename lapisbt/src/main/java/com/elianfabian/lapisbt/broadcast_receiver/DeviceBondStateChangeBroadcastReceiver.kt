@@ -9,6 +9,7 @@ internal class DeviceBondStateChangeBroadcastReceiver(
 	private val onStateChange: (device: AndroidBluetoothDevice, state: Int) -> Unit,
 ) : BroadcastReceiver() {
 
+	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		if (intent.action != AndroidBluetoothDevice.ACTION_BOND_STATE_CHANGED) {
 			return

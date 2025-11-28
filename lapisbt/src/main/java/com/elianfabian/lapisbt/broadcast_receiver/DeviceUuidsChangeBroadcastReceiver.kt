@@ -10,6 +10,7 @@ internal class DeviceUuidsChangeBroadcastReceiver(
 	private val onUuidsChange: (device: AndroidBluetoothDevice, uuids: List<UUID>) -> Unit,
 ) : BroadcastReceiver() {
 
+	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		if (intent.action == AndroidBluetoothDevice.ACTION_UUID) {
 			val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return

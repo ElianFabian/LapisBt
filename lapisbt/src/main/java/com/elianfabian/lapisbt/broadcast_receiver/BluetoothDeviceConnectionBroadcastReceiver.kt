@@ -9,6 +9,7 @@ internal class BluetoothDeviceConnectionBroadcastReceiver(
 	private val onConnectionStateChange: (device: AndroidBluetoothDevice, isConnected: Boolean) -> Unit,
 ) : BroadcastReceiver() {
 
+	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
 		when (intent.action) {
