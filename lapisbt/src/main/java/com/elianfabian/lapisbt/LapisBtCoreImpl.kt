@@ -31,6 +31,7 @@ import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceConnectionBroad
 import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceNameChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDiscoveryStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.DeviceAliasChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceBondStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
@@ -293,6 +294,19 @@ internal class LapisBtCoreImpl(
 				devices.map { device ->
 					if (device.address == androidDevice.address) {
 						device.copy(uuids = uuids)
+					}
+					else device
+				}
+			}
+		}
+	)
+
+	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
+		onAliasChanged = { androidDevice, newAlias ->
+			_devices.update { devices ->
+				devices.map { device ->
+					if (device.address == androidDevice.address) {
+						device.copy(alias = newAlias)
 					}
 					else device
 				}
@@ -595,6 +609,7 @@ internal class LapisBtCoreImpl(
 		context.unregisterReceiver(_bluetoothDeviceConnectionReceiver)
 		context.unregisterReceiver(_bondStateChangeReceiver)
 		context.unregisterReceiver(_deviceUuidsChangeReceiver)
+		context.unregisterReceiver(_deviceAliasChangeReceiver)
 	}
 
 
@@ -685,6 +700,14 @@ internal class LapisBtCoreImpl(
 			_deviceUuidsChangeReceiver,
 			IntentFilter(AndroidBluetoothDevice.ACTION_UUID),
 		)
+
+		if (Build.VERSION.SDK_INT >= 35) {
+			// TODO: we should test that this works
+			context.registerReceiver(
+				_deviceAliasChangeReceiver,
+				IntentFilter(AndroidBluetoothDevice.ACTION_ALIAS_CHANGED),
+			)
+		}
 	}
 
 	private fun isScanningPermissionGranted(): Boolean {
