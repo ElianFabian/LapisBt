@@ -5,6 +5,7 @@ import java.util.UUID
 public data class BluetoothDevice(
 	val address: String,
 	val name: String?,
+	val alias: String?,
 	val addressType: AddressType,
 	val type: Type,
 	val mode: Mode,

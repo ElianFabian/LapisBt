@@ -982,8 +982,12 @@ internal class LapisBtCoreImpl(
 
 	private fun AndroidBluetoothDevice.toModel(connectionState: BluetoothDevice.ConnectionState): BluetoothDevice {
 		return BluetoothDevice(
-			name = this.name,
 			address = this.address,
+			name = this.name,
+			alias = if (Build.VERSION.SDK_INT >= 30) {
+				this.alias
+			}
+			else this.name,
 			addressType = if (Build.VERSION.SDK_INT >= 35) {
 				when (this.addressType) {
 					AndroidBluetoothDevice.ADDRESS_TYPE_PUBLIC -> BluetoothDevice.AddressType.Public
