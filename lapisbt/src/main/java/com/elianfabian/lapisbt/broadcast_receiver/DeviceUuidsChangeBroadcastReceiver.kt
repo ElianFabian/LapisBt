@@ -6,7 +6,7 @@ import android.content.Intent
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import java.util.UUID
 
-class DeviceUuidsChangeBroadcastReceiver(
+internal class DeviceUuidsChangeBroadcastReceiver(
 	private val onUuidsChange: (device: AndroidBluetoothDevice, uuids: List<UUID>) -> Unit,
 ) : BroadcastReceiver() {
 

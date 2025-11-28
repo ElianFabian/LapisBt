@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-class BluetoothStateChangeBroadcastReceiver(
+internal class BluetoothStateChangeBroadcastReceiver(
 	private val onStateChange: (state: Int) -> Unit,
 ) : BroadcastReceiver() {
 
