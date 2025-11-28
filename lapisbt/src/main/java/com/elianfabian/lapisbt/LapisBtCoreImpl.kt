@@ -885,7 +885,8 @@ internal class LapisBtCoreImpl(
 			return LapisBtCore.ConnectionResult.CouldNotConnect
 		}
 
-		stopScan()
+		// Should we stop scan? It is recommended, but maybe that's up to the user of this library
+		//stopScan()
 
 		val isConnectionSuccessFull = clientSocket.tryConnect()
 		if (!isConnectionSuccessFull) {
