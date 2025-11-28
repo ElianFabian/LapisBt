@@ -3,10 +3,6 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--Features-->
-    <uses-feature android:name="android.hardware.bluetooth" />
-
-
     <!--Permissions-->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
