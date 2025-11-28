@@ -4,6 +4,8 @@ import android.content.Context
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.UUID
 
 public interface LapisBtCore {
@@ -52,6 +54,10 @@ public interface LapisBtCore {
 
 	// I'm not sure if we should keep this since this access an internal API
 	public fun unpairDevice(deviceAddress: String): Boolean
+
+	public suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean
+
+	public suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean
 
 
 	// TODO: We have to think of a proper way to implement data communication, probably just using streams

@@ -54,6 +54,8 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -396,6 +398,8 @@ internal class LapisBtCoreImpl(
 	}
 
 	override suspend fun disconnectFromDevice(deviceAddress: String): Boolean {
+		requireValidAddress(deviceAddress)
+
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
@@ -463,6 +467,8 @@ internal class LapisBtCoreImpl(
 	}
 
 	override suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean {
+		requireValidAddress(deviceAddress)
+
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
@@ -512,6 +518,52 @@ internal class LapisBtCoreImpl(
 		catch (e: Exception) {
 			e.printStackTrace()
 			return false
+		}
+	}
+
+	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
+		requireValidAddress(deviceAddress)
+
+		val clientSocket = _clientSocketByAddress[deviceAddress]
+
+		if (clientSocket == null || !clientSocket.isConnected) {
+			return false
+		}
+
+		return withContext(Dispatchers.IO) {
+			ensureActive()
+
+			try {
+				action(clientSocket.outputStream)
+			}
+			catch (e: IOException) {
+				return@withContext false
+			}
+
+			return@withContext true
+		}
+	}
+
+	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
+		requireValidAddress(deviceAddress)
+
+		val clientSocket = _clientSocketByAddress[deviceAddress]
+
+		if (clientSocket == null || !clientSocket.isConnected) {
+			return false
+		}
+
+		return withContext(Dispatchers.IO) {
+			ensureActive()
+
+			try {
+				action(clientSocket.inputStream)
+			}
+			catch (e: IOException) {
+				return@withContext false
+			}
+
+			return@withContext true
 		}
 	}
 
@@ -774,6 +826,8 @@ internal class LapisBtCoreImpl(
 		serviceUuid: UUID,
 		insecure: Boolean = false,
 	): LapisBtCore.ConnectionResult {
+		requireValidAddress(deviceAddress)
+
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
@@ -917,6 +971,12 @@ internal class LapisBtCoreImpl(
 				close()
 				return@withContext false
 			}
+		}
+	}
+
+	private fun requireValidAddress(deviceAddress: String) {
+		require(BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
+			"The device address '$deviceAddress' is invalid"
 		}
 	}
 
