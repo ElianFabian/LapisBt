@@ -1,6 +1,8 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-	alias(libs.plugins.android.library)
-	alias(libs.plugins.kotlin.android)
+	alias(libs.plugins.androidLibrary)
+	alias(libs.plugins.kotlinAndroid)
 }
 
 android {
@@ -24,20 +26,18 @@ android {
 		sourceCompatibility = JavaVersion.VERSION_11
 		targetCompatibility = JavaVersion.VERSION_11
 	}
-	kotlinOptions {
-		jvmTarget = "11"
-	}
 	kotlin {
 		explicitApi()
+		compilerOptions {
+			jvmTarget = JvmTarget.JVM_11
+		}
 	}
 }
 
 dependencies {
 
 	implementation(libs.androidx.coreKtx)
-	implementation(libs.androidx.appcompat)
-	implementation(libs.material)
-//	implementation(libs.androidx.lifecycleProcess)
+	//implementation(libs.androidx.appcompat)
 	testImplementation(libs.junit)
 	androidTestImplementation(libs.androidx.junit)
 	androidTestImplementation(libs.androidx.espressoCore)

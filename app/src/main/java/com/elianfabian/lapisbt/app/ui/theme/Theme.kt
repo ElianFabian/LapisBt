@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.ui.theme
+package com.elianfabian.lapisbt.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
