@@ -33,6 +33,7 @@ import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDiscoveryStateChangeB
 import com.elianfabian.lapisbt.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceBondStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -118,8 +120,8 @@ internal class LapisBtCoreImpl(
 	)
 	override val isScanning = _isScanning.asStateFlow()
 
-	private val _activeBluetoothServers = MutableStateFlow(emptyList<UUID>())
-	override val activeBluetoothServers = _activeBluetoothServers.asStateFlow()
+	private val _activeBluetoothServersUuids = MutableStateFlow(emptyList<UUID>())
+	override val activeBluetoothServers = _activeBluetoothServersUuids.asStateFlow()
 
 //	override val canChangeBluetoothDeviceName: Boolean
 //		get() {
@@ -261,8 +263,9 @@ internal class LapisBtCoreImpl(
 				devices.map { existingDevice ->
 					if (existingDevice.address == androidDevice.address) {
 						existingDevice.copy(
-							name = androidDevice.name ?: existingDevice.name,
-							pairingState = when (androidDevice.bondState) {
+							// I don't remember why I set the name here, so we'll comment out this for now
+							//name = androidDevice.name ?: existingDevice.name,
+							pairingState = when (state) {
 								BOND_BONDED -> BluetoothDevice.PairingState.Paired
 								BOND_BONDING -> BluetoothDevice.PairingState.Pairing
 								BOND_NONE -> BluetoothDevice.PairingState.None
@@ -279,6 +282,19 @@ internal class LapisBtCoreImpl(
 	private val _bluetoothDeviceNameChangeReceiver = BluetoothDeviceNameChangeBroadcastReceiver(
 		onNameChange = { newName ->
 			_bluetoothDeviceName.value = newName
+		}
+	)
+
+	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
+		onUuidsChange = { androidDevice, uuids ->
+			_devices.update { devices ->
+				devices.map { device ->
+					if (device.address == androidDevice.address) {
+						device.copy(uuids = uuids)
+					}
+					else device
+				}
+			}
 		}
 	)
 
@@ -487,10 +503,16 @@ internal class LapisBtCoreImpl(
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val adapter = _bluetoothAdapter ?: return false
 
-		val androidDevice = adapter.getRemoteDevice(deviceAddress)
-		val removeBondMethod = androidDevice.javaClass.getMethod("removeBond")
+		try {
+			val androidDevice = adapter.getRemoteDevice(deviceAddress)
+			val removeBondMethod = androidDevice.javaClass.getMethod("removeBond")
 
-		return removeBondMethod.invoke(androidDevice) as Boolean
+			return removeBondMethod.invoke(androidDevice) as Boolean
+		}
+		catch (e: Exception) {
+			e.printStackTrace()
+			return false
+		}
 	}
 
 
@@ -502,12 +524,25 @@ internal class LapisBtCoreImpl(
 
 		_scope.cancel()
 
+		_bluetoothServerSocketByServiceUuid.forEach { (_, serverSocket) ->
+			serverSocket.close()
+		}
+		_bluetoothServerSocketByServiceUuid.clear()
+
+		_clientSocketByAddress.forEach { (_, clientSocket) ->
+			clientSocket.close()
+		}
+		_clientSocketByAddress.clear()
+
+		_clientJobByAddress.clear()
+
 		context.unregisterReceiver(_bluetoothDeviceNameChangeReceiver)
 		context.unregisterReceiver(_deviceFoundReceiver)
 		context.unregisterReceiver(_discoveryStateChangeReceiver)
 		context.unregisterReceiver(_bluetoothStateChangeReceiver)
 		context.unregisterReceiver(_bluetoothDeviceConnectionReceiver)
 		context.unregisterReceiver(_bondStateChangeReceiver)
+		context.unregisterReceiver(_deviceUuidsChangeReceiver)
 	}
 
 
@@ -594,10 +629,14 @@ internal class LapisBtCoreImpl(
 			_bondStateChangeReceiver,
 			IntentFilter(AndroidBluetoothDevice.ACTION_BOND_STATE_CHANGED),
 		)
+		context.registerReceiver(
+			_deviceUuidsChangeReceiver,
+			IntentFilter(AndroidBluetoothDevice.ACTION_UUID),
+		)
 	}
 
 	private fun isScanningPermissionGranted(): Boolean {
-		return Build.VERSION.SDK_INT <= 31 || ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+		return Build.VERSION.SDK_INT < 31 || ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
 	}
 
 	private fun updateDevices() {
@@ -657,7 +696,7 @@ internal class LapisBtCoreImpl(
 		}
 		_bluetoothServerSocketByServiceUuid.remove(serviceUuid)
 
-		_activeBluetoothServers.update {
+		_activeBluetoothServersUuids.update {
 			(it + serviceUuid).distinct()
 		}
 
@@ -680,7 +719,7 @@ internal class LapisBtCoreImpl(
 
 		serverSocket.close()
 		_bluetoothServerSocketByServiceUuid.remove(serviceUuid)
-		_activeBluetoothServers.update { it - serviceUuid }
+		_activeBluetoothServersUuids.update { it - serviceUuid }
 
 		if (clientSocket == null) {
 			return LapisBtCore.ConnectionResult.CouldNotConnect
@@ -826,6 +865,8 @@ internal class LapisBtCoreImpl(
 
 	private suspend fun BluetoothServerSocket.tryAccept(): BluetoothSocket? {
 		return withContext(Dispatchers.IO) {
+			ensureActive()
+
 			val clientSocket = try {
 				// If device is not paired it will show a pop-up dialog to pair it
 				println("$$$$$ tryAccept")
@@ -849,6 +890,8 @@ internal class LapisBtCoreImpl(
 
 	private suspend fun BluetoothSocket.tryConnect(): Boolean {
 		return withContext(Dispatchers.IO) {
+			ensureActive()
+
 			try {
 				// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
 				println("$$$$$ tryConnect")
@@ -861,6 +904,8 @@ internal class LapisBtCoreImpl(
 				// but also sometimes it just throws the error when you try to connect, because of this
 				// we try to connect again.
 				if (e.message.orEmpty().contains("read failed, socket might closed or timeout")) {
+					ensureActive()
+
 					try {
 						connect()
 						return@withContext true
@@ -899,6 +944,7 @@ internal class LapisBtCoreImpl(
 				AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN -> BluetoothDevice.Mode.Unknown
 				else -> BluetoothDevice.Mode.Unknown
 			},
+			uuids = this.uuids.orEmpty().map { it.uuid },
 			pairingState = when (this.bondState) {
 				BOND_BONDED -> BluetoothDevice.PairingState.Paired
 				BOND_BONDING -> BluetoothDevice.PairingState.Pairing

@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 
 internal class BluetoothDeviceNameChangeBroadcastReceiver(
-	private val onNameChange: (newName: String) -> Unit,
+	private val onNameChange: (newName: String?) -> Unit,
 ) : BroadcastReceiver() {
 
 	override fun onReceive(context: Context, intent: Intent) {
@@ -14,7 +14,7 @@ internal class BluetoothDeviceNameChangeBroadcastReceiver(
 			return
 		}
 
-		val newName = intent.getStringExtra(BluetoothAdapter.EXTRA_LOCAL_NAME) ?: ""
+		val newName = intent.getStringExtra(BluetoothAdapter.EXTRA_LOCAL_NAME)
 		onNameChange(newName)
 	}
 }

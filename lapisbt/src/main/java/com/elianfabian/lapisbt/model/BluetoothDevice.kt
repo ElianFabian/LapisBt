@@ -1,10 +1,13 @@
 package com.elianfabian.lapisbt.model
 
+import java.util.UUID
+
 data class BluetoothDevice(
 	val address: String,
 	val name: String?,
 	val type: Type,
 	val mode: Mode,
+	val uuids: List<UUID>,
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
 ) {
