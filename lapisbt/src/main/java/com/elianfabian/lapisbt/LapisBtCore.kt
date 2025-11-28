@@ -6,52 +6,52 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
 
-interface LapisBtCore {
+public interface LapisBtCore {
 
-	val devices: StateFlow<List<BluetoothDevice>>
+	public val devices: StateFlow<List<BluetoothDevice>>
 
-	val scannedDevices: SharedFlow<BluetoothDevice>
+	public val scannedDevices: SharedFlow<BluetoothDevice>
 
-	val events: SharedFlow<Event>
+	public val events: SharedFlow<Event>
 
-	val bluetoothDeviceName: StateFlow<String?>
+	public val bluetoothDeviceName: StateFlow<String?>
 
-	val isBluetoothSupported: Boolean
+	public val isBluetoothSupported: Boolean
 
-	val canEnableBluetooth: Boolean
+	public val canEnableBluetooth: Boolean
 
-	val state: StateFlow<BluetoothState>
+	public val state: StateFlow<BluetoothState>
 
-	val isScanning: StateFlow<Boolean>
+	public val isScanning: StateFlow<Boolean>
 
-	val activeBluetoothServers: StateFlow<List<UUID>>
+	public val activeBluetoothServers: StateFlow<List<UUID>>
 
 	// I don't think we should define this, every client of this library should treat this their own way
 //	val canChangeBluetoothDeviceName: Boolean
 
 
-	fun setBluetoothDeviceName(newName: String): Boolean
+	public fun setBluetoothDeviceName(newName: String): Boolean
 
-	fun startScan(): Boolean
+	public fun startScan(): Boolean
 
-	fun stopScan(): Boolean
+	public fun stopScan(): Boolean
 
-	suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): ConnectionResult
 
-	suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): ConnectionResult
 
-	fun stopBluetoothServer(serviceUuid: UUID)
+	public fun stopBluetoothServer(serviceUuid: UUID)
 
-	suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): ConnectionResult
 
-	suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): ConnectionResult
 
-	suspend fun disconnectFromDevice(deviceAddress: String): Boolean
+	public suspend fun disconnectFromDevice(deviceAddress: String): Boolean
 
-	suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
+	public suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
 
 	// I'm not sure if we should keep this since this access an internal API
-	fun unpairDevice(deviceAddress: String): Boolean
+	public fun unpairDevice(deviceAddress: String): Boolean
 
 
 	// TODO: We have to think of a proper way to implement data communication, probably just using streams
@@ -60,31 +60,31 @@ interface LapisBtCore {
 //	fun observeDataFromDevice(deviceAddress: String): Flow<ByteArray>
 
 
-	fun dispose()
+	public fun dispose()
 
 
-	enum class BluetoothState {
+	public enum class BluetoothState {
 		On,
 		TurningOn,
 		Off,
 		TurningOff;
 
-		val isOn: Boolean get() = this == On
+		public val isOn: Boolean get() = this == On
 	}
 
-	sealed interface ConnectionResult {
-		data class ConnectionEstablished(val device: BluetoothDevice) : ConnectionResult
-		data object CouldNotConnect : ConnectionResult
+	public sealed interface ConnectionResult {
+		public data class ConnectionEstablished(val device: BluetoothDevice) : ConnectionResult
+		public data object CouldNotConnect : ConnectionResult
 	}
 
-	sealed interface Event {
-		data class OnDeviceConnected(
+	public sealed interface Event {
+		public data class OnDeviceConnected(
 			val connectedDevice: BluetoothDevice,
 			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
 			val manuallyConnected: Boolean,
 		) : Event
 
-		data class OnDeviceDisconnected(
+		public data class OnDeviceDisconnected(
 			val disconnectedDevice: BluetoothDevice,
 			// This indicates if was the current user who intentionally disconnected the device
 			// In the case the user intentionally disconnects from the device but it was the other device
@@ -94,8 +94,8 @@ interface LapisBtCore {
 	}
 
 
-	companion object {
-		fun newInstance(context: Context): LapisBtCore = LapisBtCoreImpl(
+	public companion object {
+		public fun newInstance(context: Context): LapisBtCore = LapisBtCoreImpl(
 			context = context,
 		)
 	}

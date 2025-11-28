@@ -2,7 +2,7 @@ package com.elianfabian.lapisbt.model
 
 import java.util.UUID
 
-data class BluetoothDevice(
+public data class BluetoothDevice(
 	val address: String,
 	val name: String?,
 	val type: Type,
@@ -11,22 +11,22 @@ data class BluetoothDevice(
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
 ) {
-	enum class PairingState {
+	public enum class PairingState {
 		None,
 		Pairing,
 		Paired;
 
-		val isPaired: Boolean get() = this == Paired
+		public val isPaired: Boolean get() = this == Paired
 	}
 
-	enum class ConnectionState {
+	public enum class ConnectionState {
 		Connected,
 		Connecting,
 		Disconnected,
 		Disconnecting,
 	}
 
-	enum class Type {
+	public enum class Type {
 		Misc,
 		Computer,
 		Phone,
@@ -40,7 +40,7 @@ data class BluetoothDevice(
 		Uncategorized,
 	}
 
-	enum class Mode {
+	public enum class Mode {
 		Classic,
 		Le,
 		Dual,

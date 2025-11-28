@@ -27,6 +27,9 @@ android {
 	kotlinOptions {
 		jvmTarget = "11"
 	}
+	kotlin {
+		explicitApi()
+	}
 }
 
 dependencies {
