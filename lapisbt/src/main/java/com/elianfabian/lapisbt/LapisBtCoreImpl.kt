@@ -37,6 +37,7 @@ import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,6 +53,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -943,9 +945,20 @@ internal class LapisBtCoreImpl(
 
 	private suspend fun BluetoothServerSocket.tryAccept(): BluetoothSocket? {
 		return withContext(Dispatchers.IO) {
-			ensureActive()
+			// Maybe we should set onCancelling = true
+			val cancelHandler = coroutineContext.job.invokeOnCompletion { throwable ->
+				if (throwable !is CancellationException) {
+					return@invokeOnCompletion
+				}
+				try {
+					this@tryAccept.close()
+				}
+				catch (_: IOException) {
+				}
+			}
 
 			val clientSocket = try {
+				ensureActive()
 				// If device is not paired it will show a pop-up dialog to pair it
 				println("$$$$$ tryAccept")
 				accept()
@@ -953,6 +966,8 @@ internal class LapisBtCoreImpl(
 			catch (e: IOException) {
 				println("$$$$$ tryAccept error: $e")
 				null
+			} finally {
+				cancelHandler.dispose()
 			}
 
 			if (clientSocket == null) {
@@ -968,9 +983,20 @@ internal class LapisBtCoreImpl(
 
 	private suspend fun BluetoothSocket.tryConnect(): Boolean {
 		return withContext(Dispatchers.IO) {
-			ensureActive()
+			val cancelHandler = coroutineContext.job.invokeOnCompletion { throwable ->
+				if (throwable !is CancellationException) {
+					return@invokeOnCompletion
+				}
+				try {
+					this@tryConnect.close()
+				}
+				catch (_: IOException) {
+				}
+			}
 
 			try {
+				ensureActive()
+
 				// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
 				println("$$$$$ tryConnect")
 				connect()
@@ -994,6 +1020,9 @@ internal class LapisBtCoreImpl(
 				}
 				close()
 				return@withContext false
+			}
+			finally {
+				cancelHandler.dispose()
 			}
 		}
 	}
