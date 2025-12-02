@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-internal class BluetoothDeviceNameChangeBroadcastReceiver(
+internal class DeviceNameChangeBroadcastReceiver(
 	private val onNameChange: (newName: String?) -> Unit,
 ) : BroadcastReceiver() {
 

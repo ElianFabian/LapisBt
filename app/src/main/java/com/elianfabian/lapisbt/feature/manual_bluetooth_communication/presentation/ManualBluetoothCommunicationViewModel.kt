@@ -1,15 +1,14 @@
 package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation
 
-import android.location.Address
 import android.os.Build
+import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
 import com.elianfabian.lapisbt.app.common.domain.NotificationController
 import com.elianfabian.lapisbt.app.common.domain.PermissionController
 import com.elianfabian.lapisbt.app.common.domain.PermissionState
-import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
-import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.app.common.domain.StorageController
+import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.zhuinden.flowcombinetuplekt.combineTuple

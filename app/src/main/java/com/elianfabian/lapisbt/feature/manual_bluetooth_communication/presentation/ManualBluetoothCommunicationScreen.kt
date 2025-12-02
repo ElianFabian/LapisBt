@@ -757,8 +757,8 @@ private fun Preview() = BasePreview {
 		BluetoothDevice(
 			name = name,
 			alias = name,
-			mode = BluetoothDevice.Mode.Unknown,
-			type = BluetoothDevice.Type.Phone,
+			type = BluetoothDevice.Type.Unknown,
+			majorDeviceClass = BluetoothDevice.MajorDeviceClass.Phone,
 			uuids = emptyList(),
 			addressType = BluetoothDevice.AddressType.Unknown,
 			address = "123:45:67:89:AB:$name",

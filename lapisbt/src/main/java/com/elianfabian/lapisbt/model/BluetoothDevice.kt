@@ -7,8 +7,8 @@ public data class BluetoothDevice(
 	val name: String?,
 	val alias: String?,
 	val addressType: AddressType,
+	val majorDeviceClass: MajorDeviceClass,
 	val type: Type,
-	val mode: Mode,
 	val uuids: List<UUID>,
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
@@ -36,7 +36,7 @@ public data class BluetoothDevice(
 		NotSupported,
 	}
 
-	public enum class Type {
+	public enum class MajorDeviceClass {
 		Misc,
 		Computer,
 		Phone,
@@ -50,7 +50,7 @@ public data class BluetoothDevice(
 		Uncategorized,
 	}
 
-	public enum class Mode {
+	public enum class Type {
 		Classic,
 		Le,
 		Dual,

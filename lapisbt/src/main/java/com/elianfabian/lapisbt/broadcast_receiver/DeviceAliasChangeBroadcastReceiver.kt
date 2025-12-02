@@ -10,6 +10,7 @@ internal class DeviceAliasChangeBroadcastReceiver(
 	private val onAliasChanged: (androidDevice: AndroidBluetoothDevice, newAlias: String?) -> Unit,
 ) : BroadcastReceiver() {
 
+	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		if (Build.VERSION.SDK_INT < 35) {
 			return

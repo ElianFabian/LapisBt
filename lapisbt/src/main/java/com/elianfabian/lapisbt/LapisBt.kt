@@ -1,6 +1,10 @@
 package com.elianfabian.lapisbt
 
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import com.elianfabian.lapisbt.abstraction.impl.AndroidHelperImpl
+import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
+import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -95,8 +99,14 @@ public interface LapisBt {
 
 
 	public companion object {
-		public fun newInstance(context: Context): LapisBt = LapisBtImpl(
-			context = context,
-		)
+		public fun newInstance(context: Context): LapisBt {
+			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+
+			return LapisBtImpl(
+				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
+				androidHelper = AndroidHelperImpl(context),
+				bluetoothEvents = LapisBluetoothEventsImpl(context),
+			)
+		}
 	}
 }

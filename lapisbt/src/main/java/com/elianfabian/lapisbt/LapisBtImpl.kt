@@ -1,42 +1,14 @@
 package com.elianfabian.lapisbt
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.Application
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO
-import android.bluetooth.BluetoothClass.Device.Major.COMPUTER
-import android.bluetooth.BluetoothClass.Device.Major.HEALTH
-import android.bluetooth.BluetoothClass.Device.Major.IMAGING
-import android.bluetooth.BluetoothClass.Device.Major.MISC
-import android.bluetooth.BluetoothClass.Device.Major.NETWORKING
-import android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL
-import android.bluetooth.BluetoothClass.Device.Major.PHONE
-import android.bluetooth.BluetoothClass.Device.Major.TOY
-import android.bluetooth.BluetoothClass.Device.Major.WEARABLE
-import android.bluetooth.BluetoothDevice.BOND_BONDED
-import android.bluetooth.BluetoothDevice.BOND_BONDING
-import android.bluetooth.BluetoothDevice.BOND_NONE
-import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothServerSocket
-import android.bluetooth.BluetoothSocket
-import android.content.Context
-import android.content.IntentFilter
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import androidx.core.content.ContextCompat
-import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceConnectionBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDeviceNameChangeBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.BluetoothDiscoveryStateChangeBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.DeviceAliasChangeBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.DeviceBondStateChangeBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
-import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
+import com.elianfabian.lapisbt.abstraction.AndroidHelper
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,22 +35,14 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 internal class LapisBtImpl(
-	private val context: Context,
+	private val lapisAdapter: LapisBluetoothAdapter,
+	private val androidHelper: AndroidHelper,
+	private val bluetoothEvents: LapisBluetoothEvents,
 ) : LapisBt {
-
-	private val _bluetoothAdapter by lazy {
-		val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: throw IllegalStateException("Couldn't get the BluetoothManager")
-		bluetoothManager.adapter
-	}
 
 	private val _scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-	private val _isBluetoothConnectPermissionGranted = MutableStateFlow(
-		if (Build.VERSION.SDK_INT >= 31) {
-			ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-		}
-		else true
-	)
+	private val _isBluetoothConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
 
 
 	// Represents the state of paired and/or connected devices
@@ -93,24 +57,20 @@ internal class LapisBtImpl(
 
 	private val _bluetoothDeviceName = MutableStateFlow<String?>(
 		if (canEnableBluetooth) {
-			_bluetoothAdapter?.name
+			lapisAdapter.name
 		}
 		else null
 	)
 	override val bluetoothDeviceName = _bluetoothDeviceName.asStateFlow()
 
 	override val isBluetoothSupported: Boolean
-		get() = context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+		get() = androidHelper.isBluetoothSupported()
 
 	override val canEnableBluetooth: Boolean
-		@SuppressLint("InlinedApi")
-		get() = if (Build.VERSION.SDK_INT >= 31) {
-			context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-		}
-		else true
+		get() = androidHelper.isBluetoothConnectGranted()
 
 	private val _bluetoothState = MutableStateFlow(
-		if (_bluetoothAdapter?.isEnabled == true) {
+		if (lapisAdapter.isEnabled) {
 			LapisBt.BluetoothState.On
 		}
 		else LapisBt.BluetoothState.Off
@@ -118,8 +78,8 @@ internal class LapisBtImpl(
 	override val state = _bluetoothState.asStateFlow()
 
 	private val _isScanning = MutableStateFlow(
-		if (isScanningPermissionGranted()) {
-			_bluetoothAdapter?.isDiscovering == true
+		if (androidHelper.isBluetoothScanGranted()) {
+			lapisAdapter.isDiscovering
 		}
 		else false
 	)
@@ -128,162 +88,9 @@ internal class LapisBtImpl(
 	private val _activeBluetoothServersUuids = MutableStateFlow(emptyList<UUID>())
 	override val activeBluetoothServers = _activeBluetoothServersUuids.asStateFlow()
 
-	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, BluetoothServerSocket> = ConcurrentHashMap()
-	private val _clientSocketByAddress: MutableMap<String, BluetoothSocket> = ConcurrentHashMap()
+	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
+	private val _clientSocketByAddress: MutableMap<String, LapisBluetoothSocket> = ConcurrentHashMap()
 	private val _clientJobByAddress: MutableMap<String, Job> = ConcurrentHashMap()
-
-	private val _activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
-
-		override fun onActivityResumed(activity: Activity) {
-			updateDevices()
-
-			_isBluetoothConnectPermissionGranted.value = Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-
-			if (canEnableBluetooth) {
-				_bluetoothDeviceName.value = _bluetoothAdapter.name
-			}
-		}
-
-		override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-		override fun onActivityPaused(a: Activity) {}
-		override fun onActivityStarted(a: Activity) {}
-		override fun onActivityStopped(a: Activity) {}
-		override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-		override fun onActivityDestroyed(a: Activity) {}
-	}
-
-	private val _deviceFoundReceiver = DeviceFoundBroadcastReceiver(
-		onDeviceFound = { androidDeviceFound ->
-			val newDevice = androidDeviceFound.toModel(
-				connectionState = BluetoothDevice.ConnectionState.Disconnected,
-			)
-
-			_scope.launch {
-				_scannedDevices.emit(newDevice)
-			}
-		}
-	)
-
-	private val _discoveryStateChangeReceiver = BluetoothDiscoveryStateChangeBroadcastReceiver(
-		onDiscoveryStateChange = { isDiscovering ->
-			_isScanning.value = isDiscovering
-		}
-	)
-
-	private val _bluetoothStateChangeReceiver = BluetoothStateChangeBroadcastReceiver(
-		onStateChange = { state ->
-			when (state) {
-				BluetoothAdapter.STATE_ON -> {
-					_bluetoothState.value = LapisBt.BluetoothState.On
-				}
-				BluetoothAdapter.STATE_TURNING_ON -> {
-					_bluetoothState.value = LapisBt.BluetoothState.TurningOn
-				}
-				BluetoothAdapter.STATE_OFF -> {
-					_bluetoothState.value = LapisBt.BluetoothState.Off
-				}
-				BluetoothAdapter.STATE_TURNING_OFF -> {
-					_bluetoothState.value = LapisBt.BluetoothState.TurningOff
-				}
-			}
-		}
-	)
-
-	private val _bluetoothDeviceConnectionReceiver = BluetoothDeviceConnectionBroadcastReceiver(
-		onConnectionStateChange = { androidDevice, isConnected ->
-			// When we try to connect to a paired device, this callback executes with isConnected to true and after some small time (around 4s)
-			// it executes again with isConnected to false
-
-			_scope.launch {
-				println("$$$$$ BluetoothDeviceConnectionBroadcastReceiver androidDevice: $androidDevice, isConnected: $isConnected")
-				if (!isConnected) {
-					val clientSocket = _clientSocketByAddress.remove(androidDevice.address)
-					val wasConnected = clientSocket?.isConnected == true
-					println("$$$$$ clientSocket.isConnected: ${clientSocket?.isConnected}")
-
-					clientSocket?.close()
-					_clientJobByAddress[androidDevice.address]?.cancel()
-					_clientJobByAddress.remove(androidDevice.address)
-					//_clientSharedFlowByAddress.remove(androidDevice.address)
-
-					if (wasConnected) {
-						_events.emit(
-							LapisBt.Event.OnDeviceDisconnected(
-								disconnectedDevice = _devices.value.find { it.address == androidDevice.address } ?: run {
-									println("$$$ not found: $androidDevice")
-									return@launch
-								},
-								manuallyDisconnected = false,
-							)
-						)
-					}
-
-					_devices.update { devices ->
-						devices.map { device ->
-							if (device.address == androidDevice.address) {
-								device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-							}
-							else device
-						}
-					}
-				}
-			}
-		}
-	)
-
-	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
-		onStateChange = { androidDevice, state ->
-			_devices.update { devices ->
-				devices.map { existingDevice ->
-					if (existingDevice.address == androidDevice.address) {
-						existingDevice.copy(
-							// I don't remember why I set the name here, so we'll comment out this for now
-							//name = androidDevice.name ?: existingDevice.name,
-							pairingState = when (state) {
-								BOND_BONDED -> BluetoothDevice.PairingState.Paired
-								BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-								BOND_NONE -> BluetoothDevice.PairingState.None
-								else -> BluetoothDevice.PairingState.None
-							},
-						)
-					}
-					else existingDevice
-				}
-			}
-		}
-	)
-
-	private val _bluetoothDeviceNameChangeReceiver = BluetoothDeviceNameChangeBroadcastReceiver(
-		onNameChange = { newName ->
-			_bluetoothDeviceName.value = newName
-		}
-	)
-
-	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
-		onUuidsChange = { androidDevice, uuids ->
-			_devices.update { devices ->
-				devices.map { device ->
-					if (device.address == androidDevice.address) {
-						device.copy(uuids = uuids)
-					}
-					else device
-				}
-			}
-		}
-	)
-
-	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
-		onAliasChanged = { androidDevice, newAlias ->
-			_devices.update { devices ->
-				devices.map { device ->
-					if (device.address == androidDevice.address) {
-						device.copy(alias = newAlias)
-					}
-					else device
-				}
-			}
-		}
-	)
 
 
 	init {
@@ -298,8 +105,6 @@ internal class LapisBtImpl(
 //		if (!canChangeBluetoothDeviceName) {
 //			return false
 //		}
-		val adapter = _bluetoothAdapter ?: return false
-
 		// Not all devices support changing the Bluetooth name, and there doesn't seem to be a way to check it
 		// Here's a list of devices that I tested that support it:
 		// - Google
@@ -318,31 +123,30 @@ internal class LapisBtImpl(
 		// Notes:
 		// - Bluetooth must be enabled to change the name
 		// - Immediately calling BluetoothAdapter.getName() after calling BluetoothAdapter.setName(...) won't return the new name
-		return adapter.setName(newName)
+		return lapisAdapter.setName(newName)
 	}
 
 	// On some devices like Xiaomi Mi MIX 2S - API 29
 	// This won't work unless the location is enabled
 	override fun startScan(): Boolean {
-		if (!isScanningPermissionGranted()) {
+		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
 		}
-
-		val adapter = _bluetoothAdapter ?: return false
 
 		updateDevices()
 
-		return adapter.startDiscovery()
+		return lapisAdapter.startDiscovery()
 	}
 
 	override fun stopScan(): Boolean {
-		if (Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+//		if (Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+//			return false
+//		}
+		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
 		}
 
-		val adapter = _bluetoothAdapter ?: return false
-
-		return adapter.cancelDiscovery()
+		return lapisAdapter.cancelDiscovery()
 	}
 
 	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
@@ -388,7 +192,7 @@ internal class LapisBtImpl(
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
-		if (!_bluetoothState.value.isOn) {
+		if (!lapisAdapter.isEnabled) {
 			return false
 		}
 
@@ -418,7 +222,6 @@ internal class LapisBtImpl(
 			else throw e
 		}
 
-		println("$$$$$ disconnectFromDevice isConnected: ${clientSocket.isConnected}")
 		try {
 			clientSocket.close()
 			_clientSocketByAddress.remove(deviceAddress)
@@ -441,11 +244,9 @@ internal class LapisBtImpl(
 				}
 			}
 			updateDevices()
-			println("$$$$$ disconnectFromDevice effectively disconnected: $clientSocket")
 			return true
 		}
-		catch (e: IOException) {
-			println("$$$$$ disconnectFromDevice() error closing socket: ${e.message}")
+		catch (_: IOException) {
 		}
 
 		return false
@@ -457,7 +258,7 @@ internal class LapisBtImpl(
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
-		if (!_bluetoothState.value.isOn) {
+		if (!lapisAdapter.isEnabled) {
 			return false
 		}
 
@@ -482,8 +283,7 @@ internal class LapisBtImpl(
 				}
 			}
 		}
-		catch (e: IOException) {
-			println("$$$ cancelConnectionAttempt error: $e")
+		catch (_: IOException) {
 			return false
 		}
 
@@ -492,18 +292,8 @@ internal class LapisBtImpl(
 
 	// We haven't tested this yet
 	override fun unpairDevice(deviceAddress: String): Boolean {
-		val adapter = _bluetoothAdapter ?: return false
-
-		try {
-			val androidDevice = adapter.getRemoteDevice(deviceAddress)
-			val removeBondMethod = androidDevice.javaClass.getMethod("removeBond")
-
-			return removeBondMethod.invoke(androidDevice) as Boolean
-		}
-		catch (e: Exception) {
-			e.printStackTrace()
-			return false
-		}
+		val device = lapisAdapter.getRemoteDevice(deviceAddress)
+		return device.removeBond()
 	}
 
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
@@ -554,9 +344,6 @@ internal class LapisBtImpl(
 
 
 	override fun dispose() {
-		val application = context.applicationContext as Application
-		application.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
-
 		_scope.cancel()
 
 		_bluetoothServerSocketByServiceUuid.forEach { (_, serverSocket) ->
@@ -571,20 +358,130 @@ internal class LapisBtImpl(
 
 		_clientJobByAddress.clear()
 
-		context.unregisterReceiver(_bluetoothDeviceNameChangeReceiver)
-		context.unregisterReceiver(_deviceFoundReceiver)
-		context.unregisterReceiver(_discoveryStateChangeReceiver)
-		context.unregisterReceiver(_bluetoothStateChangeReceiver)
-		context.unregisterReceiver(_bluetoothDeviceConnectionReceiver)
-		context.unregisterReceiver(_bondStateChangeReceiver)
-		context.unregisterReceiver(_deviceUuidsChangeReceiver)
-		context.unregisterReceiver(_deviceAliasChangeReceiver)
+		bluetoothEvents.dispose()
 	}
 
 
 	private fun initialize() {
-		val application = context.applicationContext as Application
-		application.registerActivityLifecycleCallbacks(_activityLifecycleCallbacks)
+		_scope.launch {
+			bluetoothEvents.onActivityResumed.collect {
+				updateDevices()
+
+				_isBluetoothConnectPermissionGranted.value = androidHelper.isBluetoothConnectGranted()
+
+				if (canEnableBluetooth) {
+					_bluetoothDeviceName.value = lapisAdapter.name
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.bluetoothStateFlow.collect { state ->
+				when (state) {
+					BluetoothAdapter.STATE_ON -> {
+						_bluetoothState.value = LapisBt.BluetoothState.On
+					}
+					BluetoothAdapter.STATE_TURNING_ON -> {
+						_bluetoothState.value = LapisBt.BluetoothState.TurningOn
+					}
+					BluetoothAdapter.STATE_OFF -> {
+						_bluetoothState.value = LapisBt.BluetoothState.Off
+					}
+					BluetoothAdapter.STATE_TURNING_OFF -> {
+						_bluetoothState.value = LapisBt.BluetoothState.TurningOff
+					}
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceAliasChangeFlow.collect { lapisDevice ->
+				_devices.update { devices ->
+					devices.map { device ->
+						if (device.address == lapisDevice.address) {
+							device.copy(alias = lapisDevice.alias)
+						}
+						else device
+					}
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceBondStateChangeFlow.collect { lapisDevice ->
+				_devices.update { devices ->
+					devices.map { existingDevice ->
+						if (existingDevice.address == lapisDevice.address) {
+							existingDevice.copy(
+								pairingState = when (lapisDevice.bondState) {
+									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
+									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
+									AndroidBluetoothDevice.BOND_NONE -> BluetoothDevice.PairingState.None
+									else -> BluetoothDevice.PairingState.None
+								},
+							)
+						}
+						else existingDevice
+					}
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceDisconnectedFlow.collect { disconnectedDevice ->
+				val clientSocket = _clientSocketByAddress.remove(disconnectedDevice.address)
+				val wasConnected = clientSocket?.isConnected == true
+
+				clientSocket?.close()
+				_clientJobByAddress[disconnectedDevice.address]?.cancel()
+
+				if (wasConnected) {
+					_events.emit(
+						LapisBt.Event.OnDeviceDisconnected(
+							disconnectedDevice = _devices.value.find { it.address == disconnectedDevice.address } ?: run {
+								return@collect
+							},
+							manuallyDisconnected = false,
+						)
+					)
+				}
+
+				_devices.update { devices ->
+					devices.map { device ->
+						if (device.address == disconnectedDevice.address) {
+							device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						}
+						else device
+					}
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceNameFlow.collect { newName ->
+				_bluetoothDeviceName.value = newName
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceUuidsChangeFlow.collect { lapisDevice ->
+				_devices.update { devices ->
+					devices.map { device ->
+						if (device.address == lapisDevice.address) {
+							device.copy(uuids = lapisDevice.uuids)
+						}
+						else device
+					}
+				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.deviceFoundFlow.collect { lapisDevice ->
+				val newDevice = lapisDevice.toModel(
+					connectionState = BluetoothDevice.ConnectionState.Disconnected,
+				)
+				_scannedDevices.emit(newDevice)
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.isDiscoveringFlow.collect { isDiscovering ->
+				_isScanning.value = isDiscovering
+			}
+		}
 
 		_scope.launch {
 			_bluetoothState.collect { state ->
@@ -629,74 +526,27 @@ internal class LapisBtImpl(
 					updateDevices()
 				}
 				if (isBluetoothConnectPermissionGranted) {
-					_bluetoothDeviceName.value = _bluetoothAdapter?.name
+					_bluetoothDeviceName.value = lapisAdapter.name
 				}
 			}.collect()
 		}
-		context.registerReceiver(
-			_bluetoothDeviceNameChangeReceiver,
-			IntentFilter(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED),
-		)
-		context.registerReceiver(
-			_deviceFoundReceiver,
-			IntentFilter(AndroidBluetoothDevice.ACTION_FOUND),
-		)
-		context.registerReceiver(
-			_discoveryStateChangeReceiver,
-			IntentFilter().apply {
-				addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
-				addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-			},
-		)
-		context.registerReceiver(
-			_bluetoothStateChangeReceiver,
-			IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
-		)
-		context.registerReceiver(
-			_bluetoothDeviceConnectionReceiver,
-			IntentFilter().apply {
-				addAction(AndroidBluetoothDevice.ACTION_ACL_CONNECTED)
-				addAction(AndroidBluetoothDevice.ACTION_ACL_DISCONNECTED)
-			},
-		)
-		context.registerReceiver(
-			_bondStateChangeReceiver,
-			IntentFilter(AndroidBluetoothDevice.ACTION_BOND_STATE_CHANGED),
-		)
-		context.registerReceiver(
-			_deviceUuidsChangeReceiver,
-			IntentFilter(AndroidBluetoothDevice.ACTION_UUID),
-		)
-
-		if (Build.VERSION.SDK_INT >= 35) {
-			// TODO: we should test that this works
-			context.registerReceiver(
-				_deviceAliasChangeReceiver,
-				IntentFilter(AndroidBluetoothDevice.ACTION_ALIAS_CHANGED),
-			)
-		}
-	}
-
-	private fun isScanningPermissionGranted(): Boolean {
-		return Build.VERSION.SDK_INT < 31 || ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
 	}
 
 	private fun updateDevices() {
 		if (!canEnableBluetooth) {
 			return
 		}
-		val adapter = _bluetoothAdapter ?: return
 
 		_devices.updateAndGet {
 			val connectedDevices = _clientSocketByAddress.keys.map { address ->
-				adapter.getRemoteDevice(address)
+				lapisAdapter.getRemoteDevice(address)
 			}.map { androidDevice ->
 				androidDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Connected,
 				)
 			}
 
-			val pairedDevices = adapter.bondedDevices.mapNotNull { androidDevice ->
+			val pairedDevices = lapisAdapter.getBondedDevices().orEmpty().mapNotNull { androidDevice ->
 				if (_clientSocketByAddress.contains(androidDevice.address)) {
 					return@mapNotNull null
 				}
@@ -725,13 +575,9 @@ internal class LapisBtImpl(
 		if (!canEnableBluetooth) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
-		if (!_bluetoothState.value.isOn) {
+		if (!lapisAdapter.isEnabled) {
 			throw IllegalStateException("Can't start bluetooth server when bluetooth is off")
 		}
-
-		val adapter = _bluetoothAdapter ?: throw NullPointerException("Bluetooth adapter is null")
-
-		println("$$$$$ clients = $_clientSocketByAddress")
 
 		_bluetoothServerSocketByServiceUuid[serviceUuid]?.also { serverSocket ->
 			serverSocket.close()
@@ -743,13 +589,13 @@ internal class LapisBtImpl(
 		}
 
 		val serverSocket = if (insecure) {
-			adapter.listenUsingInsecureRfcommWithServiceRecord(
+			lapisAdapter.listenUsingInsecureRfcommWithServiceRecord(
 				serviceName,
 				serviceUuid,
 			)
 		}
 		else {
-			adapter.listenUsingRfcommWithServiceRecord(
+			lapisAdapter.listenUsingRfcommWithServiceRecord(
 				serviceName,
 				serviceUuid,
 			)
@@ -782,7 +628,7 @@ internal class LapisBtImpl(
 		)
 
 		_devices.update { devices ->
-			val androidBondedDevices = adapter.bondedDevices
+			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
 			if (isDeviceInList) {
 				devices.map { device ->
@@ -822,10 +668,6 @@ internal class LapisBtImpl(
 			throw IllegalStateException("Can't connect to device when bluetooth if off")
 		}
 
-		println("$$$$$ connectToDevice insecure: $insecure")
-
-		val adapter = _bluetoothAdapter ?: throw NullPointerException("Bluetooth adapter is null")
-
 		_devices.update { devices ->
 			devices.map { device ->
 				if (device.address == deviceAddress) {
@@ -835,7 +677,7 @@ internal class LapisBtImpl(
 			}
 		}
 
-		val androidDevice = adapter.getRemoteDevice(deviceAddress)
+		val androidDevice = lapisAdapter.getRemoteDevice(deviceAddress)
 
 		val clientSocket = if (insecure) {
 			androidDevice.createInsecureRfcommSocketToServiceRecord(serviceUuid)
@@ -844,13 +686,6 @@ internal class LapisBtImpl(
 
 		val connectedAndroidDevice = clientSocket.remoteDevice
 		_clientSocketByAddress[connectedAndroidDevice.address] = clientSocket
-
-		if (clientSocket == null) {
-			return LapisBt.ConnectionResult.CouldNotConnect
-		}
-
-		// Should we stop scan? It is recommended, but maybe that's up to the user of this library
-		//stopScan()
 
 		val isConnectionSuccessFull = clientSocket.tryConnect()
 		if (!isConnectionSuccessFull) {
@@ -876,8 +711,8 @@ internal class LapisBtImpl(
 			)
 		)
 
-		val newDevices = _devices.updateAndGet { devices ->
-			val androidBondedDevices = adapter.bondedDevices
+		_devices.updateAndGet { devices ->
+			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
 			if (isDeviceInList) {
 				devices.map { device ->
@@ -897,15 +732,13 @@ internal class LapisBtImpl(
 			else devices + connectedDevice
 		}
 
-		println("$$$ connectToDeviceInternal: ${newDevices.filter { it.address == deviceAddress }}")
-
 		updateDevices()
 
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
 
 
-	private suspend fun BluetoothServerSocket.tryAccept(): BluetoothSocket? {
+	private suspend fun LapisBluetoothServerSocket.tryAccept(): LapisBluetoothSocket? {
 		return withContext(Dispatchers.IO) {
 			// Maybe we should set onCancelling = true
 			val cancelHandler = coroutineContext.job.invokeOnCompletion { throwable ->
@@ -922,13 +755,12 @@ internal class LapisBtImpl(
 			val clientSocket = try {
 				ensureActive()
 				// If device is not paired it will show a pop-up dialog to pair it
-				println("$$$$$ tryAccept")
 				accept()
 			}
-			catch (e: IOException) {
-				println("$$$$$ tryAccept error: $e")
+			catch (_: IOException) {
 				null
-			} finally {
+			}
+			finally {
 				cancelHandler.dispose()
 			}
 
@@ -943,7 +775,7 @@ internal class LapisBtImpl(
 		}
 	}
 
-	private suspend fun BluetoothSocket.tryConnect(): Boolean {
+	private suspend fun LapisBluetoothSocket.tryConnect(): Boolean {
 		return withContext(Dispatchers.IO) {
 			val cancelHandler = coroutineContext.job.invokeOnCompletion { throwable ->
 				if (throwable !is CancellationException) {
@@ -960,12 +792,10 @@ internal class LapisBtImpl(
 				ensureActive()
 
 				// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
-				println("$$$$$ tryConnect")
 				connect()
 				return@withContext true
 			}
 			catch (e: IOException) {
-				println("$$$$$ tryConnect error: $e")
 				// This message can happen when you try to connect to a device that is not acting as a server (and probably in more cases),
 				// but also sometimes it just throws the error when you try to connect, because of this
 				// we try to connect again.
@@ -976,8 +806,7 @@ internal class LapisBtImpl(
 						connect()
 						return@withContext true
 					}
-					catch (e: IOException) {
-						println("$$$ inner error: $e")
+					catch (_: IOException) {
 					}
 				}
 				close()
@@ -990,57 +819,46 @@ internal class LapisBtImpl(
 	}
 
 	private fun requireValidAddress(deviceAddress: String) {
-		require(BluetoothAdapter.checkBluetoothAddress(deviceAddress)) {
+		require(checkBluetoothAddress(deviceAddress)) {
 			"The device address '$deviceAddress' is invalid"
 		}
 	}
 
-	private fun AndroidBluetoothDevice.toModel(connectionState: BluetoothDevice.ConnectionState): BluetoothDevice {
-		return BluetoothDevice(
-			address = this.address,
-			name = this.name,
-			alias = if (Build.VERSION.SDK_INT >= 30) {
-				this.alias
+	companion object {
+		/**
+		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"
+		 *
+		 *
+		 * Alphabetic characters must be uppercase to be valid.
+		 *
+		 * @param address Bluetooth address as string
+		 * @return true if the address is valid, false otherwise
+		 */
+		fun checkBluetoothAddress(address: String?): Boolean {
+			val addressLength = 17
+
+			if (address == null || address.length != addressLength) {
+				return false
 			}
-			else this.name,
-			addressType = if (Build.VERSION.SDK_INT >= 35) {
-				when (this.addressType) {
-					AndroidBluetoothDevice.ADDRESS_TYPE_PUBLIC -> BluetoothDevice.AddressType.Public
-					AndroidBluetoothDevice.ADDRESS_TYPE_RANDOM -> BluetoothDevice.AddressType.Random
-					AndroidBluetoothDevice.ADDRESS_TYPE_ANONYMOUS -> BluetoothDevice.AddressType.Anonymous
-					AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN -> BluetoothDevice.AddressType.Unknown
-					else -> BluetoothDevice.AddressType.Unknown
+			for (i in 0..<addressLength) {
+				val c = address[i]
+				when (i % 3) {
+					0, 1 -> {
+						if ((c in '0'..'9') || (c in 'A'..'F')) {
+							// hex character, OK
+							break
+						}
+						return false
+					}
+					2 -> {
+						if (c == ':') {
+							break // OK
+						}
+						return false
+					}
 				}
 			}
-			else BluetoothDevice.AddressType.NotSupported,
-			type = when (this.bluetoothClass.majorDeviceClass) {
-				AUDIO_VIDEO -> BluetoothDevice.Type.AudioVideo
-				COMPUTER -> BluetoothDevice.Type.Computer
-				HEALTH -> BluetoothDevice.Type.Health
-				IMAGING -> BluetoothDevice.Type.Imaging
-				WEARABLE -> BluetoothDevice.Type.Wearable
-				MISC -> BluetoothDevice.Type.Misc
-				PHONE -> BluetoothDevice.Type.Phone
-				NETWORKING -> BluetoothDevice.Type.Networking
-				TOY -> BluetoothDevice.Type.Toy
-				PERIPHERAL -> BluetoothDevice.Type.Peripheral
-				else -> BluetoothDevice.Type.Uncategorized
-			},
-			mode = when (this.type) {
-				AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC -> BluetoothDevice.Mode.Classic
-				AndroidBluetoothDevice.DEVICE_TYPE_LE -> BluetoothDevice.Mode.Le
-				AndroidBluetoothDevice.DEVICE_TYPE_DUAL -> BluetoothDevice.Mode.Dual
-				AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN -> BluetoothDevice.Mode.Unknown
-				else -> BluetoothDevice.Mode.Unknown
-			},
-			uuids = this.uuids.orEmpty().map { it.uuid },
-			pairingState = when (this.bondState) {
-				BOND_BONDED -> BluetoothDevice.PairingState.Paired
-				BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-				BOND_NONE -> BluetoothDevice.PairingState.None
-				else -> BluetoothDevice.PairingState.None
-			},
-			connectionState = connectionState,
-		)
+			return true
+		}
 	}
 }

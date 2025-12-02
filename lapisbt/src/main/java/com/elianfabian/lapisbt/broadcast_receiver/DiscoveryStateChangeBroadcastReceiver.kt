@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-internal class BluetoothDiscoveryStateChangeBroadcastReceiver(
+internal class DiscoveryStateChangeBroadcastReceiver(
 	private val onDiscoveryStateChange: (isDiscovering: Boolean) -> Unit,
 ) : BroadcastReceiver() {
 
