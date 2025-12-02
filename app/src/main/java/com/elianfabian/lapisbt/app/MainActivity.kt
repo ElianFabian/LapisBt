@@ -10,12 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import com.elianfabian.lapisbt.app.common.util.simplestack.FragmentStateChanger
@@ -44,6 +42,8 @@ class MainActivity : FragmentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
+
+		onBackPressedDispatcher.addCallback(backPressedCallback)
 
 		// On some devices (at least on POCO F5 Pro API 35) the navbar is not completely transparent, this way we can force it
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -129,22 +129,6 @@ class MainActivity : FragmentActivity() {
 			},
 			modifier = modifier
 		)
-	}
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-	Text(
-		text = "Hello $name!",
-		modifier = modifier
-	)
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-	LapisBtTheme {
-		Greeting("Android")
 	}
 }
 

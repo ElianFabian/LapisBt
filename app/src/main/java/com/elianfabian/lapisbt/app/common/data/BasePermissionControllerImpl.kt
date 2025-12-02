@@ -11,9 +11,9 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.MultiplePermissionController
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.PermissionController
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.PermissionState
+import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
+import com.elianfabian.lapisbt.app.common.domain.PermissionController
+import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CancellableContinuation

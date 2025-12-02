@@ -8,7 +8,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
-public interface LapisBtCore {
+public interface LapisBt {
 
 	public val devices: StateFlow<List<BluetoothDevice>>
 
@@ -60,12 +60,6 @@ public interface LapisBtCore {
 	public suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean
 
 
-	// TODO: We have to think of a proper way to implement data communication, probably just using streams
-//	suspend fun sendDataToDevice(deviceAddress: String, data: ByteArray): Boolean
-//
-//	fun observeDataFromDevice(deviceAddress: String): Flow<ByteArray>
-
-
 	public fun dispose()
 
 
@@ -101,7 +95,7 @@ public interface LapisBtCore {
 
 
 	public companion object {
-		public fun newInstance(context: Context): LapisBtCore = LapisBtCoreImpl(
+		public fun newInstance(context: Context): LapisBt = LapisBtImpl(
 			context = context,
 		)
 	}

@@ -19,7 +19,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.getSystemService
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.AndroidHelper
+import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback

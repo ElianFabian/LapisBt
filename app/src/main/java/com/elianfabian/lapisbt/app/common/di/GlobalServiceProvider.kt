@@ -2,8 +2,9 @@ package com.elianfabian.lapisbt.app.common.di
 
 import android.app.Application
 import android.content.Context
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.AndroidHelper
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.NotificationController
+import com.elianfabian.lapisbt.LapisBt
+import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
+import com.elianfabian.lapisbt.app.common.domain.NotificationController
 import com.elianfabian.lapisbt.app.MainActivity
 import com.elianfabian.lapisbt.app.common.data.AccessFineLocationPermissionController
 import com.elianfabian.lapisbt.app.common.data.AndroidHelperImpl
@@ -13,6 +14,9 @@ import com.elianfabian.lapisbt.app.common.data.MainActivityHolder
 import com.elianfabian.lapisbt.app.common.data.NotificationControllerImpl
 import com.elianfabian.lapisbt.app.common.data.PostNotificationsPermissionController
 import com.elianfabian.lapisbt.app.common.data.ReadContactsPermissionController
+import com.elianfabian.lapisbt.app.common.data.StorageControllerImpl
+import com.elianfabian.lapisbt.app.common.domain.StorageController
+import com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationViewModel
 import com.zhuinden.simplestack.Backstack
 import com.zhuinden.simplestack.GlobalServices
 import com.zhuinden.simplestack.ServiceBinder
@@ -38,6 +42,10 @@ class GlobalServiceProvider(
 		val applicationContext: Context = application
 		val applicationScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
+		val storageController: StorageController = StorageControllerImpl(
+			context = applicationContext,
+		)
+
 		val mainActivityHolder = MainActivityHolder(mainActivity)
 
 		val bluetoothPermissionController = BluetoothPermissionController(mainActivityHolder)
@@ -48,6 +56,8 @@ class GlobalServiceProvider(
 			applicationScope = applicationScope,
 			mainActivityHolder = mainActivityHolder,
 		)
+
+		val lapisBt = LapisBt.newInstance(applicationContext)
 
 //		val bluetoothController: BluetoothController = BluetoothControllerImpl(
 //			context = applicationContext,
@@ -64,35 +74,36 @@ class GlobalServiceProvider(
 			applicationScope = applicationScope,
 		)
 
-//		val viewModel = HomeViewModel(
-//			bluetoothController = bluetoothController,
-//			bluetoothPermissionController = bluetoothPermissionController,
-//			accessFineLocationPermissionController = accessFineLocationPermissionController,
-//			postNotificationsPermissionController = postNotificationsPermissionController,
-//			notificationController = notificationController,
-//			androidHelper = androidHelper,
-//			applicationScope = applicationScope,
-//		)
+		val manualBluetoothCommunicationViewModel = ManualBluetoothCommunicationViewModel(
+			androidHelper = androidHelper,
+			lapisBt = lapisBt,
+			bluetoothPermissionController = bluetoothPermissionController,
+			notificationController = notificationController,
+			accessFineLocationPermissionController = accessFineLocationPermissionController,
+			postNotificationsPermissionController = postNotificationsPermissionController,
+			storageController = storageController,
+		)
+
+		val applicationOrchestrator = ApplicationOrchestrator(
+			context = applicationContext,
+			androidHelper = androidHelper,
+			applicationScope = applicationScope,
+			bluetoothPermissionController = bluetoothPermissionController,
+			notificationController = notificationController,
+		)
 
 		val globalServices = GlobalServices.builder()
 			.add(applicationContext, ApplicationContextTag)
 			.add(applicationScope, ApplicationScopeTag)
+			.add(storageController)
 			.add(mainActivityHolder)
 			.add(readContactsPermissionController)
 			.add(bluetoothPermissionController)
-//			.add(bluetoothController)
+			.add(lapisBt)
 			.add(androidHelper)
-//			.add(viewModel)
+			.add(manualBluetoothCommunicationViewModel)
 			.add(notificationController)
-			.add(
-				ApplicationOrchestrator(
-					context = applicationContext,
-					androidHelper = androidHelper,
-					applicationScope = applicationScope,
-					bluetoothPermissionController = bluetoothPermissionController,
-					notificationController = notificationController,
-				)
-			)
+			.add(applicationOrchestrator)
 			.build()
 
 		_globalServices = globalServices

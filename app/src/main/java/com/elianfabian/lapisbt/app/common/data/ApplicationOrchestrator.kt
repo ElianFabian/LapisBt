@@ -1,10 +1,10 @@
 package com.elianfabian.lapisbt.app.common.data
 
 import android.content.Context
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.AndroidHelper
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.MultiplePermissionController
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.NotificationController
-import com.elianfabian.bluetoothchatapp_prototype.common.domain.allAreGranted
+import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
+import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
+import com.elianfabian.lapisbt.app.common.domain.NotificationController
+import com.elianfabian.lapisbt.app.common.domain.allAreGranted
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
 import com.zhuinden.simplestack.ScopedServices

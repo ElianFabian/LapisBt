@@ -1,4 +1,4 @@
-package com.elianfabian.bluetoothchatapp_prototype.common.domain
+package com.elianfabian.lapisbt.app.common.domain
 
 import kotlinx.coroutines.flow.SharedFlow
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LapisBt" parent="android:Theme.Material.Light.NoActionBar">
+        <!--This prevents the app from looking weird in dark mode on API level 29+ (this is relevant in Xiaomi for example)-->
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+</resources>
