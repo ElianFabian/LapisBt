@@ -290,7 +290,11 @@ internal class LapisBtImpl(
 		return true
 	}
 
-	// We haven't tested this yet
+	override fun pairDevice(deviceAddress: String): Boolean {
+		val device = lapisAdapter.getRemoteDevice(deviceAddress)
+		return device.createBond()
+	}
+
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 		return device.removeBond()

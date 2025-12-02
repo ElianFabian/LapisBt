@@ -472,6 +472,16 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
+			is ManualBluetoothCommunicationAction.PairDevice -> {
+				_scope.launch {
+					lapisBt.pairDevice(action.device.address)
+				}
+			}
+			is ManualBluetoothCommunicationAction.UnpairDevice -> {
+				_scope.launch {
+					lapisBt.unpairDevice(action.device.address)
+				}
+			}
 		}
 	}
 

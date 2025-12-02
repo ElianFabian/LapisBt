@@ -14,6 +14,8 @@ sealed interface ManualBluetoothCommunicationAction {
 	data class EnterMessage(val message: String) : ManualBluetoothCommunicationAction
 	data class ClickScannedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class ClickPairedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
+	data class PairDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
+	data class UnpairDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class LongClickPairedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class LongClickScannedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class ClickMessage(val message: BluetoothMessage) : ManualBluetoothCommunicationAction

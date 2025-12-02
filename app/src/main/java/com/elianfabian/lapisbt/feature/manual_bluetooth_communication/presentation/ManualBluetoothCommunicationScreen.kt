@@ -529,6 +529,12 @@ private fun BluetoothDeviceList(
 						onLongClick = {
 							onAction(ManualBluetoothCommunicationAction.LongClickPairedDevice(device))
 						},
+						onPair = {
+							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+						},
+						onUnpair = {
+							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
+						},
 						modifier = Modifier
 							.fillMaxWidth()
 							.padding(vertical = 6.dp)
@@ -565,6 +571,12 @@ private fun BluetoothDeviceList(
 						},
 						onLongClick = {
 							onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(device))
+						},
+						onPair = {
+							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+						},
+						onUnpair = {
+							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
 						},
 						modifier = Modifier
 							.fillMaxWidth()
@@ -612,6 +624,8 @@ private fun BluetoothDeviceItem(
 	pairingState: BluetoothDevice.PairingState,
 	onClick: () -> Unit,
 	onLongClick: () -> Unit,
+	onPair: () -> Unit,
+	onUnpair: () -> Unit,
 	modifier: Modifier = Modifier,
 ) {
 	Row(
@@ -665,6 +679,30 @@ private fun BluetoothDeviceItem(
 					fontSize = 18.sp,
 					lineHeight = 30.sp,
 				)
+				Spacer(Modifier.width(8.dp))
+				when (pairingState) {
+					BluetoothDevice.PairingState.None -> {
+						Button(
+							onClick = {
+								onPair()
+							}
+						) {
+							Text("Pair")
+						}
+					}
+					BluetoothDevice.PairingState.Pairing -> {
+						Text("Pairing...")
+					}
+					BluetoothDevice.PairingState.Paired -> {
+						Button(
+							onClick = {
+								onUnpair()
+							}
+						) {
+							Text("Unpair")
+						}
+					}
+				}
 			}
 		}
 	}

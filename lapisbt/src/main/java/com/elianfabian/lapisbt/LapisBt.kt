@@ -56,6 +56,8 @@ public interface LapisBt {
 
 	public suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
 
+	public fun pairDevice(deviceAddress: String): Boolean
+
 	// I'm not sure if we should keep this since this access an internal API
 	public fun unpairDevice(deviceAddress: String): Boolean
 
