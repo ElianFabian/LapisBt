@@ -51,6 +51,19 @@ class ManualBluetoothCommunicationViewModel(
 		lapisBt.stopScan()
 
 		_scope.launch {
+			lapisBt.scannedDevicesFlow.collect { scannedDevice ->
+				_scannedDevices.update { currentDevices ->
+					if (currentDevices.any { it.address == scannedDevice.address }) {
+						currentDevices
+					}
+					else {
+						currentDevices + scannedDevice
+					}
+				}
+			}
+		}
+
+		_scope.launch {
 			storageController.getBluetoothAddress()?.also { address ->
 				_currentDeviceAddress.value = address
 			}
@@ -201,6 +214,7 @@ class ManualBluetoothCommunicationViewModel(
 	private val _enteredBluetoothDeviceName = MutableStateFlow<String?>(null)
 	private val _useSecureConnection = MutableStateFlow(false)
 	private val _selectedDevice = MutableStateFlow<ManualBluetoothCommunicationState.SelectedDevice>(ManualBluetoothCommunicationState.SelectedDevice.None)
+	private val _scannedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
 
 	val state = combineTuple(
 		lapisBt.devices,
@@ -215,11 +229,12 @@ class ManualBluetoothCommunicationViewModel(
 		_useSecureConnection,
 		_selectedDevice,
 		_currentDeviceAddress,
+		_scannedDevices,
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
 				messages, enteredMessage, isWaitingForConnection, enteredBluetoothDeviceName,
-				useSecureConnection, selectedDevice, currentDeviceAddress,
+				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices,
 			),
 		->
 		ManualBluetoothCommunicationState(
@@ -228,7 +243,7 @@ class ManualBluetoothCommunicationViewModel(
 			}.sortedByDescending {
 				it.connectionState == BluetoothDevice.ConnectionState.Connected
 			},
-			scannedDevices = devices.filter {
+			scannedDevices = scannedDevices.filter {
 				it.pairingState != BluetoothDevice.PairingState.Paired
 			}.sortedByDescending {
 				it.connectionState == BluetoothDevice.ConnectionState.Connected
@@ -294,11 +309,15 @@ class ManualBluetoothCommunicationViewModel(
 							// The ideal solution would be to know in which concrete cases this is needed
 							// I think it is a combination of manufacturer and API level
 							if (androidHelper.showEnableLocationDialog()) {
+								_scannedDevices.value = emptyList()
 								lapisBt.startScan()
 							}
 							else {
 								androidHelper.showToast("Location is needed for scan to work")
 							}
+						}
+						else {
+							_scannedDevices.value = emptyList()
 						}
 					}
 				}

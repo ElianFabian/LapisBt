@@ -49,8 +49,8 @@ internal class LapisBtImpl(
 	private val _devices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val devices = _devices.asStateFlow()
 
-	private val _scannedDevices = MutableSharedFlow<BluetoothDevice>()
-	override val scannedDevices = _scannedDevices.asSharedFlow()
+	private val _scannedDevicesFlow = MutableSharedFlow<BluetoothDevice>()
+	override val scannedDevicesFlow = _scannedDevicesFlow.asSharedFlow()
 
 	private val _events = MutableSharedFlow<LapisBt.Event>()
 	override val events = _events.asSharedFlow()
@@ -478,7 +478,7 @@ internal class LapisBtImpl(
 				val newDevice = lapisDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Disconnected,
 				)
-				_scannedDevices.emit(newDevice)
+				_scannedDevicesFlow.emit(newDevice)
 			}
 		}
 		_scope.launch {

@@ -16,7 +16,7 @@ public interface LapisBt {
 
 	public val devices: StateFlow<List<BluetoothDevice>>
 
-	public val scannedDevices: SharedFlow<BluetoothDevice>
+	public val scannedDevicesFlow: SharedFlow<BluetoothDevice>
 
 	public val events: SharedFlow<Event>
 

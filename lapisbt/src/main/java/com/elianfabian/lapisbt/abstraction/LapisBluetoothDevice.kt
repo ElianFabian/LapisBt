@@ -7,7 +7,7 @@ internal interface LapisBluetoothDevice {
 	val address: String
 	val name: String?
 	val alias: String?
-	val uuids: List<UUID>
+	val uuids: List<UUID>?
 	val majorDeviceClass: Int
 	val addressType: Int
 	val type: Int

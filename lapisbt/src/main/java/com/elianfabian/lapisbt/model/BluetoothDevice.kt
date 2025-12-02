@@ -9,7 +9,7 @@ public data class BluetoothDevice(
 	val addressType: AddressType,
 	val majorDeviceClass: MajorDeviceClass,
 	val type: Type,
-	val uuids: List<UUID>,
+	val uuids: List<UUID>?,
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
 ) {

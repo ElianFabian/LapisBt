@@ -20,7 +20,7 @@ internal class LapisBluetoothDeviceImpl(
 		}
 		else device.name
 
-	override val uuids: List<UUID> get() = device.uuids.map { it.uuid }
+	override val uuids: List<UUID>? get() = device.uuids?.map { it.uuid }
 
 	override val majorDeviceClass: Int
 		get() = if (Build.VERSION.SDK_INT >= 35) {
@@ -51,6 +51,7 @@ internal class LapisBluetoothDeviceImpl(
 	}
 
 	override fun createBond(): Boolean {
+		// Requires API level 19
 		return device.createBond()
 	}
 
