@@ -6,7 +6,9 @@ import com.elianfabian.lapisbt.fake.LapisBluetoothEventsFake
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
@@ -50,19 +52,40 @@ class LapisBtImplTest {
 
 	}
 
+
 	@Test
-	fun testExample() {
+	fun `bluetooth support and permissions`() = runTest {
 		assertThat(lapisBt.isBluetoothSupported).isTrue()
-
 		androidHelperFake.isBluetoothSupportedResult = false
-
 		assertThat(lapisBt.isBluetoothSupported).isFalse()
 
 		assertThat(lapisBt.canEnableBluetooth).isTrue()
-
 		androidHelperFake.isBluetoothConnectGrantedResult = false
-
 		assertThat(lapisBt.canEnableBluetooth).isFalse()
 	}
 
+	@Test
+	fun `start scan sets isScanning true`() = runTest {
+		assertThat(lapisBt.startScan()).isTrue()
+		lapisBt.isScanning.first { it }
+		assertThat(lapisBt.isScanning.value).isTrue()
+	}
+
+	@Test
+	fun `stop scan sets isScanning false`() = runTest {
+		lapisBt.startScan()
+		lapisBt.isScanning.first { it }
+
+		assertThat(lapisBt.stopScan()).isTrue()
+		lapisBt.isScanning.first { !it }
+		assertThat(lapisBt.isScanning.value).isFalse()
+	}
+
+	@Test
+	fun `scan fails when permission denied`() = runTest {
+		androidHelperFake.isBluetoothScanGrantedResult = false
+
+		assertThat(lapisBt.startScan()).isFalse()
+		assertThat(lapisBt.stopScan()).isFalse()
+	}
 }
