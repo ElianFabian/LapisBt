@@ -73,9 +73,7 @@ internal class LapisBluetoothAdapterFake(
 		_isDiscovering = true
 		bluetoothEventsFake.emitDiscovering(true)
 
-		_devices.filter {
-			it.bondState != AndroidBluetoothDevice.BOND_BONDED && !it.isConnected()
-		}.forEach { device ->
+		getScannableDevices().forEach { device ->
 			bluetoothEventsFake.emitDeviceFound(device)
 		}
 
@@ -117,6 +115,15 @@ internal class LapisBluetoothAdapterFake(
 		return _devices.filter { it.bondState == AndroidBluetoothDevice.BOND_BONDED }
 	}
 
+	fun getAllDevices(): List<LapisBluetoothDevice> {
+		return _devices
+	}
+
+	fun getScannableDevices(): List<LapisBluetoothDevice> {
+		return _devices.filter {
+			it.bondState != AndroidBluetoothDevice.BOND_BONDED && !it.isConnected()
+		}
+	}
 
 	private fun generateAddress(): String {
 		return List(6) { _random.nextInt(0, 255) }.joinToString(":") { byte -> "%02X".format(byte) }
