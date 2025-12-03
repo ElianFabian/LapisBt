@@ -57,9 +57,20 @@ internal class LapisBluetoothDeviceImpl(
 
 	override fun removeBond(): Boolean {
 		try {
-			val removeBondMethod = device.javaClass.getMethod("removeBond")
+			val method = device.javaClass.getMethod("removeBond")
 
-			return removeBondMethod.invoke(device) as Boolean
+			return method.invoke(device) as Boolean
+		}
+		catch (_: Exception) {
+			return false
+		}
+	}
+
+	override fun isConnected(): Boolean {
+		try {
+			val method = device.javaClass.getMethod("isConnected")
+
+			return method.invoke(device) as Boolean
 		}
 		catch (_: Exception) {
 			return false

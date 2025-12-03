@@ -23,6 +23,14 @@ flowCombineTuple = "1.2.0"
 
 ### endregion
 
+### Testing libraries
+
+truth = "1.4.5"
+kotlinCoroutinesTest = "1.10.2"
+
+###
+
+
 ### Plugin versions.
 
 agp = "8.10.1"
@@ -56,6 +64,9 @@ simpleStack = { group = "com.github.Zhuinden", name = "simple-stack", version.re
 simpleStackExtensions = { group = "com.github.Zhuinden", name = "simple-stack-extensions", version.ref = "simpleStackExtensions" }
 simpleStackCompose = { group = "com.github.Zhuinden", name = "simple-stack-compose-integration", version.ref = "simpleStackCompose" }
 flowCombineTuple = { group = "com.github.Zhuinden", name = "flow-combinetuple-kt", version.ref = "flowCombineTuple" }
+
+truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
+kotlinCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinCoroutinesTest" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

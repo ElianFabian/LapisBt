@@ -38,6 +38,8 @@ dependencies {
 
 	implementation(libs.androidx.coreKtx)
 	//implementation(libs.androidx.appcompat)
+	testImplementation(libs.kotlinCoroutinesTest)
+	testImplementation(libs.truth)
 	testImplementation(libs.junit)
 	androidTestImplementation(libs.androidx.junit)
 	androidTestImplementation(libs.androidx.espressoCore)
