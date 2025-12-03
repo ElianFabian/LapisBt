@@ -97,7 +97,6 @@ internal class LapisBluetoothEventsImpl(
 		}
 	)
 
-	// TODO: check that the argument value and the value inside the androidDevice are the same
 	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
 		onAliasChanged = { androidDevice, newAlias ->
 			if (Build.VERSION.SDK_INT >= 30) {
