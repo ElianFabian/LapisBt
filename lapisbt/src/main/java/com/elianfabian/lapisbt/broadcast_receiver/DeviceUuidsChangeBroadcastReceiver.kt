@@ -7,7 +7,7 @@ import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import java.util.UUID
 
 internal class DeviceUuidsChangeBroadcastReceiver(
-	private val onUuidsChange: (device: AndroidBluetoothDevice, uuids: List<UUID>) -> Unit,
+	private val onUuidsChange: (device: AndroidBluetoothDevice, uuids: List<UUID>?) -> Unit,
 ) : BroadcastReceiver() {
 
 	@Suppress("DEPRECATION")
