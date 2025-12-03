@@ -18,7 +18,7 @@ internal class LapisBluetoothDeviceImpl(
 		get() = if (Build.VERSION.SDK_INT >= 30) {
 			device.alias
 		}
-		else device.name
+		else null
 
 	override val uuids: List<UUID>? get() = device.uuids?.map { it.uuid }
 
