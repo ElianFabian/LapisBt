@@ -100,10 +100,12 @@ internal class LapisBluetoothEventsImpl(
 	// TODO: check that the argument value and the value inside the androidDevice are the same
 	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
 		onAliasChanged = { androidDevice, newAlias ->
-			println("$$$ device(name=${androidDevice.name}, address=${androidDevice.address}, alias: ${androidDevice.alias}, state: $newAlias")
+			if (Build.VERSION.SDK_INT >= 30) {
+				println("$$$ device(name=${androidDevice.name}, address=${androidDevice.address}, alias: ${androidDevice.alias}, state: $newAlias")
 
-			_scope.launch {
-				_deviceAliasChangeFlow.emit(LapisBluetoothDeviceImpl(androidDevice))
+				_scope.launch {
+					_deviceAliasChangeFlow.emit(LapisBluetoothDeviceImpl(androidDevice))
+				}
 			}
 		}
 	)
