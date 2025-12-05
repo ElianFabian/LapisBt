@@ -44,10 +44,6 @@ internal class LapisBtImpl(
 
 	private val _isBluetoothConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
 
-	// TODO: I think we should have a property for paired devices and scanned devices separately
-	//  Having no property for scanned devices is a problem since we can't update the state of scanned devices
-
-	// Represents the state of paired and/or connected devices
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
