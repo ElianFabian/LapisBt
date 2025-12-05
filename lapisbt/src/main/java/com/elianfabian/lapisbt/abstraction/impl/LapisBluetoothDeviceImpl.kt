@@ -76,4 +76,16 @@ internal class LapisBluetoothDeviceImpl(
 			return false
 		}
 	}
+
+	// TODO: Test this method
+	override fun isEncrypted(): Boolean {
+		try {
+			val method = device.javaClass.getMethod("isEncrypted")
+
+			return method.invoke(device) as Boolean
+		}
+		catch (_: Exception) {
+			return false
+		}
+	}
 }

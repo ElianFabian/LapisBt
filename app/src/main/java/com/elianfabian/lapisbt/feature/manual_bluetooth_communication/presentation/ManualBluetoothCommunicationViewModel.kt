@@ -5,6 +5,7 @@ import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
 import com.elianfabian.lapisbt.app.common.domain.NotificationController
+import com.elianfabian.lapisbt.app.common.domain.NotificationController.*
 import com.elianfabian.lapisbt.app.common.domain.PermissionController
 import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
@@ -51,17 +52,27 @@ class ManualBluetoothCommunicationViewModel(
 		lapisBt.stopScan()
 
 		_scope.launch {
-			lapisBt.scannedDevicesFlow.collect { scannedDevice ->
-				_scannedDevices.update { currentDevices ->
-					if (currentDevices.any { it.address == scannedDevice.address }) {
-						currentDevices
-					}
-					else {
-						currentDevices + scannedDevice
-					}
+			lapisBt.pairedDevices.collect { devices ->
+				val device = devices.find { it.address == "B8:DB:38:7B:D9:AC" }
+				if (device != null) {
+				println("$$$ Found device: $device")
+				} else {
+					println("$$$ Device not found")
 				}
 			}
 		}
+//		_scope.launch {
+//			lapisBt.scannedDevicesFlow.collect { scannedDevice ->
+//				_scannedDevices.update { currentDevices ->
+//					if (currentDevices.any { it.address == scannedDevice.address }) {
+//						currentDevices
+//					}
+//					else {
+//						currentDevices + scannedDevice
+//					}
+//				}
+//			}
+//		}
 
 		_scope.launch {
 			storageController.getBluetoothAddress()?.also { address ->
@@ -164,7 +175,7 @@ class ManualBluetoothCommunicationViewModel(
 													message = messages
 														.last { it.senderAddress != currentDeviceAddress && !it.isRead }
 														.let {
-															NotificationController.GroupMessageNotification(
+															GroupMessageNotification(
 																senderName = it.senderName ?: it.senderAddress,
 																content = it.content,
 															)
@@ -185,7 +196,7 @@ class ManualBluetoothCommunicationViewModel(
 						_selectedDevice.update { selection ->
 							when (selection) {
 								is ManualBluetoothCommunicationState.SelectedDevice.AllDevices -> {
-									val connectedDevices = lapisBt.devices.value.filter {
+									val connectedDevices = lapisBt.pairedDevices.value.filter {
 										it.connectionState == BluetoothDevice.ConnectionState.Connected
 									}
 									if (connectedDevices.isNotEmpty()) {
@@ -202,6 +213,9 @@ class ManualBluetoothCommunicationViewModel(
 							}
 						}
 					}
+					is LapisBt.Event.OnDeviceScanned -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -214,10 +228,9 @@ class ManualBluetoothCommunicationViewModel(
 	private val _enteredBluetoothDeviceName = MutableStateFlow<String?>(null)
 	private val _useSecureConnection = MutableStateFlow(false)
 	private val _selectedDevice = MutableStateFlow<ManualBluetoothCommunicationState.SelectedDevice>(ManualBluetoothCommunicationState.SelectedDevice.None)
-	private val _scannedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
 
 	val state = combineTuple(
-		lapisBt.devices,
+		lapisBt.pairedDevices,
 		lapisBt.isScanning,
 		lapisBt.state,
 		_permissionDialog,
@@ -229,7 +242,7 @@ class ManualBluetoothCommunicationViewModel(
 		_useSecureConnection,
 		_selectedDevice,
 		_currentDeviceAddress,
-		_scannedDevices,
+		lapisBt.scannedDevices,
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
@@ -238,18 +251,24 @@ class ManualBluetoothCommunicationViewModel(
 			),
 		->
 		ManualBluetoothCommunicationState(
-			pairedDevices = devices.filter {
-				it.pairingState == BluetoothDevice.PairingState.Paired
-			}.sortedByDescending {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			},
-			scannedDevices = scannedDevices.filter {
-				it.pairingState != BluetoothDevice.PairingState.Paired
-			}.sortedByDescending {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			},
+			pairedDevices = devices
+//				.filter {
+//				it.pairingState == BluetoothDevice.PairingState.Paired
+//			}.sortedByDescending {
+//				it.connectionState == BluetoothDevice.ConnectionState.Connected
+//			}
+			,
+			scannedDevices = scannedDevices
+//				.filter {
+//				it.pairingState != BluetoothDevice.PairingState.Paired
+//			}.sortedByDescending {
+//				it.connectionState == BluetoothDevice.ConnectionState.Connected
+//			}
+			,
 			selectedDevice = selectedDevice,
 			connectedDevices = devices.filter {
+				it.connectionState == BluetoothDevice.ConnectionState.Connected
+			} + scannedDevices.filter {
 				it.connectionState == BluetoothDevice.ConnectionState.Connected
 			},
 			currentDeviceAddress = currentDeviceAddress,
@@ -309,7 +328,8 @@ class ManualBluetoothCommunicationViewModel(
 							// The ideal solution would be to know in which concrete cases this is needed
 							// I think it is a combination of manufacturer and API level
 							if (androidHelper.showEnableLocationDialog()) {
-								_scannedDevices.value = emptyList()
+								//_scannedDevices.value = emptyList()
+								lapisBt.clearScannedDevices()
 								lapisBt.startScan()
 							}
 							else {
@@ -317,7 +337,7 @@ class ManualBluetoothCommunicationViewModel(
 							}
 						}
 						else {
-							_scannedDevices.value = emptyList()
+							lapisBt.clearScannedDevices()
 						}
 					}
 				}
@@ -359,7 +379,7 @@ class ManualBluetoothCommunicationViewModel(
 			}
 			is ManualBluetoothCommunicationAction.MakeDeviceDiscoverable -> {
 				_scope.launch {
-					androidHelper.showMakeDeviceDiscoverableDialog()
+					androidHelper.showMakeDeviceDiscoverableDialog(seconds = 300)
 				}
 			}
 			is ManualBluetoothCommunicationAction.SendMessage -> {
@@ -451,7 +471,7 @@ class ManualBluetoothCommunicationViewModel(
 				_scope.launch {
 					val currentDeviceAddress = storageController.getBluetoothAddress() ?: return@launch
 					if (action.message.senderAddress != currentDeviceAddress) {
-						val targetDevice = lapisBt.devices.value.find { device ->
+						val targetDevice = lapisBt.pairedDevices.value.find { device ->
 							device.address == action.message.senderAddress
 						} ?: return@launch
 
@@ -516,7 +536,7 @@ class ManualBluetoothCommunicationViewModel(
 			androidHelper.showToast("Please, enter a message to send.")
 			return false
 		}
-		val connectedDevices = lapisBt.devices.value.filter {
+		val connectedDevices = state.value.connectedDevices.filter {
 			it.connectionState == BluetoothDevice.ConnectionState.Connected
 		}
 		if (connectedDevices.isEmpty()) {
@@ -558,7 +578,7 @@ class ManualBluetoothCommunicationViewModel(
 					return@coroutineScope true
 				}
 				is ManualBluetoothCommunicationState.SelectedDevice.AllDevices -> {
-					val messages = lapisBt.devices.value.filter {
+					val messages = lapisBt.pairedDevices.value.filter {
 						it.connectionState == BluetoothDevice.ConnectionState.Connected
 					}.map { connectedDevice ->
 						async {

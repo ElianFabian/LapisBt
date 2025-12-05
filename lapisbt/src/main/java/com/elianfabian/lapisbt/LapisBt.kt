@@ -14,9 +14,9 @@ import java.util.UUID
 
 public interface LapisBt {
 
-	public val devices: StateFlow<List<BluetoothDevice>>
+	public val pairedDevices: StateFlow<List<BluetoothDevice>>
 
-	public val scannedDevicesFlow: SharedFlow<BluetoothDevice>
+	public val scannedDevices: StateFlow<List<BluetoothDevice>>
 
 	public val events: SharedFlow<Event>
 
@@ -42,6 +42,8 @@ public interface LapisBt {
 
 	public fun stopScan(): Boolean
 
+	public fun clearScannedDevices()
+
 	public suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): ConnectionResult
 
 	public suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): ConnectionResult
@@ -55,6 +57,8 @@ public interface LapisBt {
 	public suspend fun disconnectFromDevice(deviceAddress: String): Boolean
 
 	public suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
+
+	public fun getRemoteDevice(deviceAddress: String): BluetoothDevice?
 
 	public fun pairDevice(deviceAddress: String): Boolean
 
@@ -97,6 +101,8 @@ public interface LapisBt {
 			// who disconnected from us it will count as not manually disconnected
 			val manuallyDisconnected: Boolean,
 		) : Event
+
+		public data class OnDeviceScanned(val scannedDevice: BluetoothDevice) : Event
 	}
 
 

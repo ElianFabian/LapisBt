@@ -20,14 +20,16 @@ internal data class LapisBluetoothDeviceFake(
 	private var _isConnected: Boolean = false
 
 	override fun createBond(): Boolean {
+		bondState = AndroidBluetoothDevice.BOND_BONDING
+		bluetoothEventsFake.emitDeviceBondState(this.copy())
 		bondState = AndroidBluetoothDevice.BOND_BONDED
-		bluetoothEventsFake.emitDeviceBondState(this)
+		bluetoothEventsFake.emitDeviceBondState(this.copy())
 		return true
 	}
 
 	override fun removeBond(): Boolean {
 		bondState = AndroidBluetoothDevice.BOND_NONE
-		bluetoothEventsFake.emitDeviceBondState(this)
+		bluetoothEventsFake.emitDeviceBondState(this.copy())
 		return true
 	}
 

@@ -95,7 +95,7 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
-		onStateChange = { androidDevice, _ ->
+		onStateChange = { androidDevice, _, _ ->
 			_deviceBondStateChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)

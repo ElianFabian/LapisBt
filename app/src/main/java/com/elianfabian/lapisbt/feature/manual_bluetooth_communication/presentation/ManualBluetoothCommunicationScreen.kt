@@ -689,11 +689,25 @@ private fun BluetoothDeviceItem(
 						) {
 							Text("Pair")
 						}
+						Button(
+							onClick = {
+								onUnpair()
+							}
+						) {
+							Text("Unpair")
+						}
 					}
 					BluetoothDevice.PairingState.Pairing -> {
 						Text("Pairing...")
 					}
 					BluetoothDevice.PairingState.Paired -> {
+						Button(
+							onClick = {
+								onPair()
+							}
+						) {
+							Text("Pair")
+						}
 						Button(
 							onClick = {
 								onUnpair()

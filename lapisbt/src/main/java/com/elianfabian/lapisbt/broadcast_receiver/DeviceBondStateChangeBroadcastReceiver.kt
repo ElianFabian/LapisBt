@@ -6,7 +6,7 @@ import android.content.Intent
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 
 internal class DeviceBondStateChangeBroadcastReceiver(
-	private val onStateChange: (device: AndroidBluetoothDevice, state: Int) -> Unit,
+	private val onStateChange: (device: AndroidBluetoothDevice, oldState: Int, newState: Int) -> Unit,
 ) : BroadcastReceiver() {
 
 	@Suppress("DEPRECATION")
@@ -16,8 +16,9 @@ internal class DeviceBondStateChangeBroadcastReceiver(
 		}
 
 		val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
-		val state = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_BOND_STATE, AndroidBluetoothDevice.ERROR)
+		val oldState = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, AndroidBluetoothDevice.ERROR)
+		val newState = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_BOND_STATE, AndroidBluetoothDevice.ERROR)
 
-		onStateChange(device, state)
+		onStateChange(device, oldState, newState)
 	}
 }

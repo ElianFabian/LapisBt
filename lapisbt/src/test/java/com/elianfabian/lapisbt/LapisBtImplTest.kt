@@ -4,11 +4,14 @@ import android.bluetooth.BluetoothAdapter
 import com.elianfabian.lapisbt.fake.AndroidHelperFake
 import com.elianfabian.lapisbt.fake.LapisBluetoothAdapterFake
 import com.elianfabian.lapisbt.fake.LapisBluetoothEventsFake
+import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -102,12 +105,14 @@ class LapisBtImplTest {
 			.map { it.address }
 
 		val job = launch {
-			lapisBt.scannedDevicesFlow.collect { device ->
-				scannedDevicesAddress.add(device.address)
-				if (scannedDevicesAddress.size >= expectedScannedDevicesAddresses.size) {
-					cancel()
+			lapisBt.events.filterIsInstance<LapisBt.Event.OnDeviceScanned>()
+				.map { it.scannedDevice }
+				.collect { device ->
+					scannedDevicesAddress.add(device.address)
+					if (scannedDevicesAddress.size >= expectedScannedDevicesAddresses.size) {
+						cancel()
+					}
 				}
-			}
 		}
 
 		lapisBt.startScan()
@@ -154,6 +159,35 @@ class LapisBtImplTest {
 		bluetoothEventsFake.emitBluetoothState(BluetoothAdapter.STATE_TURNING_ON)
 		lapisBt.state.first { it == LapisBt.BluetoothState.TurningOn }
 		assertThat(lapisBt.state.value).isEqualTo(LapisBt.BluetoothState.TurningOn)
+	}
+
+	@Test
+	fun `bondedDevices list updates on new bond`() = runTest(timeout = ShortTimeout + ShortTimeout) {
+		val androidScannedDevice = lapisAdapterFake.getScannableDevices().first()
+
+		launch {
+			lapisBt.pairedDevices.collect { devices ->
+				println("$$$ Scanned devices: ${devices.map { "(name=${it.name}, address=${it.address}, pairingState=${it.pairingState})" }}")
+				val targetDevice = devices.firstOrNull { it.address == androidScannedDevice.address } ?: return@collect
+				println("$$$ Device address=${targetDevice.name}, pairingState=${targetDevice.pairingState}")
+			}
+		}
+
+		assertThat(androidScannedDevice.bondState).isEqualTo(AndroidBluetoothDevice.BOND_NONE)
+
+		androidScannedDevice.createBond()
+
+//		lapisBt.devices.first { devices ->
+//			devices.any { it.address == androidScannedDevice.address && it.pairingState == BluetoothDevice.PairingState.Pairing }
+//		}
+//		val scannedDevicePairing = lapisBt.devices.value.first { it.address == androidScannedDevice.address }
+//		assertThat(scannedDevicePairing.pairingState).isEqualTo(BluetoothDevice.PairingState.Pairing)
+//
+//		lapisBt.devices.first { devices ->
+//			devices.any { it.address == androidScannedDevice.address && it.pairingState == BluetoothDevice.PairingState.Paired }
+//		}
+//		val scannedDevicePaired = lapisBt.devices.value.first { it.address == androidScannedDevice.address }
+//		assertThat(scannedDevicePaired.pairingState).isEqualTo(BluetoothDevice.PairingState.Paired)
 	}
 
 

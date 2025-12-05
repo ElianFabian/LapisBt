@@ -18,4 +18,5 @@ internal interface LapisBluetoothDevice {
 	fun createBond(): Boolean
 	fun removeBond(): Boolean
 	fun isConnected(): Boolean
+	fun isEncrypted(): Boolean
 }

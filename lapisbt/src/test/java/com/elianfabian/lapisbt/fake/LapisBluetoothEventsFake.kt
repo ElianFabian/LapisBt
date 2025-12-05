@@ -20,7 +20,7 @@ internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
 	private val _deviceDisconnectedFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceDisconnectedFlow: SharedFlow<LapisBluetoothDevice> = _deviceDisconnectedFlow.asSharedFlow()
 
-	private val _deviceNameFlow = MutableSharedFlow<String?>()
+	private val _deviceNameFlow = MutableSharedFlow<String?>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceNameFlow: SharedFlow<String?> = _deviceNameFlow.asSharedFlow()
 
 	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
@@ -49,7 +49,9 @@ internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
 	}
 
 	fun emitDeviceBondState(device: LapisBluetoothDevice) {
-		_deviceBondStateChangeFlow.tryEmit(device)
+		_deviceBondStateChangeFlow.tryEmit(device).also {
+			println("Emitted bond state change for device ${device.address}, new bond state: ${device.bondState}: $it")
+		}
 	}
 
 	fun emitDiscovering(isDiscovering: Boolean) {
