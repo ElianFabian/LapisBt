@@ -615,6 +615,9 @@ internal class LapisBtImpl(
 					// This way we avoid connection or pairing issues.
 					// Maybe in future we consider a different approach or consider that this
 					// should be handled by the user of this library.
+					// Maybe when try to connect to a device and it fails we could silently scan for devices,
+					// check if it appears as a scanned device and do the same, but I'm not sure this is something
+					// we should actually do here
 					unpairDevice(newDevice.address)
 				}
 
