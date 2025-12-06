@@ -37,6 +37,10 @@ internal data class LapisBluetoothDeviceFake(
 		return _isConnected
 	}
 
+	override fun isEncrypted(): Boolean {
+		return true
+	}
+
 	fun setConnected(connected: Boolean) {
 		_isConnected = connected
 
