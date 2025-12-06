@@ -1,29 +1,42 @@
 package com.elianfabian.lapisbt.fake
 
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.generateAddress
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 internal data class LapisBluetoothDeviceFake(
 	override val address: String,
 	override var name: String?,
-	override var alias: String?,
-	override var uuids: List<UUID>?,
-	override val majorDeviceClass: Int,
-	override val addressType: Int,
-	override val type: Int,
-	override var bondState: Int,
+	override var bondState: Int = BluetoothDevice.BOND_NONE,
+	override var alias: String? = null,
+	override var uuids: List<UUID>? = emptyList(),
+	override val majorDeviceClass: Int = BluetoothClass.Device.Major.PHONE,
+	override val addressType: Int = BluetoothDevice.ADDRESS_TYPE_UNKNOWN,
+	override val type: Int = BluetoothDevice.DEVICE_TYPE_CLASSIC,
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
 ) : LapisBluetoothDevice {
+
+	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
 	private var _isConnected: Boolean = false
 
 	override fun createBond(): Boolean {
 		bondState = AndroidBluetoothDevice.BOND_BONDING
 		bluetoothEventsFake.emitDeviceBondState(this.copy())
-		bondState = AndroidBluetoothDevice.BOND_BONDED
-		bluetoothEventsFake.emitDeviceBondState(this.copy())
+		_scope.launch {
+			delay(250)
+			bondState = AndroidBluetoothDevice.BOND_BONDED
+			bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
+		}
 		return true
 	}
 
@@ -45,7 +58,7 @@ internal data class LapisBluetoothDeviceFake(
 		_isConnected = connected
 
 		if (!connected) {
-			bluetoothEventsFake.emitDeviceDisconnected(this)
+			bluetoothEventsFake.emitDeviceDisconnected(this.copy())
 		}
 	}
 

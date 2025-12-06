@@ -5,6 +5,8 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.TestRandom
+import com.elianfabian.lapisbt.util.generateAddress
 import java.util.UUID
 import kotlin.random.Random
 
@@ -12,8 +14,6 @@ internal class LapisBluetoothAdapterFake(
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
 	override var isEnabled: Boolean,
 ) : LapisBluetoothAdapter {
-
-	private val _random = Random(1)
 
 	private val _devices = (1..20).map {
 		LapisBluetoothDeviceFake(
@@ -25,18 +25,18 @@ internal class LapisBluetoothAdapterFake(
 				AndroidBluetoothDevice.DEVICE_TYPE_LE,
 				AndroidBluetoothDevice.DEVICE_TYPE_DUAL,
 				//AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN,
-			).random(_random),
+			).random(TestRandom),
 			addressType = listOf(
 				AndroidBluetoothDevice.ADDRESS_TYPE_PUBLIC,
 				AndroidBluetoothDevice.ADDRESS_TYPE_RANDOM,
 				AndroidBluetoothDevice.ADDRESS_TYPE_ANONYMOUS,
 				//AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN,
-			).random(_random),
+			).random(TestRandom),
 			bondState = listOf(
 				AndroidBluetoothDevice.BOND_BONDED,
 				AndroidBluetoothDevice.BOND_BONDING,
 				AndroidBluetoothDevice.BOND_NONE
-			).random(_random),
+			).random(TestRandom),
 			majorDeviceClass = listOf(
 //				BluetoothClass.Device.Major.TOY,
 //				BluetoothClass.Device.Major.COMPUTER,
@@ -49,7 +49,7 @@ internal class LapisBluetoothAdapterFake(
 //				BluetoothClass.Device.Major.PERIPHERAL,
 //				BluetoothClass.Device.Major.WEARABLE,
 				//BluetoothClass.Device.Major.UNCATEGORIZED,
-			).random(_random),
+			).random(TestRandom),
 			uuids = emptyList(),
 			bluetoothEventsFake = bluetoothEventsFake,
 		)
@@ -87,7 +87,7 @@ internal class LapisBluetoothAdapterFake(
 	}
 
 	override fun listenUsingRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val remoteDevice = _devices.filter { it.bondState == AndroidBluetoothDevice.BOND_BONDED }.random(_random)
+		val remoteDevice = _devices.filter { it.bondState == AndroidBluetoothDevice.BOND_BONDED }.random(TestRandom)
 		remoteDevice.bondState = AndroidBluetoothDevice.BOND_BONDED
 		remoteDevice.setConnected(true)
 
@@ -99,7 +99,7 @@ internal class LapisBluetoothAdapterFake(
 	}
 
 	override fun listenUsingInsecureRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val remoteDevice = _devices.filter { it.bondState != AndroidBluetoothDevice.BOND_BONDED }.random(_random)
+		val remoteDevice = _devices.filter { it.bondState != AndroidBluetoothDevice.BOND_BONDED }.random(TestRandom)
 		remoteDevice.setConnected(true)
 
 		return LapisBluetoothServerSocketFake(
@@ -123,9 +123,5 @@ internal class LapisBluetoothAdapterFake(
 		return _devices.filter {
 			it.bondState != AndroidBluetoothDevice.BOND_BONDED && !it.isConnected()
 		}
-	}
-
-	private fun generateAddress(): String {
-		return List(6) { _random.nextInt(0, 255) }.joinToString(":") { byte -> "%02X".format(byte) }
 	}
 }

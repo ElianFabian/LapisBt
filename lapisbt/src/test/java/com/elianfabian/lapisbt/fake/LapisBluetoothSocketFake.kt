@@ -5,6 +5,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 
 internal class LapisBluetoothSocketFake(
 	override val remoteDevice: LapisBluetoothDeviceFake,
@@ -16,12 +18,14 @@ internal class LapisBluetoothSocketFake(
 	override val outputStream: OutputStream = ByteArrayOutputStream()
 	override var isConnected: Boolean = false
 
+	private val queue = LinkedBlockingQueue<Int>()
+
 
 	override fun connect() {
-		outputStream
 		if (!connectSuccess) {
 			throw Exception("Failed to connect to the Bluetooth device.")
 		}
+		queue.poll(2, TimeUnit.SECONDS)
 		isConnected = true
 		remoteDevice.setConnected(true)
 	}
@@ -29,5 +33,9 @@ internal class LapisBluetoothSocketFake(
 	override fun close() {
 		isConnected = false
 		remoteDevice.setConnected(false)
+
+		if (queue.isEmpty()) {
+			queue.add(1)
+		}
 	}
 }

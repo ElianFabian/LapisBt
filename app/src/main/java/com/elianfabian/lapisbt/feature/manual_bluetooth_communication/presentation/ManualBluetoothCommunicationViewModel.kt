@@ -237,7 +237,7 @@ class ManualBluetoothCommunicationViewModel(
 		lapisBt.bluetoothDeviceName,
 		_messages,
 		_enteredMessage,
-		lapisBt.activeBluetoothServers.map { it.isNotEmpty() },
+		lapisBt.activeBluetoothServersUuids.map { it.isNotEmpty() },
 		_enteredBluetoothDeviceName,
 		_useSecureConnection,
 		_selectedDevice,

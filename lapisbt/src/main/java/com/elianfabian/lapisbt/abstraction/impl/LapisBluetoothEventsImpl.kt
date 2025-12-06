@@ -119,7 +119,6 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
 		onUuidsChange = { androidDevice, uuids ->
-			println("$$$ device(name=${androidDevice.name}, address=${androidDevice.address}, deviceUuids: ${androidDevice.uuids.orEmpty().map { it.uuid }}, uuids: $uuids")
 			_deviceUuidsChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)

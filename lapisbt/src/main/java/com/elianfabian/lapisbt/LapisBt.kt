@@ -30,7 +30,7 @@ public interface LapisBt {
 
 	public val isScanning: StateFlow<Boolean>
 
-	public val activeBluetoothServers: StateFlow<List<UUID>>
+	public val activeBluetoothServersUuids: StateFlow<List<UUID>>
 
 	// I don't think we should define this, every client of this library should treat this their own way
 //	val canChangeBluetoothDeviceName: Boolean
