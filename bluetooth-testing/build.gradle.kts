@@ -1,19 +1,23 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-	alias(libs.plugins.androidLibrary)
+	alias(libs.plugins.androidApplication)
 	alias(libs.plugins.kotlinAndroid)
+	//alias(libs.plugins.kotlinSerialization)
 }
 
 android {
-	namespace = "com.elianfabian.lapisbt"
+	namespace = "com.elianfabian.bluetooth_testing"
 	compileSdk = 36
 
 	defaultConfig {
-		minSdk = 19
+		applicationId = "com.elianfabian.bluetooth_testing"
+		minSdk = 23
+		targetSdk = 36
+		versionCode = 1
+		versionName = "1.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-		consumerProguardFiles("consumer-rules.pro")
 	}
 
 	buildTypes {
@@ -27,7 +31,6 @@ android {
 		targetCompatibility = JavaVersion.VERSION_11
 	}
 	kotlin {
-		explicitApi()
 		compilerOptions {
 			jvmTarget = JvmTarget.JVM_11
 		}
@@ -35,11 +38,15 @@ android {
 }
 
 dependencies {
+	implementation(project(":lapisbt"))
 
+	implementation(libs.gson)
+	//implementation(libs.kotlinxSerializationJson)
 	implementation(libs.androidx.coreKtx)
-	//implementation(libs.androidx.appcompat)
-	testImplementation(libs.kotlinxCoroutinesTest)
-	testImplementation(libs.truth)
+	implementation(libs.androidx.appcompat)
+	implementation(libs.material)
+	implementation(libs.androidx.activity)
+	implementation(libs.androidx.constraintlayout)
 	testImplementation(libs.junit)
 	androidTestImplementation(libs.androidx.junit)
 	androidTestImplementation(libs.androidx.espressoCore)

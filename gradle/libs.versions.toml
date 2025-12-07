@@ -14,6 +14,8 @@ composeBom = "2025.11.01"
 #appcompat = "1.7.1"
 googlePlayServicesLocation = "21.3.0"
 composeMaterialIconsExtended = "1.7.8"
+#kotlinxSerialization = "1.9.0"
+gson = "2.13.2"
 
 # Third-party libraries
 simpleStack = "2.9.0"
@@ -36,6 +38,10 @@ kotlinCoroutinesTest = "1.10.2"
 agp = "8.10.1"
 kotlin = "2.2.21"
 kotlinParcelize = "2.2.21"
+appcompat = "1.7.1"
+material = "1.13.0"
+activity = "1.12.0"
+constraintlayout = "2.1.4"
 
 ### endregion
 
@@ -59,6 +65,8 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 #androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-composeMaterialIconsExtended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "composeMaterialIconsExtended" }
 googlePlayServicesLocation = { group = "com.google.android.gms", name = "play-services-location", version.ref = "googlePlayServicesLocation" }
+#kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson"}
 
 simpleStack = { group = "com.github.Zhuinden", name = "simple-stack", version.ref = "simpleStack" }
 simpleStackExtensions = { group = "com.github.Zhuinden", name = "simple-stack-extensions", version.ref = "simpleStackExtensions" }
@@ -66,7 +74,11 @@ simpleStackCompose = { group = "com.github.Zhuinden", name = "simple-stack-compo
 flowCombineTuple = { group = "com.github.Zhuinden", name = "flow-combinetuple-kt", version.ref = "flowCombineTuple" }
 
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
-kotlinCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinCoroutinesTest" }
+kotlinxCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinCoroutinesTest" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -74,3 +86,4 @@ kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 kotlinParcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlinParcelize" }
+#kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
