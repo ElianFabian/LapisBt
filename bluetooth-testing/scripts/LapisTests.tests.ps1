@@ -71,13 +71,17 @@ foreach ($device in @($clientDevice, $serverDevice)) {
     Install-AdbPackage -SerialNumber $device.SerialNumber -Path $apkPath
     Stop-AdbPackage -SerialNumber $device.SerialNumber -PackageName $appPackageName
 
-    Grant-AdbPermission -SerialNumber $device.SerialNumber -PackageName $appPackageName -PermissionName 'android.permission.ACCESS_FINE_LOCATION' -ErrorAction SilentlyContinue
-    Grant-AdbPermission -SerialNumber $device.SerialNumber -PackageName $appPackageName -PermissionName 'android.permission.BLUETOOTH_SCAN' -ErrorAction SilentlyContinue
-    Grant-AdbPermission -SerialNumber $device.SerialNumber -PackageName $appPackageName -PermissionName 'android.permission.BLUETOOTH_CONNECT' -ErrorAction SilentlyContinue
+    Grant-AdbPermission -SerialNumber $device.SerialNumber -PackageName $appPackageName `
+        -PermissionName @(
+        'android.permission.ACCESS_FINE_LOCATION'
+        'android.permission.BLUETOOTH_SCAN'
+        'android.permission.BLUETOOTH_CONNECT'
+    ) `
+        -ErrorAction SilentlyContinue
 
     Start-AdbPackage -SerialNumber $device.SerialNumber -PackageName $appPackageName
 
-    Ensure-BluetoothOn $device  
+    Ensure-BluetoothOn $device
 }
 
 
