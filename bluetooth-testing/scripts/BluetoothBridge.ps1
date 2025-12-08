@@ -26,7 +26,7 @@ function Invoke-LapisAction {
         [scriptblock] $Extras = $null
     )
 
-    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .MainTestingActivity -Action Action -Extras $Extras
+    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .MainTestingActivity -Action $Action -Extras $Extras
     Start-AdbActivity -SerialNumber $SerialNumber -Intent $intent
 }
 
@@ -46,7 +46,7 @@ function Get-LapisIsScanning {
         [string] $SerialNumber
     )
 
-    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-isScanning'
+    return [bool]::Parse((Get-LapisState -SerialNumber $SerialNumber -Name 'get-isScanning'))
 }
 
 function Get-LapisActiveBluetoothServersUuids {
@@ -64,7 +64,7 @@ function Get-LapisScannedDevices {
         [string] $SerialNumber
     )
 
-    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-scannedDevices'
+    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-scannedDevices' | ConvertFrom-Json
 }
 
 function Get-LapisPairedDevices {
@@ -73,7 +73,7 @@ function Get-LapisPairedDevices {
         [string] $SerialNumber
     )
 
-    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-pairedDevices'
+    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-pairedDevices' | ConvertFrom-Json
 }
 
 function Start-LapisScan {
@@ -82,7 +82,7 @@ function Start-LapisScan {
         [string] $SerialNumber
     )
 
-    Invoke-LapisAction -Action 'start-scan'
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'start-scan'
 }
 
 function Stop-LapisScan {
@@ -91,16 +91,19 @@ function Stop-LapisScan {
         [string] $SerialNumber
     )
     
-    Invoke-LapisAction -Action 'stop-scan'
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'stop-scan'
 }
 
 function Start-LapisServer {
     param (
         [Parameter(Mandatory)]
+        [string] $SerialNumber,
+
+        [Parameter(Mandatory)]
         [string] $Uuid
     )
 
-    Invoke-LapisAction -Action 'start-server' -Extras {
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'start-server' -Extras {
         New-AdbBundlePair -Key 'uuid' -String $Uuid
     }
 }
@@ -114,7 +117,7 @@ function Start-LapisServerWithoutPairing {
         [string] $Uuid
     )
 
-    Invoke-LapisAction -Action 'start-serverWithoutPairing' -Extras {
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'start-serverWithoutPairing' -Extras {
         New-AdbBundlePair -Key 'uuid' -String $Uuid
     }
 }
@@ -125,7 +128,7 @@ function Stop-LapisServer {
         [string] $SerialNumber
     )
 
-    Invoke-LapisAction -Action 'stop-server'
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'stop-server'
 }
 
 function Connect-LapisDevice {
@@ -140,7 +143,7 @@ function Connect-LapisDevice {
         [string] $Uuid
     )
 
-    Invoke-LapisAction -Action 'connectTo-device' -Extras {
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'connectTo-device' -Extras {
         New-AdbBundlePair -Key 'address' -String $Address
         New-AdbBundlePair -Key 'uuid' -String $Uuid
     }
@@ -149,13 +152,16 @@ function Connect-LapisDevice {
 function Connect-LapisDeviceWithoutPairing {
     param (
         [Parameter(Mandatory)]
+        [string] $SerialNumber,
+
+        [Parameter(Mandatory)]
         [string] $Address,
 
         [Parameter(Mandatory)]
         [string] $Uuid
     )
 
-    Invoke-LapisAction -Action 'connectTo-deviceWithoutPairing' -Extras {
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'connectTo-deviceWithoutPairing' -Extras {
         New-AdbBundlePair -Key 'address' -String $Address
         New-AdbBundlePair -Key 'uuid' -String $Uuid
     }
