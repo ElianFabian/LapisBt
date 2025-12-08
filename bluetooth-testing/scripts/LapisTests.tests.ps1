@@ -49,7 +49,7 @@ if ($realDevices.Count -lt 2) {
 $device1 = New-DeviceObject $realDevices[0]
 $device2 = New-DeviceObject $realDevices[1]
 
-# The one whose API level is lower is more likely to have the command to enable bluetooth
+# The one whose API level is higher is more likely to have the command to enable bluetooth
 if ($device1.ApiLevel -ge $device2.ApiLevel) {
     $clientDevice = $device1
     $serverDevice = $device2
