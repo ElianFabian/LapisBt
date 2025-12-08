@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -47,84 +48,84 @@ class MainTestingActivity : AppCompatActivity() {
 
 		Log.i(TAG, "onNewIntent: ${intent.contentToString()}")
 
-		when (intent.action) {
+		Toast.makeText(this, "action: ${intent.action}, extras: ${intent.extras?.contentToString()}", Toast.LENGTH_SHORT).show()
+
+		when (val action = intent.action) {
 			"start-scan" -> {
-				Log.i(TAG, "START start-scan")
-				val result = lapisBt.startScan()
-				Log.i(TAG, "END start-scan: $result")
+				logAction(action) {
+					lapisBt.startScan()
+				}
 			}
 			"stop-scan" -> {
-				Log.i(TAG, "START stop-scan")
-				val result = lapisBt.stopScan()
-				Log.i(TAG, "END stop-scan: $result")
+				logAction(action) {
+					lapisBt.stopScan()
+				}
 			}
 			"start-server" -> {
 				lifecycleScope.launch {
-					Log.i(TAG, "START start-server")
+					logAction(action) {
+						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
-					val uuid = intent.getStringExtra("uuid") ?: return@launch
-
-					val result = lapisBt.startBluetoothServer(
-						serviceName = "Test",
-						serviceUuid = UUID.fromString(uuid),
-					)
-
-					Log.i(TAG, "END start-server: $result")
+						lapisBt.startBluetoothServer(
+							serviceName = "Test",
+							serviceUuid = UUID.fromString(uuid),
+						)
+					}
 				}
 			}
 			"start-serverWithoutPairing" -> {
 				lifecycleScope.launch {
-					Log.i(TAG, "START start-serverWithoutPairing")
+					logAction(action) {
+						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
-					val uuid = intent.getStringExtra("uuid") ?: return@launch
-
-					val result = lapisBt.startBluetoothServerWithoutPairing(
-						serviceName = "Test",
-						serviceUuid = UUID.fromString(uuid),
-					)
-
-					Log.i(TAG, "END start-serverWithoutPairing: $result")
+						lapisBt.startBluetoothServerWithoutPairing(
+							serviceName = "Test",
+							serviceUuid = UUID.fromString(uuid),
+						)
+					}
 				}
 			}
 			"stop-server" -> {
-				Log.i(TAG, "START stop-server")
-				val uuid = intent.getStringExtra("uuid") ?: return
-				lapisBt.stopBluetoothServer(UUID.fromString(uuid))
-				Log.i(TAG, "END stop-server")
+				logAction(action) {
+					val uuid = intent.getStringExtra("uuid") ?: return
+					lapisBt.stopBluetoothServer(UUID.fromString(uuid))
+				}
 			}
 			"connectTo-device" -> {
 				lifecycleScope.launch {
-					Log.i(TAG, "START connectTo-device")
+					logAction(action) {
+						val address = intent.getStringExtra("address") ?: return@launch
+						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
-					val address = intent.getStringExtra("address") ?: return@launch
-					val uuid = intent.getStringExtra("uuid") ?: return@launch
-
-					val result = lapisBt.connectToDevice(
-						deviceAddress = address,
-						serviceUuid = UUID.fromString(uuid),
-					)
-
-					Log.i(TAG, "END connectTo-device: $result")
+						lapisBt.connectToDevice(
+							deviceAddress = address,
+							serviceUuid = UUID.fromString(uuid),
+						)
+					}
 				}
 			}
 			"connectTo-deviceWithoutPairing" -> {
 				lifecycleScope.launch {
-					Log.i(TAG, "START connectTo-deviceWithoutPairing")
+					logAction(action) {
+						val address = intent.getStringExtra("address") ?: return@launch
+						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
-					val address = intent.getStringExtra("address") ?: return@launch
-					val uuid = intent.getStringExtra("uuid") ?: return@launch
-
-					val result = lapisBt.connectToDeviceWithoutPairing(
-						deviceAddress = address,
-						serviceUuid = UUID.fromString(uuid),
-					)
-
-					Log.i(TAG, "END connectTo-deviceWithoutPairing: $result")
+						lapisBt.connectToDeviceWithoutPairing(
+							deviceAddress = address,
+							serviceUuid = UUID.fromString(uuid),
+						)
+					}
 				}
 			}
 		}
 	}
 
+
+	private inline fun logAction(name: String, action: () -> Any?) {
+		Log.i(TAG, "START $name")
+		val result = action()
+		Log.i(TAG, "END $name: $result")
+	}
 
 	private fun showEnableBluetoothDialog() {
 		enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
