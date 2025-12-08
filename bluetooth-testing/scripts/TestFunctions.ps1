@@ -111,7 +111,7 @@ function Should {
         [Parameter(ParameterSetName = 'HaveCount')]
         [int] $HaveCount,
 
-        # Tolerant numeric comparison: -BeWithin <tolerance> -Of <expected>
+        # Tolerant numeric comparison
         [Parameter(ParameterSetName = 'BeWithin')]
         [long] $Tolerance,
 
@@ -120,83 +120,73 @@ function Should {
     )
 
     process {
-        $ps = $PSCmdlet.ParameterSetName
-
-        switch ($ps) {
+        switch ($PSCmdlet.ParameterSetName) {
             'Be' {
                 if ($Actual -ne $Be) {
                     Fail-Assertion "Expected value: $Be ($Be)`nActual value: $Actual ($($Actual.GetType().Name)`)"
                 }
             }
-
             'BeEqualTo' {
                 if ($Actual -ne $BeEqualTo) {
-                    Fail-Assertion "Expected value (equal to): $BeEqualTo ($BeEqualTo)`nActual value: $Actual ($($Actual.GetType().Name)`)"
+                    Fail-Assertion "Expected value (equal to): $BeEqualTo ($($BeEqualTo.GetType().Name)`)`nActual value: $Actual ($($Actual.GetType().Name)`)"
                 }
             }
-
             'BeTrue' {
                 if (-not $Actual) {
                     Fail-Assertion "Expected: True`nActual: $Actual ($($Actual.GetType().Name)`)"
                 }
             }
-
             'BeFalse' {
                 if ($Actual) {
                     Fail-Assertion "Expected: False`nActual: $Actual ($($Actual.GetType().Name)`)"
                 }
             }
-
             'BeNull' {
                 if ($null -ne $Actual) {
                     Fail-Assertion "Expected: $null`nActual: $Actual ($($Actual.GetType().Name)`)"
                 }
             }
-
             'BeNotNull' {
                 if ($null -eq $Actual) {
                     Fail-Assertion "Expected non-null value`nActual: $Actual"
                 }
             }
-
             'BeEmpty' {
-                if ($Actual -is [System.Collections.IEnumerable]) {
-                    $count = ($Actual | Measure-Object | Select-Object -ExpandProperty Count)
+                if ($Actual -is [string]) {
+                    if ([string]::IsNullOrEmpty($Actual) -eq $false) {
+                        Fail-Assertion "Expected empty string`nActual: '$Actual'"
+                    }
+                }
+                else {
+                    $count = @($Actual).Count
                     if ($count -ne 0) {
                         Fail-Assertion "Expected empty collection`nActual count: $count`nActual items: $($Actual -join ', ')"
                     }
-                } elseif ([string]::IsNullOrEmpty([string]$Actual) -eq $false) {
-                    Fail-Assertion "Expected empty string`nActual: $Actual"
                 }
             }
-
             'BeNotEmpty' {
-                if ($Actual -is [System.Collections.IEnumerable]) {
-                    $count = ($Actual | Measure-Object | Select-Object -ExpandProperty Count)
+                if ($Actual -is [string]) {
+                    if ([string]::IsNullOrEmpty($Actual)) {
+                        Fail-Assertion "Expected non-empty string`nActual is empty/null"
+                    }
+                } else {
+                    $count = @($Actual).Count
                     if ($count -eq 0) {
                         Fail-Assertion "Expected non-empty collection`nActual count: 0"
                     }
-                } else {
-                    if ([string]::IsNullOrEmpty([string]$Actual)) {
-                        Fail-Assertion "Expected non-empty string`nActual: $Actual"
-                    }
                 }
             }
-
             'Contain' {
                 if ($Actual -is [string]) {
                     if (-not ($Actual -like "*$Contain*")) {
                         Fail-Assertion "Expected string to contain: '$Contain'`nActual string: '$Actual'"
                     }
-                } elseif ($Actual -is [System.Collections.IEnumerable]) {
-                    if (-not ($Actual -contains $Contain)) {
+                } else {
+                    if (-not (@($Actual) -contains $Contain)) {
                         Fail-Assertion "Expected collection to contain: '$Contain'`nActual collection: $($Actual -join ', ')"
                     }
-                } else {
-                    Fail-Assertion "Contain not supported for type: $($Actual.GetType().FullName)"
                 }
             }
-
             'Match' {
                 if (-not ($Actual -is [string])) {
                     Fail-Assertion "Match requires a string Actual value`nActual type: $($Actual.GetType().FullName)"
@@ -204,58 +194,50 @@ function Should {
                     Fail-Assertion "Expected string to match regex: '$Match'`nActual string: '$Actual'"
                 }
             }
-
             'BeGreaterThan' {
                 try {
                     if (-not ([decimal]$Actual -gt [decimal]$BeGreaterThan)) {
-                        Fail-Assertion "Expected value > $BeGreaterThan`nActual value: $Actual ($($Actual.GetType().Name)`)"
+                        Fail-Assertion "Expected value > $BeGreaterThan`nActual value: $Actual"
                     }
                 } catch {
-                    Fail-Assertion "BeGreaterThan requires numeric-compatible types`nActual: $Actual , Expected: $BeGreaterThan"
+                    Fail-Assertion "BeGreaterThan requires numeric-compatible types`nActual: $Actual"
                 }
             }
-
             'BeLessThan' {
                 try {
                     if (-not ([decimal]$Actual -lt [decimal]$BeLessThan)) {
-                        Fail-Assertion "Expected value < $BeLessThan`nActual value: $Actual ($($Actual.GetType().Name)`)"
+                        Fail-Assertion "Expected value < $BeLessThan`nActual value: $Actual"
                     }
                 } catch {
-                    Fail-Assertion "BeLessThan requires numeric-compatible types`nActual: $Actual , Expected: $BeLessThan"
+                    Fail-Assertion "BeLessThan requires numeric-compatible types`nActual: $Actual"
                 }
             }
-
             'BeGreaterOrEqualTo' {
                 try {
                     if (-not ([decimal]$Actual -ge [decimal]$BeGreaterOrEqualTo)) {
-                        Fail-Assertion "Expected value >= $BeGreaterOrEqualTo`nActual value: $Actual ($($Actual.GetType().Name)`)"
+                        Fail-Assertion "Expected value >= $BeGreaterOrEqualTo`nActual value: $Actual"
                     }
                 } catch {
-                    Fail-Assertion "BeGreaterOrEqualTo requires numeric-compatible types`nActual: $Actual , Expected: $BeGreaterOrEqualTo"
+                    Fail-Assertion "BeGreaterOrEqualTo requires numeric-compatible types`nActual: $Actual"
                 }
             }
-
             'BeLessOrEqualTo' {
                 try {
                     if (-not ([decimal]$Actual -le [decimal]$BeLessOrEqualTo)) {
-                        Fail-Assertion "Expected value <= $BeLessOrEqualTo`nActual value: $Actual ($($Actual.GetType().Name)`)"
+                        Fail-Assertion "Expected value <= $BeLessOrEqualTo`nActual value: $Actual"
                     }
                 } catch {
-                    Fail-Assertion "BeLessOrEqualTo requires numeric-compatible types`nActual: $Actual , Expected: $BeLessOrEqualTo"
+                    Fail-Assertion "BeLessOrEqualTo requires numeric-compatible types`nActual: $Actual"
                 }
             }
-
             'HaveCount' {
-                if (-not ($Actual -is [System.Collections.IEnumerable])) {
-                    Fail-Assertion "HaveCount expects a collection/enumerable`nActual type: $($Actual.GetType().FullName)"
-                } else {
-                    $count = ($Actual | Measure-Object | Select-Object -ExpandProperty Count)
-                    if ($count -ne $HaveCount) {
-                        Fail-Assertion "Expected collection count: $HaveCount`nActual count: $count`nActual items: $($Actual -join ', ')"
-                    }
+                $normalizedCollection = @($Actual)
+                $count = $normalizedCollection.Count
+                
+                if ($count -ne $HaveCount) {
+                    Fail-Assertion "Expected count: $HaveCount`nActual count: $count`nActual items: $($normalizedCollection -join ', ')"
                 }
             }
-
             'BeWithin' {
                 if ($Tolerance -lt 0) {
                     Fail-Assertion "Tolerance must be >= 0`nTolerance: $Tolerance"
@@ -268,12 +250,11 @@ function Should {
                         Fail-Assertion "Expected: $Of ± $Tolerance`nActual: $Actual`nDifference: $diff"
                     }
                 } catch {
-                    Fail-Assertion "BeWithin requires numeric-compatible types`nActual: $Actual , Expected: $Of"
+                    Fail-Assertion "BeWithin requires numeric-compatible types`nActual: $Actual"
                 }
             }
-
             default {
-                Fail-Assertion "No assertion parameter provided. Use e.g. -Be, -BeEqualTo, -BeGreaterThan, -Contain, -BeTrue, -BeWithin, etc."
+                Fail-Assertion "No assertion parameter provided."
             }
         }
     }

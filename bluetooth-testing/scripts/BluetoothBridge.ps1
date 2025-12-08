@@ -55,7 +55,7 @@ function Get-LapisActiveBluetoothServersUuids {
         [string] $SerialNumber
     )
 
-    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-activeBluetoothServersUuids'
+    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-activeBluetoothServersUuids' | ConvertFrom-Json
 }
 
 function Get-LapisScannedDevices {
@@ -125,10 +125,15 @@ function Start-LapisServerWithoutPairing {
 function Stop-LapisServer {
     param (
         [Parameter(Mandatory)]
-        [string] $SerialNumber
+        [string] $SerialNumber,
+
+        [Parameter(Mandatory)]
+        [string] $Uuid
     )
 
-    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'stop-server'
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'stop-server' -Extras {
+        New-AdbBundlePair -Key 'uuid' -String $Uuid
+    }
 }
 
 function Connect-LapisDevice {

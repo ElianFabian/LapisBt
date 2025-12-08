@@ -23,7 +23,7 @@ class TestingBroadcastReceiver : BroadcastReceiver() {
 				lapisBt.isScanning.value.toString()
 			}
 			"get-activeBluetoothServersUuids" -> {
-				lapisBt.activeBluetoothServersUuids.value.toString()
+				lapisBt.activeBluetoothServersUuids.value.toJson()
 			}
 			"get-scannedDevices" -> {
 				lapisBt.scannedDevices.value.toJson()
