@@ -96,6 +96,17 @@ Test "bluetooth state should be on" {
     Get-LapisBluetoothState -SerialNumber $serverDevice.SerialNumber | Should -Be 'ON'
 }
 
+Test "devices should be unpaired" {
+    Invoke-LapisDeviceUnpairing -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address
+    Invoke-LapisDeviceUnpairing -SerialNumber $serverDevice.SerialNumber -Address $clientDevice.Address
+
+    $clientPairedDevices = Get-LapisPairedDevices -SerialNumber $clientDevice.SerialNumber | Select-Object -ExpandProperty Address
+    $serverPairedDevices = Get-LapisPairedDevices -SerialNumber $serverDevice.SerialNumber | Select-Object -ExpandProperty Address
+
+    $clientPairedDevices | Should -NotContain $serverDevice.Address
+    $serverPairedDevices | Should -NotContain $clientDevice.Address
+}
+
 Test "scannedDevices should be empty by now" {
     Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Should -BeEmpty
     Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Should -BeEmpty
@@ -176,6 +187,43 @@ Test "startServerWithoutPairing and connectToDeviceWithoutPairing should work" {
     $serverConnectedDevices | Should -HaveCount 1
     $serverConnectedDevices[0].Address | Should -BeEqualTo $clientDevice.Address
 }
+
+Test "an unpaired device should appear on scannedDevices as Disconnected after disconnection" {
+    Clear-AdbLogcat -SerialNumber $clientDevice.SerialNumber
+    Clear-AdbLogcat -SerialNumber $serverDevice.SerialNumber
+
+    Disconnect-LapisDevice -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address
+
+    Get-AdbLogcat -SerialNumber $clientDevice.SerialNumber -FilteredTag 'MainTestingActivity' `
+        -Pattern 'event: OnDeviceDisconnected' -StopAtMatchCount 1 > $null
+
+    Get-AdbLogcat -SerialNumber $serverDevice.SerialNumber -FilteredTag 'MainTestingActivity' `
+        -Pattern 'event: OnDeviceDisconnected' -StopAtMatchCount 1 > $null
+
+    $clientDisconnectedDevice = Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Where-Object { $_.Address -eq $serverDevice.Address }
+    $serverDisconnectedDevice = Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Where-Object { $_.Address -eq $clientDevice.Address }
+
+    $clientDisconnectedDevice.connectionState | Should -BeEqualTo 'Disconnected'
+    $serverDisconnectedDevice.connectionState | Should -BeEqualTo 'Disconnected'
+}
+
+# I'm not sure how we can test cancelConnectionAttempt since sometimes it immediatly connects
+# Test "cancelConnectionAttempt works" {
+#     $uuid = (New-Guid).Guid
+
+#     Start-LapisServerWithoutPairing -SerialNumber $serverDevice.SerialNumber -Uuid $uuid
+#     Connect-LapisDeviceWithoutPairing -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address -Uuid $uuid
+#     Invoke-LapisCancellingConnectionAttempt -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address
+
+#     Get-AdbLogcat -SerialNumber $clientDevice.SerialNumber -FilteredTag 'MainTestingActivity' `
+#         -Pattern 'END cancel-connectionAttempt: true' -StopAtMatchCount 1 > $null
+
+#     $clientScannedDevices = Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Select-Object -ExpandProperty Address
+#     $serverScannedDevices = Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Select-Object -ExpandProperty Address
+
+#     $clientScannedDevices | Should -NotContain $serverDevice.Address 
+#     $serverScannedDevices | Should -NotContain $clientDevice.Address 
+# }
 
 
 

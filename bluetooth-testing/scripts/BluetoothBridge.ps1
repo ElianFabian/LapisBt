@@ -171,3 +171,59 @@ function Connect-LapisDeviceWithoutPairing {
         New-AdbBundlePair -Key 'uuid' -String $Uuid
     }
 }
+
+function Disconnect-LapisDevice {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'disconnectFrom-device' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+    }
+}
+
+function Invoke-LapisCancellingConnectionAttempt {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'cancel-connectionAttempt' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+    }
+}
+
+function Invoke-LapisDevicePairing {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'pair-device' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+    }
+}
+
+function Invoke-LapisDeviceUnpairing {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'unpair-device' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+    }
+}

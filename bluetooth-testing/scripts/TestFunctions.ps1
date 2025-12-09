@@ -91,6 +91,9 @@ function Should {
         [Parameter(ParameterSetName = 'Contain')]
         $Contain,
 
+        [Parameter(ParameterSetName = 'NotContain')]
+        $NotContain,
+
         [Parameter(ParameterSetName = 'Match')]
         $Match,
 
@@ -169,7 +172,8 @@ function Should {
                     if ([string]::IsNullOrEmpty($Actual)) {
                         Fail-Assertion "Expected non-empty string`nActual is empty/null"
                     }
-                } else {
+                }
+                else {
                     $count = @($Actual).Count
                     if ($count -eq 0) {
                         Fail-Assertion "Expected non-empty collection`nActual count: 0"
@@ -181,7 +185,8 @@ function Should {
                     if (-not ($Actual -like "*$Contain*")) {
                         Fail-Assertion "Expected string to contain: '$Contain'`nActual string: '$Actual'"
                     }
-                } else {
+                }
+                else {
                     if (-not (@($Actual) -contains $Contain)) {
                         Fail-Assertion "Expected collection to contain: '$Contain'`nActual collection: $($Actual -join ', ')"
                     }
@@ -190,8 +195,21 @@ function Should {
             'Match' {
                 if (-not ($Actual -is [string])) {
                     Fail-Assertion "Match requires a string Actual value`nActual type: $($Actual.GetType().FullName)"
-                } elseif (-not ([regex]::IsMatch([string]$Actual, [string]$Match))) {
+                }
+                elseif (-not ([regex]::IsMatch([string]$Actual, [string]$Match))) {
                     Fail-Assertion "Expected string to match regex: '$Match'`nActual string: '$Actual'"
+                }
+            }
+            'NotContain' {
+                if ($Actual -is [string]) {
+                    if ($Actual -like "*$NotContain*") {
+                        Fail-Assertion "Expected string **not** to contain: '$NotContain'`nActual string: '$Actual'"
+                    }
+                }
+                else {
+                    if (@($Actual) -contains $NotContain) {
+                        Fail-Assertion "Expected collection **not** to contain: '$NotContain'`nActual collection: $($Actual -join ', ')"
+                    }
                 }
             }
             'BeGreaterThan' {
@@ -199,7 +217,8 @@ function Should {
                     if (-not ([decimal]$Actual -gt [decimal]$BeGreaterThan)) {
                         Fail-Assertion "Expected value > $BeGreaterThan`nActual value: $Actual"
                     }
-                } catch {
+                }
+                catch {
                     Fail-Assertion "BeGreaterThan requires numeric-compatible types`nActual: $Actual"
                 }
             }
@@ -208,7 +227,8 @@ function Should {
                     if (-not ([decimal]$Actual -lt [decimal]$BeLessThan)) {
                         Fail-Assertion "Expected value < $BeLessThan`nActual value: $Actual"
                     }
-                } catch {
+                }
+                catch {
                     Fail-Assertion "BeLessThan requires numeric-compatible types`nActual: $Actual"
                 }
             }
@@ -217,7 +237,8 @@ function Should {
                     if (-not ([decimal]$Actual -ge [decimal]$BeGreaterOrEqualTo)) {
                         Fail-Assertion "Expected value >= $BeGreaterOrEqualTo`nActual value: $Actual"
                     }
-                } catch {
+                }
+                catch {
                     Fail-Assertion "BeGreaterOrEqualTo requires numeric-compatible types`nActual: $Actual"
                 }
             }
@@ -226,7 +247,8 @@ function Should {
                     if (-not ([decimal]$Actual -le [decimal]$BeLessOrEqualTo)) {
                         Fail-Assertion "Expected value <= $BeLessOrEqualTo`nActual value: $Actual"
                     }
-                } catch {
+                }
+                catch {
                     Fail-Assertion "BeLessOrEqualTo requires numeric-compatible types`nActual: $Actual"
                 }
             }
@@ -249,7 +271,8 @@ function Should {
                     if ($diff -gt $Tolerance) {
                         Fail-Assertion "Expected: $Of ± $Tolerance`nActual: $Actual`nDifference: $diff"
                     }
-                } catch {
+                }
+                catch {
                     Fail-Assertion "BeWithin requires numeric-compatible types`nActual: $Actual"
                 }
             }

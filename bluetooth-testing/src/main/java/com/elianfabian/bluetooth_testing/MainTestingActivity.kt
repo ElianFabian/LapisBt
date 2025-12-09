@@ -40,6 +40,11 @@ class MainTestingActivity : AppCompatActivity() {
 				Log.i(TAG, "isScanning: $isScanning")
 			}
 		}
+		lifecycleScope.launch {
+			lapisBt.events.collect { event ->
+				Log.i(TAG, "event: $event")
+			}
+		}
 	}
 
 
@@ -115,6 +120,42 @@ class MainTestingActivity : AppCompatActivity() {
 							serviceUuid = UUID.fromString(uuid),
 						)
 					}
+				}
+			}
+			"disconnectFrom-device" -> {
+				lifecycleScope.launch {
+					logAction(action) {
+						val address = intent.getStringExtra("address") ?: return@launch
+
+						lapisBt.disconnectFromDevice(
+							deviceAddress = address,
+						)
+					}
+				}
+			}
+			"cancel-connectionAttempt" -> {
+				lifecycleScope.launch {
+					logAction(action) {
+						val address = intent.getStringExtra("address") ?: return@launch
+
+						lapisBt.cancelConnectionAttempt(
+							deviceAddress = address,
+						)
+					}
+				}
+			}
+			"pair-device" -> {
+				logAction(action) {
+					val address = intent.getStringExtra("address") ?: return
+
+					lapisBt.pairDevice(address)
+				}
+			}
+			"unpair-device" -> {
+				logAction(action) {
+					val address = intent.getStringExtra("address") ?: return
+
+					lapisBt.unpairDevice(address)
 				}
 			}
 		}
