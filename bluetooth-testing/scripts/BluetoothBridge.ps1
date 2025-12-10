@@ -8,10 +8,12 @@ function Get-LapisState {
         [string] $SerialNumber,
 
         [Parameter(Mandatory)]
-        [string] $Name
+        [string] $Name,
+
+        [scriptblock] $Extras = $null
     )
 
-    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .TestingBroadcastReceiver -Action $Name
+    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .TestingBroadcastReceiver -Action $Name -Extras $Extras
     return (Send-AdbBroadcast -SerialNumber $SerialNumber -Intent $intent).Data
 }
 
@@ -226,4 +228,82 @@ function Invoke-LapisDeviceUnpairing {
     Invoke-LapisAction -SerialNumber $SerialNumber -Action 'unpair-device' -Extras {
         New-AdbBundlePair -Key 'address' -String $Address
     }
+}
+
+function Send-LapisData {
+
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address,
+
+        [Parameter(Mandatory)]
+        [sbyte[]] $ByteArray
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'send-data' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+        New-AdbBundlePair -Key 'bytes' -IntArray $ByteArray
+    }
+}
+
+function Receive-LapisData {
+
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Address,
+
+        [Parameter(Mandatory)]
+        [int] $BytesLength
+    )
+
+    Get-LapisState -SerialNumber $SerialNumber -Name 'receive-data' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+        New-AdbBundlePair -Key 'bytesLength' -Int $BytesLength
+    } | ConvertFrom-Json
+}
+
+function Set-LapisBluetoothName {
+
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+        
+        [Parameter(Mandatory)]
+        [string] $Name
+    )
+
+    Invoke-LapisAction -SerialNumber $SerialNumber -Action 'set-bluetoothName' -Extras {
+        New-AdbBundlePair -Key 'name' -String $Name
+    }
+}
+
+function Get-LapisBluetoothName {
+
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber,
+
+        [Parameter(Mandatory)]
+        [string] $Address
+    )
+
+    Get-LapisState -SerialNumber $SerialNumber -Action 'get-bluetoothName'
+}
+
+function Get-LapisRemoteDevice {
+
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber
+    )
+
+    Get-LapisState -SerialNumber $SerialNumber -Action 'get-remoteDevice' -Extras {
+        New-AdbBundlePair -Key 'address' -String $Address
+    } | ConvertFrom-Json
 }

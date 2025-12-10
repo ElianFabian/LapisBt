@@ -35,5 +35,4 @@ internal val gson = GsonBuilder()
 	.serializeNulls()
 	.create()
 
-fun Any.toJson() = gson.toJson(this
-)
+fun Any.toJson(): String = gson.toJson(this)

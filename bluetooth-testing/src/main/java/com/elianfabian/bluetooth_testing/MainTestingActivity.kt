@@ -158,6 +158,25 @@ class MainTestingActivity : AppCompatActivity() {
 					lapisBt.unpairDevice(address)
 				}
 			}
+			"set-bluetoothName" -> {
+				logAction(action) {
+					val name = intent.getStringExtra("name") ?: return
+
+					lapisBt.setBluetoothDeviceName(name)
+				}
+			}
+			"send-data" -> {
+				lifecycleScope.launch {
+					logAction(action) {
+						val address = intent.getStringExtra("address") ?: return@launch
+						val byteArray = intent.getIntArrayExtra("bytes")?.map { it.toByte() }?.toByteArray() ?: return@launch
+
+						lapisBt.sendData(address) { stream ->
+							stream.write(byteArray)
+						}
+					}
+				}
+			}
 		}
 	}
 

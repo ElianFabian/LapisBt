@@ -92,8 +92,11 @@ Write-Host
 
 
 Test "bluetooth state should be on" {
-    Get-LapisBluetoothState -SerialNumber $clientDevice.SerialNumber | Should -Be 'ON'
-    Get-LapisBluetoothState -SerialNumber $serverDevice.SerialNumber | Should -Be 'ON'
+    $clientBluetoothState = Get-LapisBluetoothState -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientBluetoothState -IsEqualTo 'ON'
+
+    $serverBluetoothState = Get-LapisBluetoothState -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverBluetoothState -IsEqualTo 'ON'
 }
 
 Test "devices should be unpaired" {
@@ -103,65 +106,82 @@ Test "devices should be unpaired" {
     $clientPairedDevices = Get-LapisPairedDevices -SerialNumber $clientDevice.SerialNumber | Select-Object -ExpandProperty Address
     $serverPairedDevices = Get-LapisPairedDevices -SerialNumber $serverDevice.SerialNumber | Select-Object -ExpandProperty Address
 
-    $clientPairedDevices | Should -NotContain $serverDevice.Address
-    $serverPairedDevices | Should -NotContain $clientDevice.Address
+    Assert-That $clientPairedDevices -NotContain $serverDevice.Address
+    Assert-That $serverPairedDevices -NotContain $clientDevice.Address
 }
 
 Test "scannedDevices should be empty by now" {
-    Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Should -BeEmpty
-    Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Should -BeEmpty
+    $clientScannedDevices = Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber
+    $serverScannedDevices = Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber
+
+    Assert-That $clientScannedDevices -IsEmpty
+    Assert-That $serverScannedDevices -IsEmpty
 }
 
 Test "startScan sets isScanning to true" {
     Start-LapisScan -SerialNumber $clientDevice.SerialNumber
-    $isScanning = Get-LapisIsScanning -SerialNumber $clientDevice.SerialNumber
-    $isScanning | Should -BeTrue
+    $clientIsScanning = Get-LapisIsScanning -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientIsScanning -IsTrue
 
     Start-LapisScan -SerialNumber $serverDevice.SerialNumber
-    $isScanning = Get-LapisIsScanning -SerialNumber $serverDevice.SerialNumber
-    $isScanning | Should -BeTrue
+    $serverIsScanning = Get-LapisIsScanning -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverIsScanning -IsTrue
 }
 
 Test "stopScan sets isScanning to false" {
     Stop-LapisScan -SerialNumber $clientDevice.SerialNumber
-    Get-LapisIsScanning -SerialNumber $clientDevice.SerialNumber | Should -BeFalse
+    $clientIsScanning = Get-LapisIsScanning -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientIsScanning -IsFalse
 
     Stop-LapisScan -SerialNumber $serverDevice.SerialNumber
-    Get-LapisIsScanning -SerialNumber $serverDevice.SerialNumber | Should -BeFalse
+    $serverIsScanning = Get-LapisIsScanning -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverIsScanning -IsFalse
 }
 
 # Stricly this isn't necessary true, but on a practical level this will always be the case
 Test "scannedDevices should be not be empty" {
-    Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Should -BeNotEmpty
-    Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Should -BeNotEmpty
+    $clientScannedDevices = Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientScannedDevices -IsNotEmpty
+    
+    $serverScannedDevices = Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverScannedDevices -IsNotEmpty
 }
 
 Test "activeBluetoothServersUuids should be empty by now" {
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber | Should -BeEmpty
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber | Should -BeEmpty
+    $clientUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientUuids -IsEmpty
+    
+    $serverUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverUuids -IsEmpty
 }
 
 Test "activeBluetoothServersUuids should have count 1 after calling startServer" {
     $uuid = (New-Guid).Guid
-
     Start-LapisServer -SerialNumber $clientDevice.SerialNumber -Uuid $uuid
     Start-LapisServer -SerialNumber $serverDevice.SerialNumber -Uuid $uuid
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber | Should -HaveCount 1
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber | Should -HaveCount 1
+
+    $clientUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientUuids -HasCount 1
+
+    $serverUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverUuids -HasCount 1
 }
 
 Test "activeBluetoothServersUuids should be empty after calling stopServer" {
     $clientUuid = Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber
     $serverUuid = Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber
 
-    $clientUuid | Should -BeEqualTo $serverUuid
-
+    Assert-That $clientUuid -IsEqualTo $serverUuid
     $uuid = $clientUuid
 
     Stop-LapisServer -SerialNumber $clientDevice.SerialNumber -Uuid $uuid
     Stop-LapisServer -SerialNumber $serverDevice.SerialNumber -Uuid $uuid
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber | Should -BeEmpty
-    Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber | Should -BeEmpty
+
+    $clientUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $clientDevice.SerialNumber
+    Assert-That $clientUuids -IsEmpty
+
+    $serverUuids = Get-LapisActiveBluetoothServersUuids -SerialNumber $serverDevice.SerialNumber
+    Assert-That $serverUuids -IsEmpty
 }
 
 Test "startServerWithoutPairing and connectToDeviceWithoutPairing should work" {
@@ -181,11 +201,27 @@ Test "startServerWithoutPairing and connectToDeviceWithoutPairing should work" {
     $clientConnectedDevices = $clientScannedDevices | Where-Object { $_.connectionState -eq 'Connected' }
     $serverConnectedDevices = $serverScannedDevices | Where-Object { $_.connectionState -eq 'Connected' }
 
-    $clientConnectedDevices | Should -HaveCount 1
-    $clientConnectedDevices[0].Address | Should -BeEqualTo $serverDevice.Address
+    Assert-That $clientConnectedDevices -HasCount 1
+    Assert-That $clientConnectedDevices[0].Address -IsEqualTo $serverDevice.Address
 
-    $serverConnectedDevices | Should -HaveCount 1
-    $serverConnectedDevices[0].Address | Should -BeEqualTo $clientDevice.Address
+    Assert-That $serverConnectedDevices -HasCount 1
+    Assert-That $serverConnectedDevices[0].Address -IsEqualTo $clientDevice.Address
+}
+
+Test "receiveData receives the same data sendData sent" {
+    $random = [System.Random]::new(1)
+
+    $length = 100
+
+    $byteArray = 1..$length | ForEach-Object {
+        $value = $random.Next()
+
+        [sbyte](($value % 256 + 128) % 256 - 128) 
+    }
+    Send-LapisData -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address -ByteArray $byteArray
+
+    $actualBytes = Receive-LapisData -SerialNumber $serverDevice.SerialNumber -Address $clientDevice.Address -BytesLength $length
+    Assert-That $actualBytes -IsEqualTo $byteArray
 }
 
 Test "an unpaired device should appear on scannedDevices as Disconnected after disconnection" {
@@ -203,8 +239,8 @@ Test "an unpaired device should appear on scannedDevices as Disconnected after d
     $clientDisconnectedDevice = Get-LapisScannedDevices -SerialNumber $clientDevice.SerialNumber | Where-Object { $_.Address -eq $serverDevice.Address }
     $serverDisconnectedDevice = Get-LapisScannedDevices -SerialNumber $serverDevice.SerialNumber | Where-Object { $_.Address -eq $clientDevice.Address }
 
-    $clientDisconnectedDevice.connectionState | Should -BeEqualTo 'Disconnected'
-    $serverDisconnectedDevice.connectionState | Should -BeEqualTo 'Disconnected'
+    Assert-That $clientDisconnectedDevice.connectionState -IsEqualTo 'Disconnected'
+    Assert-That $serverDisconnectedDevice.connectionState -IsEqualTo 'Disconnected'
 }
 
 # I'm not sure how we can test cancelConnectionAttempt since sometimes it immediatly connects
