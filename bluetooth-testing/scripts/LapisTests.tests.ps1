@@ -208,20 +208,27 @@ Test "startServerWithoutPairing and connectToDeviceWithoutPairing should work" {
     Assert-That $serverConnectedDevices[0].Address -IsEqualTo $clientDevice.Address
 }
 
-Test "receiveData receives the same data sendData sent" {
+Test "both devices can send and receive mirrored data" {
     $random = [System.Random]::new(1)
-
     $length = 100
 
-    $byteArray = 1..$length | ForEach-Object {
+    $byteArrayA = 1..$length | ForEach-Object {
         $value = $random.Next()
-
-        [sbyte](($value % 256 + 128) % 256 - 128) 
+        [sbyte](($value % 256 + 128) % 256 - 128)
     }
-    Send-LapisData -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address -ByteArray $byteArray
 
-    $actualBytes = Receive-LapisData -SerialNumber $serverDevice.SerialNumber -Address $clientDevice.Address -BytesLength $length
-    Assert-That $actualBytes -IsEqualTo $byteArray
+    $byteArrayB = 1..$length | ForEach-Object {
+        $value = $random.Next()
+        [sbyte](($value % 256 + 128) % 256 - 128)
+    }
+
+    Send-LapisData -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address -ByteArray $byteArrayA
+    $receivedOnServer = Receive-LapisData -SerialNumber $serverDevice.SerialNumber -Address $clientDevice.Address -BytesLength $length
+    Assert-That $receivedOnServer -IsEqualTo $byteArrayA
+
+    Send-LapisData -SerialNumber $serverDevice.SerialNumber -Address $clientDevice.Address -ByteArray $byteArrayB
+    $receivedOnClient = Receive-LapisData -SerialNumber $clientDevice.SerialNumber -Address $serverDevice.Address -BytesLength $length
+    Assert-That $receivedOnClient -IsEqualTo $byteArrayB
 }
 
 Test "an unpaired device should appear on scannedDevices as Disconnected after disconnection" {
