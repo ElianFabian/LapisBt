@@ -9,9 +9,7 @@ import android.os.Bundle
 import android.util.Log
 import kotlinx.coroutines.runBlocking
 import java.io.DataInputStream
-import java.io.IOException
 import java.io.InputStream
-import java.util.Arrays
 import kotlin.math.min
 
 class TestingBroadcastReceiver : BroadcastReceiver() {
@@ -42,7 +40,7 @@ class TestingBroadcastReceiver : BroadcastReceiver() {
 			}
 			"get-remoteDevice" -> {
 				val address = intent.getStringExtra("address")!!
-				lapisBt.getRemoteDevice(address)?.toJson() ?: "null"
+				lapisBt.getRemoteDevice(address)?.toJson() ?: ""
 			}
 			"receive-data" -> {
 				val address = intent.getStringExtra("address")!!
@@ -108,7 +106,7 @@ fun InputStream.readNBytes2(len: Int): ByteArray {
 			}
 			else {
 				if (bufs == null) {
-					bufs = ArrayList<ByteArray>()
+					bufs = ArrayList()
 					bufs.add(result)
 				}
 				bufs.add(buf)
