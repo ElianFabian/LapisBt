@@ -53,9 +53,7 @@ class TestingBroadcastReceiver : BroadcastReceiver() {
 				runBlocking {
 					lapisBt.receiveData(address) { stream ->
 						val dataStream = DataInputStream(stream)
-						byteArray = dataStream.readNBytes2(bytesLength).also {
-							Log.i(TAG, "readNBytes2: ${it.contentToString()}")
-						}
+						byteArray = dataStream.readNBytes2(bytesLength)
 					}
 				}
 				byteArray.toJson()
