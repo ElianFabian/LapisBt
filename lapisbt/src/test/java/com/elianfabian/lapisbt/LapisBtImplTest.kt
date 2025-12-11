@@ -295,7 +295,7 @@ class LapisBtImplTest {
 
 		val serviceUuid = UUID.randomUUID()
 		val connectToDeviceJob = launch {
-			lapisBt.connectToDevice(device.address, serviceUuid).also { println("$$$ result: $it") }
+			lapisBt.connectToDevice(device.address, serviceUuid)
 		}
 
 		lapisBt.scannedDevices.first { devices ->
@@ -334,7 +334,7 @@ class LapisBtImplTest {
 
 		val serviceUuid = UUID.randomUUID()
 		launch {
-			lapisBt.connectToDevice(device.address, serviceUuid).also { println("$$$ result: $it") }
+			lapisBt.connectToDevice(device.address, serviceUuid)
 		}
 
 		lapisBt.scannedDevices.first { devices ->
