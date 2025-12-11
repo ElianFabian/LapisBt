@@ -23,3 +23,4 @@ dependencyResolutionManagement {
 rootProject.name = "LapisBt"
 include(":app")
 include(":lapisbt")
+include(":bluetooth-testing")
