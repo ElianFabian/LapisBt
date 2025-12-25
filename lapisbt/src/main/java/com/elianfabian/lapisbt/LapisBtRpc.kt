@@ -2,7 +2,7 @@ package com.elianfabian.lapisbt
 
 public interface LapisBtRpc {
 
-	public fun <T > getOrCreateBluetoothApiClient(deviceAddress: String): T?
+	public fun <T > getOrCreateBluetoothApiClient(deviceAddress: String, apiInterface: Class<T>): T
 
 	public fun <T : Any> registerBluetoothApiServer(server: T)
 
