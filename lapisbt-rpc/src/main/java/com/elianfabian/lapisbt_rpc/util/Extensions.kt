@@ -1,13 +1,19 @@
-package com.elianfabian.lapisbt.util
+package com.elianfabian.lapisbt_rpc.util
 
 import kotlinx.coroutines.Dispatchers
 import java.io.InputStream
+import java.lang.reflect.Array
+import java.lang.reflect.GenericArrayType
+import java.lang.reflect.ParameterizedType
+import java.lang.reflect.Type
+import java.lang.reflect.TypeVariable
+import java.lang.reflect.WildcardType
 import java.util.Enumeration
-import kotlin.math.min
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
 import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
 import kotlin.coroutines.resumeWithException
+import kotlin.math.min
 
 internal fun InputStream.readNBytesCompat(len: Int): ByteArray {
 	require(len >= 0) { "len < 0" }
@@ -104,4 +110,37 @@ internal fun <T> Iterator<T>.asEnumeration(): Enumeration<T> = object : Enumerat
 	override fun nextElement(): T {
 		return this@asEnumeration.next()
 	}
+}
+
+
+internal fun Type.getRawClass(): Class<*> {
+	val type = this
+
+	if (type is Class<*>) {
+		// Type is a normal class.
+		return type
+	}
+	if (type is ParameterizedType) {
+		// I'm not exactly sure why getRawType() returns Type instead of Class. Neal isn't either but
+		// suspects some pathological case related to nested classes exists.
+		val rawType = type.rawType
+		require(rawType is Class<*>)
+		return rawType
+	}
+	if (type is GenericArrayType) {
+		val componentType = type.genericComponentType
+		return Array.newInstance(componentType.getRawClass(), 0).javaClass
+	}
+	if (type is TypeVariable<*>) {
+		// We could use the variable's bounds, but that won't work if there are multiple. Having a raw
+		// type that's more general than necessary is okay.
+		return Any::class.java
+	}
+	if (type is WildcardType) {
+		return type.upperBounds[0].getRawClass()
+	}
+
+	throw IllegalArgumentException(
+		"Expected a Class, ParameterizedType, or GenericArrayType, but <$type> is of type ${type.javaClass.getName()}"
+	)
 }

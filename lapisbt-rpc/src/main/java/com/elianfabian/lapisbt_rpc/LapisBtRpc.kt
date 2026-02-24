@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt
+package com.elianfabian.lapisbt_rpc
 
 public interface LapisBtRpc {
 

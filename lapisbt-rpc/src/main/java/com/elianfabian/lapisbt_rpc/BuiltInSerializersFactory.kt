@@ -1,26 +1,79 @@
-package com.elianfabian.lapisbt.serialized_type
+package com.elianfabian.lapisbt_rpc
 
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.reflect.Type
+import kotlin.reflect.KClass
 
-internal object UnitSerializer : LapisDataSerializer<Unit> {
+internal object BuiltInSerializersFactory : LapisSerializer.Factory {
 
-	override val type = Unit::class
+	override fun create(type: Type?): LapisSerializer<*>? {
+		val kClass: KClass<*>? = (type as? Class<*>)?.kotlin
+		return when (kClass) {
+			Unit::class -> UnitSerializer
+			Boolean::class -> BooleanSerializer
+			BooleanArray::class -> BooleanArraySerializer
+			Char::class -> CharSerializer
+			CharArray::class -> CharArraySerializer
+			String::class -> StringSerializer
+			Byte::class -> ByteSerializer
+			ByteArray::class -> ByteArraySerializer
+			Short::class -> ShortSerializer
+			ShortArray::class -> ShortArraySerializer
+			Int::class -> IntSerializer
+			IntArray::class -> IntArraySerializer
+			Long::class -> LongSerializer
+			LongArray::class -> LongArraySerializer
+			Float::class -> FloatSerializer
+			FloatArray::class -> FloatArraySerializer
+			Double::class -> DoubleSerializer
+			DoubleArray::class -> DoubleArraySerializer
+
+			UByte::class -> UByteSerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UByteArray::class,
+				-> UByteArraySerializer
+			UShort::class -> UShortSerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UShortArray::class,
+				-> UShortArraySerializer
+			UInt::class -> UIntSerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UIntArray::class,
+				-> UIntArraySerializer
+			ULong::class -> ULongSerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			ULongArray::class,
+				-> ULongArraySerializer
+			else -> null
+		}
+	}
+}
+
+internal object UnitSerializer : LapisSerializer<Unit> {
 
 	override fun serialize(stream: OutputStream, data: Unit) {
 		// no-op
 	}
 
-	override fun deserialize(stream: InputStream) {
-		// no-op
-	}
+	override fun deserialize(stream: InputStream) = Unit
 }
 
-internal object BooleanSerializer : LapisDataSerializer<Boolean> {
+// Maybe this is not necessary
+//internal object NullSerializer : LapisSerializer<Nothing?> {
+//
+//	override fun serialize(stream: OutputStream, data: Nothing?) {
+//		// no-op
+//	}
+//
+//	override fun deserialize(stream: InputStream): Nothing? {
+//		return null
+//	}
+//}
 
-	override val type = Boolean::class
+internal object BooleanSerializer : LapisSerializer<Boolean> {
 
 	override fun serialize(stream: OutputStream, data: Boolean) {
 		val dataStream = DataOutputStream(stream)
@@ -33,9 +86,7 @@ internal object BooleanSerializer : LapisDataSerializer<Boolean> {
 	}
 }
 
-internal object BooleanArraySerializer : LapisDataSerializer<BooleanArray> {
-
-	override val type = BooleanArray::class
+internal object BooleanArraySerializer : LapisSerializer<BooleanArray> {
 
 	override fun serialize(stream: OutputStream, data: BooleanArray) {
 		val dataStream = DataOutputStream(stream)
@@ -84,9 +135,7 @@ internal object BooleanArraySerializer : LapisDataSerializer<BooleanArray> {
 	}
 }
 
-internal object CharSerializer : LapisDataSerializer<Char> {
-
-	override val type = Char::class
+internal object CharSerializer : LapisSerializer<Char> {
 
 	override fun serialize(stream: OutputStream, data: Char) {
 		val dataStream = DataOutputStream(stream)
@@ -99,9 +148,7 @@ internal object CharSerializer : LapisDataSerializer<Char> {
 	}
 }
 
-internal object CharArraySerializer : LapisDataSerializer<CharArray> {
-
-	override val type = CharArray::class
+internal object CharArraySerializer : LapisSerializer<CharArray> {
 
 	override fun serialize(stream: OutputStream, data: CharArray) {
 		val dataStream = DataOutputStream(stream)
@@ -126,9 +173,7 @@ internal object CharArraySerializer : LapisDataSerializer<CharArray> {
 	}
 }
 
-internal object StringSerializer : LapisDataSerializer<String> {
-
-	override val type = String::class
+internal object StringSerializer : LapisSerializer<String> {
 
 	override fun serialize(stream: OutputStream, data: String) {
 		val dataStream = DataOutputStream(stream)
@@ -150,9 +195,7 @@ internal object StringSerializer : LapisDataSerializer<String> {
 	}
 }
 
-internal object ByteSerializer : LapisDataSerializer<Byte> {
-
-	override val type = Byte::class
+internal object ByteSerializer : LapisSerializer<Byte> {
 
 	override fun serialize(stream: OutputStream, data: Byte) {
 		val dataStream = DataOutputStream(stream)
@@ -165,9 +208,7 @@ internal object ByteSerializer : LapisDataSerializer<Byte> {
 	}
 }
 
-internal object ByteArraySerializer : LapisDataSerializer<ByteArray> {
-
-	override val type = ByteArray::class
+internal object ByteArraySerializer : LapisSerializer<ByteArray> {
 
 	override fun serialize(stream: OutputStream, data: ByteArray) {
 		val dataStream = DataOutputStream(stream)
@@ -189,9 +230,7 @@ internal object ByteArraySerializer : LapisDataSerializer<ByteArray> {
 	}
 }
 
-internal object ShortSerializer : LapisDataSerializer<Short> {
-
-	override val type = Short::class
+internal object ShortSerializer : LapisSerializer<Short> {
 
 	override fun serialize(stream: OutputStream, data: Short) {
 		val dataStream = DataOutputStream(stream)
@@ -204,9 +243,7 @@ internal object ShortSerializer : LapisDataSerializer<Short> {
 	}
 }
 
-internal object ShortArraySerializer : LapisDataSerializer<ShortArray> {
-
-	override val type = ShortArray::class
+internal object ShortArraySerializer : LapisSerializer<ShortArray> {
 
 	override fun serialize(stream: OutputStream, data: ShortArray) {
 		val dataStream = DataOutputStream(stream)
@@ -232,9 +269,7 @@ internal object ShortArraySerializer : LapisDataSerializer<ShortArray> {
 	}
 }
 
-internal object IntSerializer : LapisDataSerializer<Int> {
-
-	override val type = Int::class
+internal object IntSerializer : LapisSerializer<Int> {
 
 	override fun serialize(stream: OutputStream, data: Int) {
 		val dataStream = DataOutputStream(stream)
@@ -247,9 +282,7 @@ internal object IntSerializer : LapisDataSerializer<Int> {
 	}
 }
 
-internal object IntArraySerializer : LapisDataSerializer<IntArray> {
-
-	override val type = IntArray::class
+internal object IntArraySerializer : LapisSerializer<IntArray> {
 
 	override fun serialize(stream: OutputStream, data: IntArray) {
 		val dataStream = DataOutputStream(stream)
@@ -274,9 +307,7 @@ internal object IntArraySerializer : LapisDataSerializer<IntArray> {
 	}
 }
 
-internal object LongSerializer : LapisDataSerializer<Long> {
-
-	override val type = Long::class
+internal object LongSerializer : LapisSerializer<Long> {
 
 	override fun serialize(stream: OutputStream, data: Long) {
 		val dataStream = DataOutputStream(stream)
@@ -289,9 +320,7 @@ internal object LongSerializer : LapisDataSerializer<Long> {
 	}
 }
 
-internal object LongArraySerializer : LapisDataSerializer<LongArray> {
-
-	override val type = LongArray::class
+internal object LongArraySerializer : LapisSerializer<LongArray> {
 
 	override fun serialize(stream: OutputStream, data: LongArray) {
 		val dataStream = DataOutputStream(stream)
@@ -316,9 +345,7 @@ internal object LongArraySerializer : LapisDataSerializer<LongArray> {
 	}
 }
 
-internal object FloatSerializer : LapisDataSerializer<Float> {
-
-	override val type = Float::class
+internal object FloatSerializer : LapisSerializer<Float> {
 
 	override fun serialize(stream: OutputStream, data: Float) {
 		val dataStream = DataOutputStream(stream)
@@ -331,9 +358,7 @@ internal object FloatSerializer : LapisDataSerializer<Float> {
 	}
 }
 
-internal object FloatArraySerializer : LapisDataSerializer<FloatArray> {
-
-	override val type = FloatArray::class
+internal object FloatArraySerializer : LapisSerializer<FloatArray> {
 
 	override fun serialize(stream: OutputStream, data: FloatArray) {
 		val dataStream = DataOutputStream(stream)
@@ -358,9 +383,7 @@ internal object FloatArraySerializer : LapisDataSerializer<FloatArray> {
 	}
 }
 
-internal object DoubleSerializer : LapisDataSerializer<Double> {
-
-	override val type = Double::class
+internal object DoubleSerializer : LapisSerializer<Double> {
 
 	override fun serialize(stream: OutputStream, data: Double) {
 		val dataStream = DataOutputStream(stream)
@@ -373,9 +396,7 @@ internal object DoubleSerializer : LapisDataSerializer<Double> {
 	}
 }
 
-internal object DoubleArraySerializer : LapisDataSerializer<DoubleArray> {
-
-	override val type = DoubleArray::class
+internal object DoubleArraySerializer : LapisSerializer<DoubleArray> {
 
 	override fun serialize(stream: OutputStream, data: DoubleArray) {
 		val dataStream = DataOutputStream(stream)
@@ -400,9 +421,7 @@ internal object DoubleArraySerializer : LapisDataSerializer<DoubleArray> {
 	}
 }
 
-internal object UByteSerializer : LapisDataSerializer<UByte> {
-
-	override val type = UByte::class
+internal object UByteSerializer : LapisSerializer<UByte> {
 
 	override fun serialize(stream: OutputStream, data: UByte) {
 		val dataStream = DataOutputStream(stream)
@@ -416,9 +435,7 @@ internal object UByteSerializer : LapisDataSerializer<UByte> {
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
-internal object UByteArraySerializer : LapisDataSerializer<UByteArray> {
-
-	override val type = UByteArray::class
+internal object UByteArraySerializer : LapisSerializer<UByteArray> {
 
 	override fun serialize(stream: OutputStream, data: UByteArray) {
 		ByteArraySerializer.serialize(stream, data.toByteArray())
@@ -430,9 +447,7 @@ internal object UByteArraySerializer : LapisDataSerializer<UByteArray> {
 	}
 }
 
-internal object UShortSerializer : LapisDataSerializer<UShort> {
-
-	override val type = UShort::class
+internal object UShortSerializer : LapisSerializer<UShort> {
 
 	override fun serialize(stream: OutputStream, data: UShort) {
 		val dataStream = DataOutputStream(stream)
@@ -446,8 +461,7 @@ internal object UShortSerializer : LapisDataSerializer<UShort> {
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
-internal object UShortArraySerializer : LapisDataSerializer<UShortArray> {
-	override val type = UShortArray::class
+internal object UShortArraySerializer : LapisSerializer<UShortArray> {
 
 	override fun serialize(stream: OutputStream, data: UShortArray) {
 		ShortArraySerializer.serialize(
@@ -462,9 +476,7 @@ internal object UShortArraySerializer : LapisDataSerializer<UShortArray> {
 	}
 }
 
-internal object UIntSerializer : LapisDataSerializer<UInt> {
-
-	override val type = UInt::class
+internal object UIntSerializer : LapisSerializer<UInt> {
 
 	override fun serialize(stream: OutputStream, data: UInt) {
 		val dataStream = DataOutputStream(stream)
@@ -478,8 +490,7 @@ internal object UIntSerializer : LapisDataSerializer<UInt> {
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
-internal object UIntArraySerializer : LapisDataSerializer<UIntArray> {
-	override val type = UIntArray::class
+internal object UIntArraySerializer : LapisSerializer<UIntArray> {
 
 	override fun serialize(stream: OutputStream, data: UIntArray) {
 		IntArraySerializer.serialize(
@@ -494,9 +505,7 @@ internal object UIntArraySerializer : LapisDataSerializer<UIntArray> {
 	}
 }
 
-internal object ULongSerializer : LapisDataSerializer<ULong> {
-
-	override val type = ULong::class
+internal object ULongSerializer : LapisSerializer<ULong> {
 
 	override fun serialize(stream: OutputStream, data: ULong) {
 		val dataStream = DataOutputStream(stream)
@@ -510,9 +519,7 @@ internal object ULongSerializer : LapisDataSerializer<ULong> {
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
-internal object ULongArraySerializer : LapisDataSerializer<ULongArray> {
-
-	override val type = ULongArray::class
+internal object ULongArraySerializer : LapisSerializer<ULongArray> {
 
 	override fun serialize(stream: OutputStream, data: ULongArray) {
 		LongArraySerializer.serialize(

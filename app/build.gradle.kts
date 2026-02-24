@@ -48,6 +48,7 @@ android {
 dependencies {
 
 	implementation(project(":lapisbt"))
+	implementation(project(":lapisbt-rpc"))
 
 	implementation(libs.simpleStack)
 	implementation(libs.simpleStackExtensions)

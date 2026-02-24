@@ -1,7 +1,7 @@
-package com.elianfabian.lapisbt.annotation
+package com.elianfabian.lapisbt_rpc.annotation
 
 @Target(AnnotationTarget.VALUE_PARAMETER)
 @Retention(AnnotationRetention.RUNTIME)
-public annotation class LapisBluetoothParam(
+public annotation class LapisParam(
 	val name: String,
 )

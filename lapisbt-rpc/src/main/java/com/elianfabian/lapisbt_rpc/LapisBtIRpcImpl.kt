@@ -1,42 +1,21 @@
-package com.elianfabian.lapisbt
+package com.elianfabian.lapisbt_rpc
 
-import android.util.Log
-import com.elianfabian.lapisbt.LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH
-import com.elianfabian.lapisbt.LapisBtIRpcImpl.Companion.Tag
-import com.elianfabian.lapisbt.annotation.LapisBluetoothApi
-import com.elianfabian.lapisbt.annotation.LapisBluetoothMethodCall
-import com.elianfabian.lapisbt.annotation.LapisBluetoothParam
-import com.elianfabian.lapisbt.model.BluetoothPacket
-import com.elianfabian.lapisbt.model.CompleteBluetoothPacket
-import com.elianfabian.lapisbt.model.LapisBluetoothRequest
-import com.elianfabian.lapisbt.util.asEnumeration
-import com.elianfabian.lapisbt.util.readNBytesCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
-import java.io.ByteArrayInputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.io.InputStream
-import java.io.SequenceInputStream
+import com.elianfabian.lapisbt.LapisBt
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
-import java.util.ArrayList
-import java.util.UUID
-import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.intrinsics.intercepted
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 internal class LapisBtIRpcImpl(
 	private val lapisBt: LapisBt,
 ) : LapisBtRpc {
 
 	private val _bluetoothClientApiByAddress = mutableMapOf<String, Any>()
+
+	private val _serializationStrategy: SerializationStrategy = DefaultSerializationStrategy
+
+//	private val _serializerRegistry = LapisTypeSerializerRegistry().apply {
+//
+//	}
 
 
 	@Suppress("UNCHECKED_CAST")
@@ -46,13 +25,19 @@ internal class LapisBtIRpcImpl(
 			return apiClient as T
 		}
 
+		//_serializationStrategy.serializerForValue(1).serialize()
+
 		val newApiClient = Proxy.newProxyInstance(
 			apiInterface.classLoader,
 			arrayOf(apiInterface),
 			BluetoothApiClientInvocationHandler(
-				deviceAddress = deviceAddress,
-				lapisBt = lapisBt,
 				apiInterface = apiInterface,
+				bluetoothDeviceRpc = BluetoothDeviceRpc(
+					deviceAddress = deviceAddress,
+					lapisBt = lapisBt,
+					lapisRpc = this,
+					//serializerRegistry = _serializerRegistry,
+				)
 			),
 		) as T
 
