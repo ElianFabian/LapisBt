@@ -15,8 +15,8 @@ internal object ResponseSerializer : LapisSerializer<LapisResponse> {
 
 		dataStream.writeLong(data.uuid.mostSignificantBits)
 		dataStream.writeLong(data.uuid.leastSignificantBits)
-		dataStream.writeUTF(data.apiName)
-		dataStream.writeUTF(data.methodName)
+		//dataStream.writeUTF(data.apiName)
+		//dataStream.writeUTF(data.methodName)
 		dataStream.writeInt(data.result.size)
 		dataStream.write(data.result)
 	}
@@ -35,8 +35,8 @@ internal object ResponseSerializer : LapisSerializer<LapisResponse> {
 
 		return LapisResponse(
 			uuid = uuid,
-			apiName = apiName,
-			methodName = methodName,
+			//apiName = apiName,
+			//methodName = methodName,
 			result = result,
 		)
 	}

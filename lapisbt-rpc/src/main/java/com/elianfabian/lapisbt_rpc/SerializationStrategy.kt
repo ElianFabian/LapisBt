@@ -13,19 +13,47 @@ internal interface SerializationStrategy {
 	fun serializerForClass(type: KClass<*>): LapisSerializer<*>?
 }
 
+// We should allow users to provide their own serialization strategy, but for development purposes, we can use this default strategy that provides serializers for the most common types.
 internal object DefaultSerializationStrategy : SerializationStrategy {
 	override fun serializerForClass(type: KClass<*>): LapisSerializer<*>? {
 		return when (type) {
-			Int::class -> IntSerializer
-			Long::class -> LongSerializer
-			Short::class -> ShortSerializer
+			Unit::class -> UnitSerializer
+			Nothing::class -> NullSerializer
+			Boolean::class -> BooleanSerializer
 			Byte::class -> ByteSerializer
+			Int::class -> IntSerializer
+			Short::class -> ShortSerializer
+			Long::class -> LongSerializer
 			Float::class -> FloatSerializer
 			Double::class -> DoubleSerializer
-			Boolean::class -> BooleanSerializer
 			Char::class -> CharSerializer
 			String::class -> StringSerializer
+			BooleanArray::class -> BooleanArraySerializer
 			ByteArray::class -> ByteArraySerializer
+			ShortArray::class -> ShortArraySerializer
+			IntArray::class -> IntArraySerializer
+			LongArray::class -> LongArraySerializer
+			FloatArray::class -> FloatArraySerializer
+			DoubleArray::class -> DoubleArraySerializer
+			CharArray::class -> CharArraySerializer
+
+			UByte::class -> UByteSerializer
+			UShort::class -> UShortSerializer
+			UInt::class -> UIntSerializer
+			ULong::class -> ULongSerializer
+
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UByteArray::class,
+				-> UByteArraySerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UShortArray::class,
+				-> UShortArraySerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			UIntArray::class,
+				-> UIntArraySerializer
+			@OptIn(ExperimentalUnsignedTypes::class)
+			ULongArray::class,
+				-> ULongArraySerializer
 			else -> null
 		}
 	}

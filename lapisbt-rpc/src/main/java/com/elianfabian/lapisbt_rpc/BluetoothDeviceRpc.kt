@@ -10,11 +10,16 @@ import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
+import com.elianfabian.lapisbt_rpc.util.invokeSuspend
+import com.elianfabian.lapisbt_rpc.util.isSuspend
+import com.elianfabian.lapisbt_rpc.util.padded
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -31,13 +36,13 @@ import kotlin.collections.iterator
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
+import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
 	private val lapisRpc: LapisBtRpc,
-	//private val serializerRegistry: LapisTypeSerializerRegistry,
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 	private val _packetFragmentsById = mutableMapOf<UUID, MutableList<BluetoothPacket>>()
@@ -54,12 +59,13 @@ internal class BluetoothDeviceRpc(
 	}
 
 
+	@Suppress("UNUSED_PARAMETER")
 	fun functionCall(
 		proxy: Any,
 		apiInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-	): Any? {
+	): Any {
 		val parameterTypes = method.parameterTypes
 		val isSuspend = parameterTypes.isNotEmpty() && Continuation::class.java.isAssignableFrom(parameterTypes.last())
 
@@ -87,20 +93,14 @@ internal class BluetoothDeviceRpc(
 
 			val uuid = UUID.randomUUID()
 			_pendingContinuationsByRequestId[uuid] = continuation
+			continuation.context[Job]?.invokeOnCompletion {
+				_pendingContinuationsByRequestId.remove(uuid)
+				_pendingMethodByRequestId.remove(uuid)
+			}
 			_pendingMethodByRequestId[uuid] = method
 
 
 			// TODO: maybe we should serialize and deserialize using byte arrays instead of streams
-//				for ((key, value) in argumentsByName) {
-//
-//				}
-//				val namedByteArrayArguments = argumentsByName.mapValues { (key, value) ->
-//					@Suppress("UNCHECKED_CAST")
-//					val serializer = BuiltInSerializersFactory.create(value?.let { it::class.java })!! as LapisSerializer<Any?>
-//					val byteArrayOutputStream = ByteArrayOutputStream()
-//					serializer.serialize(byteArrayOutputStream, value)
-//					byteArrayOutputStream.toByteArray()
-//				}
 
 			_scope.launch {
 				lapisBt.sendData(deviceAddress) { stream ->
@@ -116,6 +116,7 @@ internal class BluetoothDeviceRpc(
 			COROUTINE_SUSPENDED
 		}
 		catch (t: Throwable) {
+			// TODO: I'm not sure if this is the right way, maybe we should use a different dispatcher for resuming with exception?
 			Dispatchers.Default.dispatch(continuation.context) {
 				continuation.intercepted().resumeWithException(t)
 			}
@@ -130,32 +131,26 @@ internal class BluetoothDeviceRpc(
 		apiName: String,
 		methodName: String,
 		arguments: Map<String, Any?>,
-	) {
+	) = withContext(Dispatchers.IO) {
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
 		payloadStream.writeUTF(apiName)
 		payloadStream.writeUTF(methodName)
 		payloadStream.writeInt(arguments.size)
 
-		for ((key, _) in arguments) {
+		for ((key, value) in arguments) {
+			// TODO: maybe we could exclude the key from serialization since we only take care of the order of arguments and not their names on the receiving end,
+			//  it may be cool if this could be a feature we could enable or disable, or even allow the user to have total control over the serialization format of the payload
 			payloadStream.writeUTF(key)
-		}
-		for ((_, value) in arguments) {
+
 			val valueClass = value?.let { it::class } ?: Nothing::class
 
-			// TODO: change this later
-//			@Suppress("UNCHECKED_CAST")
-//			val serializer = serializerRegistry.getSerializerByClass(valueClass) as? LapisDataSerializer<Any?>
-//				?: error("No serializer registered for type: ${valueClass.qualifiedName}")
-//
-//			val typeUuid = serializerRegistry.getUuidByClass(valueClass) ?: error("No type UUID registered for type: ${valueClass.qualifiedName}")
-//			payloadStream.writeLong(typeUuid.mostSignificantBits)
-//			payloadStream.writeLong(typeUuid.leastSignificantBits)
-//			serializer.serialize(payloadStream, value)
+			@Suppress("UNCHECKED_CAST")
+			val serializer = DefaultSerializationStrategy.serializerForClass(valueClass) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${valueClass.qualifiedName}")
+			serializer.serialize(payloadStream, value)
 		}
 
 		val dataStream = DataOutputStream(stream)
-
 
 		createFragments(
 			id = uuid,
@@ -187,8 +182,48 @@ internal class BluetoothDeviceRpc(
 		}
 	}
 
-	private fun sendResponse() {
+	private suspend fun sendResponse(
+		stream: OutputStream,
+		uuid: UUID,
+		result: Any?,
+	) = withContext(Dispatchers.IO) {
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
 
+		@Suppress("UNCHECKED_CAST")
+		val serializer = DefaultSerializationStrategy.serializerForClass(result?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${result?.let { it::class.qualifiedName } ?: "null"}")
+		serializer.serialize(payloadStream, result)
+
+		val dataStream = DataOutputStream(stream)
+
+		createFragments(
+			id = uuid,
+			type = CompleteBluetoothPacket.TYPE_RESPONSE,
+			payload = byteArrayOutputStream.toByteArray(),
+		).forEach { fragment ->
+			when (fragment) {
+				is BluetoothPacket.FirstFragment -> {
+					dataStream.writeLong(fragment.id.mostSignificantBits)
+					dataStream.writeLong(fragment.id.leastSignificantBits)
+					dataStream.writeByte(fragment.type.toInt())
+					dataStream.writeInt(fragment.length)
+					dataStream.write(fragment.payload)
+				}
+				is BluetoothPacket.Fragment -> {
+					dataStream.writeLong(fragment.id.mostSignificantBits)
+					dataStream.writeLong(fragment.id.leastSignificantBits)
+					dataStream.writeInt(fragment.index)
+					dataStream.write(fragment.payload)
+				}
+			}
+
+			// I'm not sure if flush is necessary here, we'll see during testing
+			dataStream.flush()
+
+			// Yield to allow other coroutines to run, this way we can send multiple responses concurrently
+			// without being blocked by large payloads
+			yield()
+		}
 	}
 
 	private fun createFragments(
@@ -203,9 +238,9 @@ internal class BluetoothDeviceRpc(
 		val lengthBytesSize = Int.SIZE_BYTES * 1
 
 		val firstFragmentFixedSize = uuidBytesSize + indexBytesSize + typeBytesSize + lengthBytesSize
-		val firstFragmentPayloadSize = LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH - firstFragmentFixedSize
+		val firstFragmentPayloadSize = LapisBtRpcImpl.BLUETOOTH_PACKET_LENGTH - firstFragmentFixedSize
 		val remainingPayload = payload.size - firstFragmentPayloadSize
-		val fragmentPayloadSize = LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH - Long.SIZE_BYTES * 2 - Int.SIZE_BYTES * 1
+		val fragmentPayloadSize = LapisBtRpcImpl.BLUETOOTH_PACKET_LENGTH - Long.SIZE_BYTES * 2 - Int.SIZE_BYTES * 1
 		val numberOfFragments = if (remainingPayload <= 0) {
 			0
 		}
@@ -225,7 +260,7 @@ internal class BluetoothDeviceRpc(
 			val fragment = BluetoothPacket.Fragment(
 				id = id,
 				index = index,
-				payload = payload.sliceArray(start until end).setPadding(fragmentPayloadSize),
+				payload = payload.sliceArray(start until end).padded(fragmentPayloadSize),
 			)
 			yield(fragment)
 		}
@@ -234,7 +269,7 @@ internal class BluetoothDeviceRpc(
 	private fun readFirstFragment(stream: DataInputStream, id: UUID): BluetoothPacket.FirstFragment {
 		val type = stream.readByte()
 		val length = stream.readInt()
-		val payload = stream.readNBytesCompat(LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 3 - Long.SIZE_BYTES * 2)
+		val payload = stream.readNBytesCompat(LapisBtRpcImpl.BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 3 - Long.SIZE_BYTES * 2)
 
 		return BluetoothPacket.FirstFragment(
 			id = id,
@@ -245,7 +280,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun readFragment(stream: DataInputStream, id: UUID, index: Int): BluetoothPacket.Fragment {
-		val payload = stream.readNBytesCompat(LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 2)
+		val payload = stream.readNBytesCompat(LapisBtRpcImpl.BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 2)
 
 		return BluetoothPacket.Fragment(
 			id = id,
@@ -258,7 +293,7 @@ internal class BluetoothDeviceRpc(
 		_scope.launch {
 			lapisBt.receiveData(deviceAddress) { stream ->
 				while (true) {
-					val bytes = stream.readNBytesCompat(LapisBtIRpcImpl.Companion.BLUETOOTH_PACKET_LENGTH)
+					val bytes = stream.readNBytesCompat(LapisBtRpcImpl.BLUETOOTH_PACKET_LENGTH)
 
 					val dataStream = DataInputStream(ByteArrayInputStream(bytes))
 
@@ -336,77 +371,70 @@ internal class BluetoothDeviceRpc(
 		}
 	}
 
-	private fun launchCompletePacketProcessing() {
-		_scope.launch {
-			for (completePacket in _completeBluetoothPacketChannel) {
-				if (completePacket.type == CompleteBluetoothPacket.TYPE_REQUEST) {
-					val request = RequestSerializer.deserialize(completePacket.payloadStream)
+	fun isSuspend(method: Method): Boolean {
+		val parameterTypes = method.parameterTypes
+		if (parameterTypes.isEmpty()) return false
 
-					val method = _pendingMethodByRequestId[request.uuid] ?: error("No pending method found for request id: ${request.uuid}")
-
-					var index = 0
-					val deserializedArguments = request.arguments.mapValues { (key, valueBytes) ->
-						val valueStream = ByteArrayInputStream(valueBytes)
-						val valueType = method.parameterTypes.getOrNull(index) ?: error("Not enough parameter types in method ${method.name} for argument $key")
-						val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
-
-						serializer?.deserialize(valueStream).also {
-							index++
-						}
-					}
-				}
-				else if (completePacket.type == CompleteBluetoothPacket.TYPE_RESPONSE) {
-					val response = ResponseSerializer.deserialize(completePacket.payloadStream)
-				}
-				else {
-					//Log.wtf(Tag, "Unknown complete packet type: ${completePacket.type}")
-				}
-
-//				if (completePacket.type == LapisBluetoothRequest.ResponseType) {
-//					val dataStream = DataInputStream(completePacket.payloadStream)
-//
-//					val uuidMostSignificantBits = dataStream.readLong()
-//					val uuidLeastSignificantBits = dataStream.readLong()
-//					val requestId = UUID(uuidMostSignificantBits, uuidLeastSignificantBits)
-//
-//					val isSuccess = dataStream.readBoolean()
-//					val continuation = _pendingContinuationsByRequestId.remove(requestId) ?: continue
-//
-//					if (isSuccess) {
-//						// For now we only support Int and String return types
-//						val returnTypeIndicator = dataStream.readByte().toInt()
-//						val returnValue: Any? = when (returnTypeIndicator) {
-//							0 -> null
-//							1 -> dataStream.readInt()
-//							2 -> dataStream.readUTF()
-//							else -> error("Unsupported return type indicator: $returnTypeIndicator")
-//						}
-//
-//						Dispatchers.Default.dispatch(continuation.context) {
-//							continuation.resume(returnValue)
-//						}
-//					}
-//					else {
-//						val errorMessage = dataStream.readUTF()
-//
-//						Dispatchers.Default.dispatch(continuation.context) {
-//							continuation.resumeWithException(RuntimeException(errorMessage))
-//						}
-//					}
-//				}
-			}
-		}
+		// The last parameter of a compiled suspend function is always Continuation
+		return Continuation::class.java.isAssignableFrom(parameterTypes.last())
 	}
 
+	private fun launchCompletePacketProcessing() {
+		_scope.launch(Dispatchers.IO) {
+			for (completePacket in _completeBluetoothPacketChannel) {
+				when (completePacket.type) {
+					CompleteBluetoothPacket.TYPE_REQUEST -> {
+						val request = RequestSerializer.deserialize(completePacket.payloadStream)
 
-	private fun ByteArray.setPadding(
-		targetSize: Int,
-	): ByteArray {
-		if (this.size >= targetSize) {
-			return this
+						val serverImplementation = lapisRpc.getBluetoothApiServerByName(request.apiName) ?: error("No server implementation found for API: ${request.apiName}")
+
+						val method = serverImplementation::class.java.methods.firstOrNull { method ->
+							method.getAnnotation(LapisMethod::class.java)?.name == request.methodName
+						} ?: error("No method found with name ${request.methodName} in API ${request.apiName}")
+
+						var index = 0
+						val deserializedArguments = request.arguments.mapValues { (key, valueBytes) ->
+							val valueStream = ByteArrayInputStream(valueBytes)
+							val valueType = method.parameterTypes.getOrNull(index) ?: error("Not enough parameter types in method ${method.name} for argument $key")
+							val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
+
+							serializer?.deserialize(valueStream).also {
+								index++
+							}
+						}
+
+						// TODO: at the moment all functions are suspended, but later we'll support non-suspended functions too, so we'll have to check if the method is suspended or not and call it accordingly
+						if (!method.isSuspend()) {
+							throw IllegalArgumentException("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
+						}
+
+						val result = method.invokeSuspend(serverImplementation, *deserializedArguments.values.toTypedArray())
+
+						lapisBt.sendData(deviceAddress) { stream ->
+							sendResponse(
+								stream = stream,
+								uuid = request.uuid,
+								result = result,
+							)
+						}
+					}
+					CompleteBluetoothPacket.TYPE_RESPONSE -> {
+						val response = ResponseSerializer.deserialize(completePacket.payloadStream)
+
+						val method = _pendingMethodByRequestId.remove(response.uuid) ?: error("No pending method found for response id: ${response.uuid}")
+						val serializer = DefaultSerializationStrategy.serializerForClass(method.returnType.kotlin) ?: error("No serializer found for return type: ${method.returnType}")
+
+						val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.result))
+
+						val continuation = _pendingContinuationsByRequestId.remove(response.uuid) ?: error("No pending continuation found for response id: ${response.uuid}")
+
+						continuation.resume(deserializedResult)
+					}
+					else -> {
+						//Log.wtf(Tag, "Unknown complete packet type: ${completePacket.type}")
+					}
+				}
+			}
 		}
-		val paddedArray = ByteArray(targetSize)
-		this.copyInto(paddedArray)
-		return paddedArray
 	}
 }

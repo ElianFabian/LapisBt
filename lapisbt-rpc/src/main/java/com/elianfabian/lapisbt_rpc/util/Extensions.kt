@@ -4,11 +4,13 @@ import kotlinx.coroutines.Dispatchers
 import java.io.InputStream
 import java.lang.reflect.Array
 import java.lang.reflect.GenericArrayType
+import java.lang.reflect.Method
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
 import java.lang.reflect.TypeVariable
 import java.lang.reflect.WildcardType
 import java.util.Enumeration
+import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
 import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
@@ -143,4 +145,31 @@ internal fun Type.getRawClass(): Class<*> {
 	throw IllegalArgumentException(
 		"Expected a Class, ParameterizedType, or GenericArrayType, but <$type> is of type ${type.javaClass.getName()}"
 	)
+}
+
+
+// From: https://stackoverflow.com/a/47683449/18418162
+internal suspend fun Method.invokeSuspend(obj: Any, vararg args: Any?): Any? {
+	return suspendCoroutineUninterceptedOrReturn { cont ->
+		invoke(obj, *args, cont)
+	}
+}
+
+internal fun Method.isSuspend(): Boolean {
+	if (parameterTypes.isEmpty()) {
+		return false
+	}
+
+	return Continuation::class.java.isAssignableFrom(parameterTypes.last())
+}
+
+internal fun ByteArray.padded(
+	targetSize: Int,
+): ByteArray {
+	if (this.size >= targetSize) {
+		return this
+	}
+	val paddedArray = ByteArray(targetSize)
+	this.copyInto(paddedArray)
+	return paddedArray
 }

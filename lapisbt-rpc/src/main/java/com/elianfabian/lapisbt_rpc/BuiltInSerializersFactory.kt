@@ -4,53 +4,6 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.lang.reflect.Type
-import kotlin.reflect.KClass
-
-internal object BuiltInSerializersFactory : LapisSerializer.Factory {
-
-	override fun create(type: Type?): LapisSerializer<*>? {
-		val kClass: KClass<*>? = (type as? Class<*>)?.kotlin
-		return when (kClass) {
-			Unit::class -> UnitSerializer
-			Boolean::class -> BooleanSerializer
-			BooleanArray::class -> BooleanArraySerializer
-			Char::class -> CharSerializer
-			CharArray::class -> CharArraySerializer
-			String::class -> StringSerializer
-			Byte::class -> ByteSerializer
-			ByteArray::class -> ByteArraySerializer
-			Short::class -> ShortSerializer
-			ShortArray::class -> ShortArraySerializer
-			Int::class -> IntSerializer
-			IntArray::class -> IntArraySerializer
-			Long::class -> LongSerializer
-			LongArray::class -> LongArraySerializer
-			Float::class -> FloatSerializer
-			FloatArray::class -> FloatArraySerializer
-			Double::class -> DoubleSerializer
-			DoubleArray::class -> DoubleArraySerializer
-
-			UByte::class -> UByteSerializer
-			@OptIn(ExperimentalUnsignedTypes::class)
-			UByteArray::class,
-				-> UByteArraySerializer
-			UShort::class -> UShortSerializer
-			@OptIn(ExperimentalUnsignedTypes::class)
-			UShortArray::class,
-				-> UShortArraySerializer
-			UInt::class -> UIntSerializer
-			@OptIn(ExperimentalUnsignedTypes::class)
-			UIntArray::class,
-				-> UIntArraySerializer
-			ULong::class -> ULongSerializer
-			@OptIn(ExperimentalUnsignedTypes::class)
-			ULongArray::class,
-				-> ULongArraySerializer
-			else -> null
-		}
-	}
-}
 
 internal object UnitSerializer : LapisSerializer<Unit> {
 
@@ -61,17 +14,14 @@ internal object UnitSerializer : LapisSerializer<Unit> {
 	override fun deserialize(stream: InputStream) = Unit
 }
 
-// Maybe this is not necessary
-//internal object NullSerializer : LapisSerializer<Nothing?> {
-//
-//	override fun serialize(stream: OutputStream, data: Nothing?) {
-//		// no-op
-//	}
-//
-//	override fun deserialize(stream: InputStream): Nothing? {
-//		return null
-//	}
-//}
+internal object NullSerializer : LapisSerializer<Nothing?> {
+
+	override fun serialize(stream: OutputStream, data: Nothing?) {
+		// no-op
+	}
+
+	override fun deserialize(stream: InputStream): Nothing? = null
+}
 
 internal object BooleanSerializer : LapisSerializer<Boolean> {
 

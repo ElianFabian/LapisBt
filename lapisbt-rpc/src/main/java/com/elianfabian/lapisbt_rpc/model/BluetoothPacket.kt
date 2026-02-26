@@ -40,6 +40,7 @@ internal sealed interface BluetoothPacket {
 
 	data class Fragment(
 		override val id: UUID,
+		// For now, we'll use this index for debugging purposes, but I guess this should not be necessary
 		val index: Int,
 		override val payload: ByteArray,
 	) : BluetoothPacket {
