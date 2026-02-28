@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt.LapisBt
 import kotlin.reflect.KClass
 
 public interface LapisBtRpc {
@@ -15,4 +16,12 @@ public interface LapisBtRpc {
 	public fun unregisterBluetoothApiClient(deviceAddress: String)
 
 	public fun unregisterBluetoothApiServer(server: Any)
+
+
+	public companion object {
+
+		public fun newInstance(lapisBt: LapisBt): LapisBtRpc {
+			return LapisBtRpcImpl(lapisBt)
+		}
+	}
 }
