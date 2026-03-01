@@ -796,13 +796,6 @@ internal class LapisBtImpl(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
-		_events.emit(
-			LapisBt.Event.OnDeviceConnected(
-				connectedDevice = connectedDevice,
-				manuallyConnected = false,
-			)
-		)
-
 		_pairedDevices.update { devices ->
 			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
@@ -845,6 +838,13 @@ internal class LapisBtImpl(
 		}
 
 		updateDevices()
+
+		_events.emit(
+			LapisBt.Event.OnDeviceConnected(
+				connectedDevice = connectedDevice,
+				manuallyConnected = false,
+			)
+		)
 
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
@@ -920,13 +920,6 @@ internal class LapisBtImpl(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
-		_events.emit(
-			LapisBt.Event.OnDeviceConnected(
-				connectedDevice = connectedDevice,
-				manuallyConnected = true,
-			)
-		)
-
 		_pairedDevices.update { devices ->
 			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
@@ -968,6 +961,13 @@ internal class LapisBtImpl(
 		}
 
 		updateDevices()
+
+		_events.emit(
+			LapisBt.Event.OnDeviceConnected(
+				connectedDevice = connectedDevice,
+				manuallyConnected = true,
+			)
+		)
 
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
