@@ -33,11 +33,13 @@ import com.google.android.gms.location.LocationSettingsStatusCodes
 import com.google.android.gms.location.Priority
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.UUID
 import kotlin.coroutines.resume
@@ -77,7 +79,9 @@ class AndroidHelperImpl(
 	}
 
 	override fun showToast(message: String) {
-		Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+		applicationScope.launch(Dispatchers.Main) {
+			Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+		}
 	}
 
 	private fun openNotificationSettings() {
