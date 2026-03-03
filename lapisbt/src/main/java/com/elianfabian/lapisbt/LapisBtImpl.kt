@@ -357,6 +357,7 @@ internal class LapisBtImpl(
 		return device.removeBond()
 	}
 
+	// TODO: we should probably add a mutext here
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -380,6 +381,7 @@ internal class LapisBtImpl(
 		}
 	}
 
+	// TODO: we should probably add a mutext here
 	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
