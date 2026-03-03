@@ -5,11 +5,11 @@ import java.util.UUID
 
 // The fragments are all of fixed size of 256 bytes
 internal sealed interface BluetoothPacket {
-	val id: UUID // We may use an Int here later if we want to save some space
+	val packetId: UUID // We may use an Int here later if we want to save some space
 	val payload: ByteArray
 
 	data class FirstFragment(
-		override val id: UUID,
+		override val packetId: UUID,
 		val type: Byte,
 		val length: Int,
 		override val payload: ByteArray,
@@ -23,7 +23,7 @@ internal sealed interface BluetoothPacket {
 
 			if (type != other.type) return false
 			if (length != other.length) return false
-			if (id != other.id) return false
+			if (packetId != other.packetId) return false
 			if (!payload.contentEquals(other.payload)) return false
 
 			return true
@@ -32,15 +32,15 @@ internal sealed interface BluetoothPacket {
 		override fun hashCode(): Int {
 			var result = type.toInt()
 			result = 31 * result + length
-			result = 31 * result + id.hashCode()
+			result = 31 * result + packetId.hashCode()
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}
 	}
 
 	data class Fragment(
-		override val id: UUID,
-		// For now, we'll use this index for debugging purposes, but I guess this should not be necessary
+		override val packetId: UUID,
+		// For the index is a relevant data for the logic, but we might change it to get rid of it and save some space
 		val index: Int,
 		override val payload: ByteArray,
 	) : BluetoothPacket {
@@ -51,7 +51,7 @@ internal sealed interface BluetoothPacket {
 
 			other as Fragment
 
-			if (id != other.id) return false
+			if (packetId != other.packetId) return false
 			if (index != other.index) return false
 			if (!payload.contentEquals(other.payload)) return false
 
@@ -60,7 +60,7 @@ internal sealed interface BluetoothPacket {
 
 		override fun hashCode(): Int {
 			var result = index
-			result = 31 * result + id.hashCode()
+			result = 31 * result + packetId.hashCode()
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}
@@ -68,12 +68,23 @@ internal sealed interface BluetoothPacket {
 }
 
 internal data class CompleteBluetoothPacket(
-	val id: UUID,
-	val type: Byte,
+	val packetId: UUID,
+	val type: Type,
 	val payloadStream: InputStream,
 ) {
 	companion object {
 		const val TYPE_REQUEST: Byte = 0x01
 		const val TYPE_RESPONSE: Byte = 0x02
+	}
+
+	enum class Type(val byteValue: Byte) {
+		Request(TYPE_REQUEST),
+		Response(TYPE_RESPONSE);
+
+		companion object {
+			private val map = entries.associateBy(Type::byteValue)
+
+			fun fromByte(byte: Byte): Type = map[byte] ?: throw IllegalArgumentException("Unknown type byte: $byte")
+		}
 	}
 }

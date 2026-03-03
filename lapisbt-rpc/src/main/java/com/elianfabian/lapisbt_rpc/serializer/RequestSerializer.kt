@@ -13,11 +13,12 @@ internal object RequestSerializer : LapisSerializer<LapisRequest> {
 	override fun serialize(stream: OutputStream, data: LapisRequest) {
 		val dataStream = DataOutputStream(stream)
 
-		dataStream.writeLong(data.uuid.mostSignificantBits)
-		dataStream.writeLong(data.uuid.leastSignificantBits)
+		dataStream.writeLong(data.requestId.mostSignificantBits)
+		dataStream.writeLong(data.requestId.leastSignificantBits)
 		dataStream.writeUTF(data.apiName)
 		dataStream.writeUTF(data.methodName)
 		dataStream.writeInt(data.arguments.size)
+
 		for ((key, value) in data.arguments) {
 			dataStream.writeUTF(key)
 			dataStream.writeInt(value.size)
@@ -30,12 +31,13 @@ internal object RequestSerializer : LapisSerializer<LapisRequest> {
 
 		val mostSigBits = dataStream.readLong()
 		val leastSigBits = dataStream.readLong()
-		val uuid = UUID(mostSigBits, leastSigBits)
+		val requestId = UUID(mostSigBits, leastSigBits)
+
 		val apiName = dataStream.readUTF()
 		val methodName = dataStream.readUTF()
 		val argumentsSize = dataStream.readInt()
-		val arguments = mutableMapOf<String, ByteArray>()
 
+		val arguments = mutableMapOf<String, ByteArray>()
 		repeat(argumentsSize) {
 			val key = dataStream.readUTF()
 			val valueSize = dataStream.readInt()
@@ -45,7 +47,7 @@ internal object RequestSerializer : LapisSerializer<LapisRequest> {
 		}
 
 		return LapisRequest(
-			uuid = uuid,
+			requestId = requestId,
 			apiName = apiName,
 			methodName = methodName,
 			arguments = arguments,

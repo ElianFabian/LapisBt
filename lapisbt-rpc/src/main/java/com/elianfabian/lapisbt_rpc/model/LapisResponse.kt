@@ -3,11 +3,8 @@ package com.elianfabian.lapisbt_rpc.model
 import java.util.UUID
 
 internal data class LapisResponse(
-	val uuid: UUID,
-	// The API name and method name don't seem to be necessary in the response, but we'll keep them commented out for now just in case we need them later
-	//val apiName: String,
-	//val methodName: String,
-	val result: ByteArray,
+	val requestId: UUID,
+	val data: ByteArray,
 ) {
 	override fun equals(other: Any?): Boolean {
 		if (this === other) return true
@@ -15,19 +12,15 @@ internal data class LapisResponse(
 
 		other as LapisResponse
 
-		if (uuid != other.uuid) return false
-		//if (apiName != other.apiName) return false
-		//if (methodName != other.methodName) return false
-		if (!result.contentEquals(other.result)) return false
+		if (requestId != other.requestId) return false
+		if (!data.contentEquals(other.data)) return false
 
 		return true
 	}
 
 	override fun hashCode(): Int {
-		var result1 = uuid.hashCode()
-		//result1 = 31 * result1 + apiName.hashCode()
-		//result1 = 31 * result1 + methodName.hashCode()
-		result1 = 31 * result1 + result.contentHashCode()
-		return result1
+		var result = requestId.hashCode()
+		result = 31 * result + data.contentHashCode()
+		return result
 	}
 }

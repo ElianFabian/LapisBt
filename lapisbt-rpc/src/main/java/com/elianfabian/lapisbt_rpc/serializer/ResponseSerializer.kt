@@ -13,12 +13,10 @@ internal object ResponseSerializer : LapisSerializer<LapisResponse> {
 	override fun serialize(stream: OutputStream, data: LapisResponse) {
 		val dataStream = DataOutputStream(stream)
 
-		dataStream.writeLong(data.uuid.mostSignificantBits)
-		dataStream.writeLong(data.uuid.leastSignificantBits)
-		//dataStream.writeUTF(data.apiName)
-		//dataStream.writeUTF(data.methodName)
-		dataStream.writeInt(data.result.size)
-		dataStream.write(data.result)
+		dataStream.writeLong(data.requestId.mostSignificantBits)
+		dataStream.writeLong(data.requestId.leastSignificantBits)
+		dataStream.writeInt(data.data.size)
+		dataStream.write(data.data)
 	}
 
 	override fun deserialize(stream: InputStream): LapisResponse {
@@ -26,18 +24,15 @@ internal object ResponseSerializer : LapisSerializer<LapisResponse> {
 
 		val mostSigBits = dataStream.readLong()
 		val leastSigBits = dataStream.readLong()
-		val uuid = UUID(mostSigBits, leastSigBits)
-		val apiName = dataStream.readUTF()
-		val methodName = dataStream.readUTF()
+		val requestId = UUID(mostSigBits, leastSigBits)
+
 		val resultSize = dataStream.readInt()
 		val result = ByteArray(resultSize)
 		dataStream.readFully(result)
 
 		return LapisResponse(
-			uuid = uuid,
-			//apiName = apiName,
-			//methodName = methodName,
-			result = result,
+			requestId = requestId,
+			data = result,
 		)
 	}
 }

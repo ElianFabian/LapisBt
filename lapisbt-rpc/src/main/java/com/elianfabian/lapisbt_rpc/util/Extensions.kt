@@ -163,6 +163,30 @@ internal fun Method.isSuspend(): Boolean {
 	return Continuation::class.java.isAssignableFrom(parameterTypes.last())
 }
 
+internal fun Method.getSuspendReturnType(): Class<out Any> {
+	if (!isSuspend()) {
+		throw IllegalStateException("Method $this is not a suspend function")
+	}
+
+	val continuationType = genericParameterTypes.last()
+	if (continuationType is ParameterizedType) {
+		val actualType = continuationType.actualTypeArguments.first()
+
+		println("Actual type: $actualType")
+
+		return when (actualType) {
+			is ParameterizedType -> actualType.rawType as? Class<*> ?: throw IllegalStateException("Cannot determine return type of suspend function $this")
+			is Class<*> -> actualType
+			is WildcardType -> {
+				actualType.lowerBounds.firstOrNull() as? Class<*> ?: actualType.upperBounds.firstOrNull() as? Class<*> ?: throw IllegalStateException("Cannot determine return type of suspend function $this")
+			}
+			else -> throw IllegalStateException("Unsupported return type of suspend function $this: $actualType")
+		}
+	}
+
+	throw IllegalStateException("Cannot determine return type of suspend function $this: continuation type is not parameterized")
+}
+
 internal fun ByteArray.padded(
 	targetSize: Int,
 ): ByteArray {

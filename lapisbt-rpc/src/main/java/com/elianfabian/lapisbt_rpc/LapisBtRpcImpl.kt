@@ -96,12 +96,6 @@ internal class LapisBtRpcImpl(
 
 		_bluetoothServerApiByInterface.remove(serverClass)
 	}
-
-
-	companion object {
-		const val BLUETOOTH_PACKET_LENGTH = 256
-		//val Tag = LapisBtRpcImpl::class.simpleName.orEmpty()
-	}
 }
 
 // Given that we may support multiple APIs in the future, we have to send the request from the InvocationHandler,

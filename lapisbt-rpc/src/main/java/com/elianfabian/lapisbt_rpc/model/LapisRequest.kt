@@ -4,7 +4,7 @@ import java.util.UUID
 import kotlin.collections.iterator
 
 internal data class LapisRequest(
-	val uuid: UUID,
+	val requestId: UUID,
 	val apiName: String,
 	val methodName: String,
 	val arguments: Map<String, ByteArray>,
@@ -15,7 +15,7 @@ internal data class LapisRequest(
 
 		other as LapisRequest
 
-		if (uuid != other.uuid) return false
+		if (requestId != other.requestId) return false
 		if (apiName != other.apiName) return false
 		if (methodName != other.methodName) return false
 		if (arguments.size != other.arguments.size) return false
@@ -28,7 +28,7 @@ internal data class LapisRequest(
 	}
 
 	override fun hashCode(): Int {
-		var result1 = uuid.hashCode()
+		var result1 = requestId.hashCode()
 		result1 = 31 * result1 + apiName.hashCode()
 		result1 = 31 * result1 + methodName.hashCode()
 		for ((key, value) in arguments) {
