@@ -56,7 +56,9 @@ internal class LapisBluetoothEventsImpl(
 
 	override fun dispose() {
 		context.unregisterReceiver(_bluetoothStateChangeReceiver)
-		context.unregisterReceiver(_deviceAliasChangeReceiver)
+		if (Build.VERSION.SDK_INT >= 30) {
+			context.unregisterReceiver(_deviceAliasChangeReceiver)
+		}
 		context.unregisterReceiver(_bondStateChangeReceiver)
 		context.unregisterReceiver(_deviceConnectionReceiver)
 		context.unregisterReceiver(_deviceNameChangeReceiver)
@@ -149,8 +151,7 @@ internal class LapisBluetoothEventsImpl(
 			_bluetoothStateChangeReceiver,
 			IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
 		)
-
-		if (Build.VERSION.SDK_INT >= 35) {
+		if (Build.VERSION.SDK_INT >= 30) {
 			// TODO: we should test that this works
 			context.registerReceiver(
 				_deviceAliasChangeReceiver,
