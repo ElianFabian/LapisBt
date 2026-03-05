@@ -24,6 +24,8 @@ public interface LapisBt {
 
 	public val isBluetoothSupported: Boolean
 
+	// Internally this checks for the bluetooth connect permission, we should think if this
+	// property actually makes sense, or we should name it a different way or whatever
 	public val canEnableBluetooth: Boolean
 
 	public val state: StateFlow<BluetoothState>

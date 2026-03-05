@@ -357,6 +357,7 @@ internal class LapisBtImpl(
 		return device.removeBond()
 	}
 
+	// TODO: we should probably add a mutext here
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -380,6 +381,7 @@ internal class LapisBtImpl(
 		}
 	}
 
+	// TODO: we should probably add a mutext here
 	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -796,13 +798,6 @@ internal class LapisBtImpl(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
-		_events.emit(
-			LapisBt.Event.OnDeviceConnected(
-				connectedDevice = connectedDevice,
-				manuallyConnected = false,
-			)
-		)
-
 		_pairedDevices.update { devices ->
 			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
@@ -845,6 +840,13 @@ internal class LapisBtImpl(
 		}
 
 		updateDevices()
+
+		_events.emit(
+			LapisBt.Event.OnDeviceConnected(
+				connectedDevice = connectedDevice,
+				manuallyConnected = false,
+			)
+		)
 
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
@@ -920,13 +922,6 @@ internal class LapisBtImpl(
 			connectionState = BluetoothDevice.ConnectionState.Connected,
 		)
 
-		_events.emit(
-			LapisBt.Event.OnDeviceConnected(
-				connectedDevice = connectedDevice,
-				manuallyConnected = true,
-			)
-		)
-
 		_pairedDevices.update { devices ->
 			val androidBondedDevices = lapisAdapter.getBondedDevices().orEmpty()
 			val isDeviceInList = devices.any { it.address == connectedDevice.address }
@@ -968,6 +963,13 @@ internal class LapisBtImpl(
 		}
 
 		updateDevices()
+
+		_events.emit(
+			LapisBt.Event.OnDeviceConnected(
+				connectedDevice = connectedDevice,
+				manuallyConnected = true,
+			)
+		)
 
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
