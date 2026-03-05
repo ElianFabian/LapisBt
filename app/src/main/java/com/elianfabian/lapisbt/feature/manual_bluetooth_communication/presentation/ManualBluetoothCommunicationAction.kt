@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation
 
+import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.model.BluetoothDevice
 
 sealed interface ManualBluetoothCommunicationAction {

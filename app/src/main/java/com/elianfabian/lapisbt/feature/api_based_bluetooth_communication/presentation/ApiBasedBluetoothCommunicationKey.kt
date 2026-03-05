@@ -2,12 +2,13 @@ package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presen
 
 import androidx.fragment.app.Fragment
 import com.elianfabian.lapisbt.app.common.util.simplestack.FragmentKey
+import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.di.ApiBasedBluetoothCommunicationModule
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-data object ApiBasedBluetoothCommunicationKey : FragmentKey() {
+data object ApiBasedBluetoothCommunicationKey : FragmentKey(
+	serviceModule = ApiBasedBluetoothCommunicationModule,
+) {
 
-	override fun instantiateFragment(): Fragment {
-		TODO("Not yet implemented")
-	}
+	override fun instantiateFragment() = ApiBasedBluetoothCommunicationFragment()
 }

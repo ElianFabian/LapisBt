@@ -57,7 +57,6 @@ class GlobalServiceProvider(
 			mainActivityHolder = mainActivityHolder,
 		)
 
-		val lapisBt = LapisBt.newInstance(applicationContext)
 
 //		val bluetoothController: BluetoothController = BluetoothControllerImpl(
 //			context = applicationContext,
@@ -74,15 +73,7 @@ class GlobalServiceProvider(
 			applicationScope = applicationScope,
 		)
 
-		val manualBluetoothCommunicationViewModel = ManualBluetoothCommunicationViewModel(
-			androidHelper = androidHelper,
-			lapisBt = lapisBt,
-			bluetoothPermissionController = bluetoothPermissionController,
-			notificationController = notificationController,
-			accessFineLocationPermissionController = accessFineLocationPermissionController,
-			postNotificationsPermissionController = postNotificationsPermissionController,
-			storageController = storageController,
-		)
+
 
 		val applicationOrchestrator = ApplicationOrchestrator(
 			context = applicationContext,
@@ -99,9 +90,9 @@ class GlobalServiceProvider(
 			.add(mainActivityHolder)
 			.add(readContactsPermissionController)
 			.add(bluetoothPermissionController)
-			.add(lapisBt)
+			.add(accessFineLocationPermissionController)
+			.add(postNotificationsPermissionController)
 			.add(androidHelper)
-			.add(manualBluetoothCommunicationViewModel)
 			.add(notificationController)
 			.add(applicationOrchestrator)
 			.build()

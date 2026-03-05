@@ -32,6 +32,11 @@ internal class LapisBtRpcImpl(
 			}
 		}
 
+		// FIXME: right now the BluetoothDeviceRpc is created when we create an api client instance,
+		//  this implies that if we only need a server to receive messages from one device we can't do it
+		//  unless we also create a dummy client instance that allows the reception of messages.
+		//  A way to fix this could be to force the registration of servers with an address,
+		//  this way the BluetoothDeviceRpc will be created in any case, and we just have to reuse it.
 		val newApiClient = Proxy.newProxyInstance(
 			apiInterface.java.classLoader,
 			arrayOf(apiInterface.java),
@@ -95,6 +100,15 @@ internal class LapisBtRpcImpl(
 		}
 
 		_bluetoothServerApiByInterface.remove(serverClass)
+	}
+
+	override fun <T : Any> unregisterBluetoothApiServerByClass(apiInterface: KClass<T>) {
+		if (apiInterface in _bluetoothServerApiByInterface) {
+			_bluetoothServerApiByInterface.remove(apiInterface)
+			return
+		}
+
+		throw IllegalStateException("There is no server register for interface: $apiInterface")
 	}
 }
 

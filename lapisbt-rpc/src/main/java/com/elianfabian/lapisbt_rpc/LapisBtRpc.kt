@@ -17,6 +17,8 @@ public interface LapisBtRpc {
 
 	public fun unregisterBluetoothApiServer(server: Any)
 
+	public fun <T : Any> unregisterBluetoothApiServerByClass(apiInterface: KClass<T>)
+
 
 	public companion object {
 

@@ -119,6 +119,7 @@ internal class BluetoothDeviceRpc(
 				methodName = methodName,
 				arguments = argumentsByName.mapValues { (_, value) ->
 					val byteArrayOutputStream = ByteArrayOutputStream()
+
 					@Suppress("UNCHECKED_CAST")
 					val serializer = DefaultSerializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
 					serializer.serialize(byteArrayOutputStream, value)
@@ -299,6 +300,7 @@ internal class BluetoothDeviceRpc(
 	private fun launchRawDataProcessing() {
 		_scope.launch {
 			lapisBt.receiveData(deviceAddress) { stream ->
+				println("$$$ Start receiving daaa")
 				while (true) {
 					val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 

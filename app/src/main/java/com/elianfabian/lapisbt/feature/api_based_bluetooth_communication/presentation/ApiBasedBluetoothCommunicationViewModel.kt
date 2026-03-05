@@ -1,16 +1,15 @@
-package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation
+package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presentation
 
 import android.os.Build
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
-import com.elianfabian.lapisbt.app.common.domain.NotificationController
 import com.elianfabian.lapisbt.app.common.domain.PermissionController
 import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
-import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
-import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
+import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpc
+import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpcServer
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.zhuinden.flowcombinetuplekt.combineTuple
@@ -18,32 +17,25 @@ import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.util.UUID
 
-class ManualBluetoothCommunicationViewModel(
+class ApiBasedBluetoothCommunicationViewModel(
 	private val lapisBt: LapisBt,
+	private val lapisBtRpc: LapisBtRpc,
 	private val bluetoothPermissionController: MultiplePermissionController,
 	private val accessFineLocationPermissionController: PermissionController,
 	private val postNotificationsPermissionController: PermissionController,
-	private val notificationController: NotificationController,
 	private val androidHelper: AndroidHelper,
 	private val storageController: StorageController,
 ) : ScopedServices.Registered {
 
 	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
-
 
 	override fun onServiceRegistered() {
 		println("$$$ ManualBluetoothCommunicationViewModel created")
@@ -75,12 +67,6 @@ class ManualBluetoothCommunicationViewModel(
 			postNotificationsPermissionController.request()
 		}
 
-		_messages.update { messages ->
-			messages.map { message ->
-				message.copy(isRead = true)
-			}
-		}
-
 		_scope.launch {
 			lapisBt.state.collect { state ->
 				if (state == LapisBt.BluetoothState.Off) {
@@ -88,118 +74,48 @@ class ManualBluetoothCommunicationViewModel(
 				}
 			}
 		}
-		_scope.launch {
-			notificationController.events.collect { event ->
-				when (event) {
-					is NotificationController.NotificationEvent.OnReceiveMessageFromRemoteInput -> {
-						if (sendMessage(event.message)) {
-							notificationController.sendGroupNotificationMessage(
-								message = NotificationController.GroupMessageNotification(
-									senderName = "Me",
-									content = event.message,
-								)
-							)
-						}
-						else {
-							notificationController.stopLoadingGroupNotification()
-						}
-					}
-					else -> Unit
-				}
-			}
-		}
+
 		_scope.launch {
 			lapisBt.events.collect { event ->
+				println("$$$ Received Bluetooth event: $event")
 				when (event) {
 					is LapisBt.Event.OnDeviceConnected -> {
-						if (_selectedDevice.value == ManualBluetoothCommunicationState.SelectedDevice.None) {
-							_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(event.connectedDevice)
+						println("$$$ Device connected event received for device: ${event.connectedDevice}")
+						if (_selectedDevice.value == ApiBasedBluetoothCommunicationState.SelectedDevice.None) {
+							_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(event.connectedDevice)
 						}
 
-						if (storageController.getBluetoothAddress() == null) {
-							launch {
-								lapisBt.sendData(event.connectedDevice.address) { stream ->
-									val dataStream = DataOutputStream(stream)
+						val bluetoothRpcServer = SimpleBluetoothRpcServer(
+							deviceAddress = event.connectedDevice.address,
+							androidHelper = androidHelper,
+						)
 
-									dataStream.writeUTF("get-address")
-								}
-							}
-						}
+						println("$$$$$ Register bluetooth rpc server: $bluetoothRpcServer")
 
-						launch {
-							lapisBt.receiveData(event.connectedDevice.address) { stream ->
-								val dataStream = DataInputStream(stream)
-								while (true) {
-									val type = dataStream.readUTF()
-									when (type) {
-										"get-address" -> {
-											lapisBt.sendData(event.connectedDevice.address) { stream ->
-												val dataStream = DataOutputStream(stream)
-
-												dataStream.writeUTF("address")
-												dataStream.writeUTF(event.connectedDevice.address)
-											}
-										}
-										"address" -> {
-											val address = dataStream.readUTF()
-											_currentDeviceAddress.value = address
-											storageController.setBluetoothAddress(address)
-										}
-										"message" -> {
-											val messageContent = dataStream.readUTF()
-
-											val message = BluetoothMessage(
-												content = messageContent,
-												isRead = false,
-												senderName = event.connectedDevice.name,
-												senderAddress = event.connectedDevice.address,
-											)
-
-											val messages = _messages.updateAndGet {
-												it + message
-											}
-
-											val currentDeviceAddress = storageController.getBluetoothAddress() ?: error("No device address set")
-
-											if (androidHelper.isAppInBackground() || androidHelper.isAppClosed()) {
-												notificationController.sendGroupNotificationMessage(
-													message = messages
-														.last { it.senderAddress != currentDeviceAddress && !it.isRead }
-														.let {
-															NotificationController.GroupMessageNotification(
-																senderName = it.senderName ?: it.senderAddress,
-																content = it.content,
-															)
-														}
-												)
-											}
-										}
-									}
-								}
-							}
-						}
-
-						androidHelper.showToast("Device connected: '${event.connectedDevice.name}'")
+						lapisBtRpc.registerBluetoothApiServer(bluetoothRpcServer, SimpleBluetoothRpc::class)
+						lapisBtRpc.getOrCreateBluetoothApiClient(event.connectedDevice.address, SimpleBluetoothRpc::class)
 					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
+						lapisBtRpc.unregisterBluetoothApiServerByClass(SimpleBluetoothRpc::class)
+
 						androidHelper.showToast("Device disconnected: '${event.disconnectedDevice.name}'")
 
 						_selectedDevice.update { selection ->
 							when (selection) {
-								is ManualBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
 									val connectedDevices = lapisBt.pairedDevices.value.filter {
 										it.connectionState == BluetoothDevice.ConnectionState.Connected
 									}
 									if (connectedDevices.isNotEmpty()) {
-										ManualBluetoothCommunicationState.SelectedDevice.AllDevices
+										ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices
 									}
-									else ManualBluetoothCommunicationState.SelectedDevice.None
+									else ApiBasedBluetoothCommunicationState.SelectedDevice.None
 								}
-								is ManualBluetoothCommunicationState.SelectedDevice.Device -> {
-									ManualBluetoothCommunicationState.SelectedDevice.None
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
+									ApiBasedBluetoothCommunicationState.SelectedDevice.None
 								}
-								is ManualBluetoothCommunicationState.SelectedDevice.None -> {
-									ManualBluetoothCommunicationState.SelectedDevice.None
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
+									ApiBasedBluetoothCommunicationState.SelectedDevice.None
 								}
 							}
 						}
@@ -213,12 +129,10 @@ class ManualBluetoothCommunicationViewModel(
 	}
 
 	private val _currentDeviceAddress = MutableStateFlow<String?>(null)
-	private val _permissionDialog = MutableStateFlow<ManualBluetoothCommunicationState.PermissionDialogState?>(null)
-	private val _messages = MutableStateFlow<List<BluetoothMessage>>(emptyList())
-	private val _enteredMessage = MutableStateFlow("")
+	private val _permissionDialog = MutableStateFlow<ApiBasedBluetoothCommunicationState.PermissionDialogState?>(null)
 	private val _enteredBluetoothDeviceName = MutableStateFlow<String?>(null)
 	private val _useSecureConnection = MutableStateFlow(false)
-	private val _selectedDevice = MutableStateFlow<ManualBluetoothCommunicationState.SelectedDevice>(ManualBluetoothCommunicationState.SelectedDevice.None)
+	private val _selectedDevice = MutableStateFlow<ApiBasedBluetoothCommunicationState.SelectedDevice>(ApiBasedBluetoothCommunicationState.SelectedDevice.None)
 
 	val state = combineTuple(
 		lapisBt.pairedDevices,
@@ -226,8 +140,6 @@ class ManualBluetoothCommunicationViewModel(
 		lapisBt.state,
 		_permissionDialog,
 		lapisBt.bluetoothDeviceName,
-		_messages,
-		_enteredMessage,
 		lapisBt.activeBluetoothServersUuids.map { it.isNotEmpty() },
 		_enteredBluetoothDeviceName,
 		_useSecureConnection,
@@ -237,11 +149,11 @@ class ManualBluetoothCommunicationViewModel(
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
-				messages, enteredMessage, isWaitingForConnection, enteredBluetoothDeviceName,
+				isWaitingForConnection, enteredBluetoothDeviceName,
 				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices,
 			),
 		->
-		ManualBluetoothCommunicationState(
+		ApiBasedBluetoothCommunicationState(
 			pairedDevices = devices,
 //				.filter {
 //				it.pairingState == BluetoothDevice.PairingState.Paired
@@ -266,8 +178,6 @@ class ManualBluetoothCommunicationViewModel(
 			isBluetoothOn = bluetoothState.isOn,
 			permissionDialog = permissionDialog,
 			bluetoothDeviceName = bluetoothName,
-			messages = messages,
-			enteredMessage = enteredMessage,
 			isWaitingForConnection = isWaitingForConnection,
 			enteredBluetoothDeviceName = enteredBluetoothDeviceName,
 			useSecureConnection = useSecureConnection,
@@ -275,7 +185,7 @@ class ManualBluetoothCommunicationViewModel(
 	}.stateIn(
 		scope = _scope,
 		started = SharingStarted.WhileSubscribed(5000),
-		initialValue = ManualBluetoothCommunicationState(
+		initialValue = ApiBasedBluetoothCommunicationState(
 			isBluetoothSupported = lapisBt.isBluetoothSupported,
 			isBluetoothOn = lapisBt.state.value.isOn,
 			useSecureConnection = _useSecureConnection.value,
@@ -283,15 +193,15 @@ class ManualBluetoothCommunicationViewModel(
 		),
 	)
 
-	fun sendAction(action: ManualBluetoothCommunicationAction) {
+	fun sendAction(action: ApiBasedBluetoothCommunicationAction) {
 		println("$$$ Received action: $action")
 		when (action) {
-			is ManualBluetoothCommunicationAction.StartScan -> {
+			is ApiBasedBluetoothCommunicationAction.StartScan -> {
 				_scope.launch {
 					if (Build.VERSION.SDK_INT < 31) {
 						val result = accessFineLocationPermissionController.request()
 						if (result == PermissionState.PermanentlyDenied) {
-							_permissionDialog.value = ManualBluetoothCommunicationState.PermissionDialogState(
+							_permissionDialog.value = ApiBasedBluetoothCommunicationState.PermissionDialogState(
 								title = "Permission Denied",
 								message = "Please, enable location permissions in settings to allow scanning.",
 								actionName = "Settings",
@@ -332,10 +242,10 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.StopScan -> {
+			is ApiBasedBluetoothCommunicationAction.StopScan -> {
 				lapisBt.stopScan()
 			}
-			is ManualBluetoothCommunicationAction.StartServer -> {
+			is ApiBasedBluetoothCommunicationAction.StartServer -> {
 				_scope.launch {
 					requestPermissionsAndEnableBluetoothBeforeExecuting {
 						val result = if (_useSecureConnection.value) {
@@ -358,31 +268,23 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.StopServer -> {
+			is ApiBasedBluetoothCommunicationAction.StopServer -> {
 				lapisBt.stopBluetoothServer(ConnectionUuid)
 			}
-			is ManualBluetoothCommunicationAction.OpenBluetoothSettings -> {
+			is ApiBasedBluetoothCommunicationAction.OpenBluetoothSettings -> {
 				androidHelper.openBluetoothSettings()
 			}
-			is ManualBluetoothCommunicationAction.OpenDeviceInfoSettings -> {
+			is ApiBasedBluetoothCommunicationAction.OpenDeviceInfoSettings -> {
 				androidHelper.openDeviceInfoSettings()
 			}
-			is ManualBluetoothCommunicationAction.MakeDeviceDiscoverable -> {
+			is ApiBasedBluetoothCommunicationAction.MakeDeviceDiscoverable -> {
 				_scope.launch {
 					androidHelper.showMakeDeviceDiscoverableDialog(seconds = 300)
 				}
 			}
-			is ManualBluetoothCommunicationAction.SendMessage -> {
-				_scope.launch {
-					sendMessage(_enteredMessage.value)
-				}
-			}
-			is ManualBluetoothCommunicationAction.EnterMessage -> {
-				_enteredMessage.value = action.message
-			}
-			is ManualBluetoothCommunicationAction.ClickPairedDevice -> {
+			is ApiBasedBluetoothCommunicationAction.ClickPairedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.device)
+					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.device)
 					return
 				}
 				_scope.launch {
@@ -402,16 +304,18 @@ class ManualBluetoothCommunicationViewModel(
 							serviceUuid = ConnectionUuid,
 						)
 					}
+					println("$$$ Connection result1: $result")
 					when (result) {
 						is LapisBt.ConnectionResult.ConnectionEstablished -> {
+
 						}
 						else -> Unit
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.ClickScannedDevice -> {
+			is ApiBasedBluetoothCommunicationAction.ClickScannedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.device)
+					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.device)
 					return
 				}
 				_scope.launch {
@@ -439,7 +343,7 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.LongClickPairedDevice -> {
+			is ApiBasedBluetoothCommunicationAction.LongClickPairedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 					_scope.launch {
 						if (!lapisBt.disconnectFromDevice(action.device.address)) {
@@ -448,7 +352,7 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.LongClickScannedDevice -> {
+			is ApiBasedBluetoothCommunicationAction.LongClickScannedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 					_scope.launch {
 						if (!lapisBt.disconnectFromDevice(action.device.address)) {
@@ -457,25 +361,13 @@ class ManualBluetoothCommunicationViewModel(
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.ClickMessage -> {
-				_scope.launch {
-					val currentDeviceAddress = storageController.getBluetoothAddress() ?: return@launch
-					if (action.message.senderAddress != currentDeviceAddress) {
-						val targetDevice = lapisBt.pairedDevices.value.find { device ->
-							device.address == action.message.senderAddress
-						} ?: return@launch
-
-						_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(targetDevice)
-					}
-				}
-			}
-			is ManualBluetoothCommunicationAction.EditBluetoothDeviceName -> {
+			is ApiBasedBluetoothCommunicationAction.EditBluetoothDeviceName -> {
 				_enteredBluetoothDeviceName.value = lapisBt.bluetoothDeviceName.value
 			}
-			is ManualBluetoothCommunicationAction.EnterBluetoothDeviceName -> {
+			is ApiBasedBluetoothCommunicationAction.EnterBluetoothDeviceName -> {
 				_enteredBluetoothDeviceName.value = action.bluetoothDeviceName
 			}
-			is ManualBluetoothCommunicationAction.SaveBluetoothDeviceName -> {
+			is ApiBasedBluetoothCommunicationAction.SaveBluetoothDeviceName -> {
 				val newBluetoothDeviceName = _enteredBluetoothDeviceName.value ?: return
 
 				if (lapisBt.setBluetoothDeviceName(newBluetoothDeviceName)) {
@@ -485,127 +377,128 @@ class ManualBluetoothCommunicationViewModel(
 					androidHelper.showToast("Couldn't change the bluetooth name")
 				}
 			}
-			is ManualBluetoothCommunicationAction.CheckUseSecureConnection -> {
+			is ApiBasedBluetoothCommunicationAction.CheckUseSecureConnection -> {
 				_useSecureConnection.value = action.enabled
 			}
-			is ManualBluetoothCommunicationAction.SelectTargetDeviceToMessage -> {
-				_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.connectedDevice)
+			is ApiBasedBluetoothCommunicationAction.SelectTargetDeviceToMessage -> {
+				_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.connectedDevice)
 			}
-			is ManualBluetoothCommunicationAction.SelectAllDevicesToMessage -> {
-				_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.AllDevices
+			is ApiBasedBluetoothCommunicationAction.SelectAllDevicesToMessage -> {
+				_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices
 			}
-			is ManualBluetoothCommunicationAction.EnableBluetooth -> {
+			is ApiBasedBluetoothCommunicationAction.EnableBluetooth -> {
 				_scope.launch {
 					requestPermissionsAndEnableBluetoothBeforeExecuting {
 						// no-op, this will request the proper permissions to then enable bluetooth
 					}
 				}
 			}
-			is ManualBluetoothCommunicationAction.PairDevice -> {
+			is ApiBasedBluetoothCommunicationAction.PairDevice -> {
 				_scope.launch {
 					lapisBt.pairDevice(action.device.address)
 				}
 			}
-			is ManualBluetoothCommunicationAction.UnpairDevice -> {
+			is ApiBasedBluetoothCommunicationAction.UnpairDevice -> {
 				_scope.launch {
 					lapisBt.unpairDevice(action.device.address)
 				}
 			}
-		}
-	}
+			ApiBasedBluetoothCommunicationAction.ClickOpenAppSettingsRemotely -> {
+				when (val selectedDevice = _selectedDevice.value) {
+					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
+						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+							deviceAddress = selectedDevice.device.address,
+							apiInterface = SimpleBluetoothRpc::class,
+						)
 
-	private suspend fun sendMessage(
-		messageContent: String,
-	): Boolean {
-		val selectedDevice = _selectedDevice.value
-		if (selectedDevice == ManualBluetoothCommunicationState.SelectedDevice.None) {
-			androidHelper.showToast("Please, select a connected device to mark it as target.")
-			return false
-		}
-		if (messageContent.isBlank()) {
-			androidHelper.showToast("Please, enter a message to send.")
-			return false
-		}
-		val connectedDevices = state.value.connectedDevices.filter {
-			it.connectionState == BluetoothDevice.ConnectionState.Connected
-		}
-		if (connectedDevices.isEmpty()) {
-			androidHelper.showToast("Please, connect to a device before sending a message.")
-			return false
-		}
-		if (selectedDevice is ManualBluetoothCommunicationState.SelectedDevice.Device) {
-			if (connectedDevices.none { it.address == selectedDevice.device.address }) {
-				androidHelper.showToast("Please, connect to the device with address: ${selectedDevice.device.address} before sending a message.")
-				return false
-			}
-		}
-
-		return coroutineScope {
-			when (selectedDevice) {
-				is ManualBluetoothCommunicationState.SelectedDevice.Device -> {
-
-					lapisBt.sendData(selectedDevice.device.address) { stream ->
-						val dataStream = DataOutputStream(stream)
-
-						dataStream.writeUTF("message")
-						dataStream.writeUTF(messageContent)
+						_scope.launch {
+							apiClient.openAppSettings()
+						}
 					}
-
-					val currentDeviceAddress = storageController.getBluetoothAddress() ?: return@coroutineScope false
-
-					val message = BluetoothMessage(
-						content = messageContent,
-						senderAddress = currentDeviceAddress,
-						isRead = true,
-						senderName = lapisBt.bluetoothDeviceName.value,
-					)
-
-					_messages.update {
-						it + message
-					}
-					_enteredMessage.value = ""
-
-					return@coroutineScope true
-				}
-				is ManualBluetoothCommunicationState.SelectedDevice.AllDevices -> {
-					val messages = lapisBt.pairedDevices.value.filter {
-						it.connectionState == BluetoothDevice.ConnectionState.Connected
-					}.map { connectedDevice ->
-						async {
-							lapisBt.sendData(connectedDevice.address) { stream ->
-								val dataStream = DataOutputStream(stream)
-
-								dataStream.writeUTF("message")
-								dataStream.writeUTF(messageContent)
+					ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+						_scope.launch {
+							val connectedDevices = lapisBt.pairedDevices.value.filter {
+								it.connectionState == BluetoothDevice.ConnectionState.Connected
 							}
+							connectedDevices.forEach { device ->
+								val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+									deviceAddress = device.address,
+									apiInterface = SimpleBluetoothRpc::class,
+								)
 
-							val currentDeviceAddress = storageController.getBluetoothAddress() ?: error("Bluetooth address is null")
+								apiClient.openAppSettings()
+							}
+						}
+					}
+					ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
+						androidHelper.showToast("Please, select a connected device to mark it as target.")
+					}
+				}
+			}
+			ApiBasedBluetoothCommunicationAction.ClickGetMyOwnAddress -> {
+				when (val selectedDevice = _selectedDevice.value) {
+					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
+						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+							deviceAddress = selectedDevice.device.address,
+							apiInterface = SimpleBluetoothRpc::class,
+						)
 
-							val message = BluetoothMessage(
-								content = messageContent,
-								senderAddress = currentDeviceAddress,
-								isRead = true,
-								senderName = lapisBt.bluetoothDeviceName.value,
+						_scope.launch {
+							val myAddress = apiClient.getMyOwnAddress()
+							androidHelper.showToast("My address according to ${selectedDevice.device.address} is: $myAddress")
+						}
+					}
+					ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+						_scope.launch {
+							val connectedDevices = lapisBt.pairedDevices.value.filter {
+								it.connectionState == BluetoothDevice.ConnectionState.Connected
+							}
+							connectedDevices.forEach { device ->
+								val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+									deviceAddress = device.address,
+									apiInterface = SimpleBluetoothRpc::class,
+								)
+
+								val myAddress = apiClient.getMyOwnAddress()
+								androidHelper.showToast("My address according to ${device.address} is: $myAddress")
+							}
+						}
+					}
+					ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
+						androidHelper.showToast("Please, select a connected device to mark it as target.")
+					}
+				}
+			}
+			is ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely -> {
+				when (val selectedDevice = _selectedDevice.value) {
+					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
+						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+							deviceAddress = selectedDevice.device.address,
+							apiInterface = SimpleBluetoothRpc::class,
+						)
+
+						_scope.launch {
+							apiClient.showToast("From ${selectedDevice.device.address}: ${action.message}")
+						}
+					}
+					ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+						val connectedDevices = lapisBt.pairedDevices.value.filter {
+							it.connectionState == BluetoothDevice.ConnectionState.Connected
+						}
+						connectedDevices.forEach { device ->
+							val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+								deviceAddress = device.address,
+								apiInterface = SimpleBluetoothRpc::class,
 							)
 
-							message
+							_scope.launch {
+								apiClient.showToast("From ${device.address}: ${action.message}")
+							}
 						}
-					}.awaitAll()
-
-					if (messages.isNotEmpty()) {
-						_messages.update {
-							it + messages
-						}
-
-						_enteredMessage.value = ""
-
-						return@coroutineScope true
 					}
-
-					return@coroutineScope false
-				}
-				is ManualBluetoothCommunicationState.SelectedDevice.None -> {
-					return@coroutineScope true
+					ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
+						androidHelper.showToast("Please, select a connected device to mark it as target.")
+					}
 				}
 			}
 		}
@@ -614,7 +507,7 @@ class ManualBluetoothCommunicationViewModel(
 	private suspend fun requestPermissionsAndEnableBluetoothBeforeExecuting(action: suspend () -> Unit) {
 		val result = bluetoothPermissionController.request()
 		if (result.allArePermanentlyDenied) {
-			_permissionDialog.value = ManualBluetoothCommunicationState.PermissionDialogState(
+			_permissionDialog.value = ApiBasedBluetoothCommunicationState.PermissionDialogState(
 				title = "Permission Denied",
 				message = "Please, enable bluetooth permissions in settings.",
 				actionName = "Settings",
@@ -656,6 +549,6 @@ class ManualBluetoothCommunicationViewModel(
 
 	companion object {
 		private val ConnectionUuid = UUID.fromString("afd70479-c800-4e92-b626-1474e450c08e")
-		private const val ConnectionName = "ManualBluetoothChat"
+		private const val ConnectionName = "ApiBasedBluetoothCommunicationService"
 	}
 }

@@ -7,18 +7,15 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 @LapisRpc(name = "SimpleBluetoothRpc")
 interface SimpleBluetoothRpc {
 
-	@LapisMethod("sendString")
-	suspend fun sendString(
-		@LapisParam("data")
-		data: String,
+	@LapisMethod(name = "showToast")
+	suspend fun showToast(
+		@LapisParam(name = "message")
+		message: String,
 	)
 
-	@LapisMethod("sendInt")
-	suspend fun sendInt(
-		@LapisParam("data")
-		data: Int,
-	)
-
-	@LapisMethod("getMyOwnAddress")
+	@LapisMethod(name = "getMyOwnAddress")
 	suspend fun getMyOwnAddress(): String
+
+	 @LapisMethod(name = "openAppSettings")
+	 suspend fun openAppSettings()
 }
