@@ -9,6 +9,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -90,6 +91,7 @@ internal class LapisBtImpl(
 	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<String, LapisBluetoothSocket> = ConcurrentHashMap()
 	private val _clientJobByAddress: MutableMap<String, Job> = ConcurrentHashMap()
+	private val _mutex = KeyedMutex<String>()
 
 
 	init {
@@ -360,7 +362,6 @@ internal class LapisBtImpl(
 		return device.removeBond()
 	}
 
-	// TODO: we should probably add a mutext here
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -370,21 +371,22 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return withContext(Dispatchers.IO) {
-			ensureActive()
+		return _mutex.withLock(deviceAddress) {
+			withContext(Dispatchers.IO) {
+				ensureActive()
 
-			try {
-				action(clientSocket.outputStream)
-			}
-			catch (_: IOException) {
-				return@withContext false
-			}
+				try {
+					action(clientSocket.outputStream)
+				}
+				catch (_: IOException) {
+					return@withContext false
+				}
 
-			return@withContext true
+				return@withContext true
+			}
 		}
 	}
 
-	// TODO: we should probably add a mutext here
 	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -394,17 +396,19 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return withContext(Dispatchers.IO) {
-			ensureActive()
+		return _mutex.withLock(deviceAddress) {
+			withContext(Dispatchers.IO) {
+				ensureActive()
 
-			try {
-				action(clientSocket.inputStream)
-			}
-			catch (_: IOException) {
-				return@withContext false
-			}
+				try {
+					action(clientSocket.inputStream)
+				}
+				catch (_: IOException) {
+					return@withContext false
+				}
 
-			return@withContext true
+				return@withContext true
+			}
 		}
 	}
 
