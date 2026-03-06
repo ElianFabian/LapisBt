@@ -50,6 +50,8 @@ internal class LapisBtImpl(
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
 	// FIXME: when a scanned device is in the connected state it also appears in paired devices, this should not happen
+	// FIXME: it also happens that sometimes for one device it seems the other is connected, but from the other side it is disconnected, I don't know why
+	//  they are actually connected, because I can send messages, we just have to see why it appears as disconnected
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
