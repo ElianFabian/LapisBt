@@ -91,7 +91,8 @@ internal class LapisBtImpl(
 	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<String, LapisBluetoothSocket> = ConcurrentHashMap()
 	private val _clientJobByAddress: MutableMap<String, Job> = ConcurrentHashMap()
-	private val _mutex = KeyedMutex<String>()
+	private val _readMutex = KeyedMutex<String>()
+	private val _writeMutex = KeyedMutex<String>()
 
 
 	init {
@@ -373,7 +374,7 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return _mutex.withLock(deviceAddress) {
+		return _readMutex.withLock(deviceAddress) {
 			withContext(Dispatchers.IO) {
 				ensureActive()
 
@@ -398,7 +399,7 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return _mutex.withLock(deviceAddress) {
+		return _writeMutex.withLock(deviceAddress) {
 			withContext(Dispatchers.IO) {
 				ensureActive()
 
