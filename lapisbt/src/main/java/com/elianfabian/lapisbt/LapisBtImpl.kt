@@ -6,8 +6,10 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
+import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -89,6 +91,8 @@ internal class LapisBtImpl(
 	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<String, LapisBluetoothSocket> = ConcurrentHashMap()
 	private val _clientJobByAddress: MutableMap<String, Job> = ConcurrentHashMap()
+	private val _readMutex = KeyedMutex<String>()
+	private val _writeMutex = KeyedMutex<String>()
 
 
 	init {
@@ -220,7 +224,9 @@ internal class LapisBtImpl(
 		}
 
 		val manuallyDisconnected = try {
-			clientSocket.outputStream.write(0)
+			withContext(Dispatchers.IO) {
+				clientSocket.outputStream.write(0)
+			}
 			true
 		}
 		catch (e: IOException) {
@@ -337,9 +343,10 @@ internal class LapisBtImpl(
 		}
 
 		val androidDevice = lapisAdapter.getRemoteDevice(deviceAddress)
+		val isConnected = _clientSocketByAddress[deviceAddress]?.isConnected == true
 
 		return androidDevice.toModel(
-			connectionState = if (androidDevice.isConnected()) {
+			connectionState = if (isConnected) {
 				BluetoothDevice.ConnectionState.Connected
 			}
 			else BluetoothDevice.ConnectionState.Disconnected,
@@ -356,12 +363,12 @@ internal class LapisBtImpl(
 		return device.createBond()
 	}
 
+	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 		return device.removeBond()
 	}
 
-	// TODO: we should probably add a mutext here
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -371,21 +378,22 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return withContext(Dispatchers.IO) {
-			ensureActive()
+		return _readMutex.withLock(deviceAddress) {
+			withContext(Dispatchers.IO) {
+				ensureActive()
 
-			try {
-				action(clientSocket.outputStream)
-			}
-			catch (_: IOException) {
-				return@withContext false
-			}
+				try {
+					action(clientSocket.outputStream)
+				}
+				catch (_: IOException) {
+					return@withContext false
+				}
 
-			return@withContext true
+				return@withContext true
+			}
 		}
 	}
 
-	// TODO: we should probably add a mutext here
 	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
 		requireValidAddress(deviceAddress)
 
@@ -395,17 +403,19 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return withContext(Dispatchers.IO) {
-			ensureActive()
+		return _writeMutex.withLock(deviceAddress) {
+			withContext(Dispatchers.IO) {
+				ensureActive()
 
-			try {
-				action(clientSocket.inputStream)
-			}
-			catch (_: IOException) {
-				return@withContext false
-			}
+				try {
+					action(clientSocket.inputStream)
+				}
+				catch (_: IOException) {
+					return@withContext false
+				}
 
-			return@withContext true
+				return@withContext true
+			}
 		}
 	}
 
@@ -623,10 +633,12 @@ internal class LapisBtImpl(
 					// This way we avoid connection or pairing issues.
 					// Maybe in future we consider a different approach or consider that this
 					// should be handled by the user of this library.
-					// Maybe when try to connect to a device and it fails we could silently scan for devices,
-					// check if it appears as a scanned device and do the same, but I'm not sure this is something
+					// Maybe when try to connect to a device, and it fails we could silently scan for devices,
+					// check if it appears as a scanned device and do the same, but I'm not sure if this is something
 					// we should actually do here
-					unpairDevice(newDevice.address)
+
+					// For now, we'll uncomment this, I think this should be the responsibility of the user of this library.
+					//unpairDevice(newDevice.address)
 				}
 
 				_events.emit(LapisBt.Event.OnDeviceScanned(newDevice))

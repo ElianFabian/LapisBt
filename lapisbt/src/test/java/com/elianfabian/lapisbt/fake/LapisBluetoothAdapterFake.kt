@@ -8,7 +8,6 @@ import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.TestRandom
 import com.elianfabian.lapisbt.util.generateAddress
 import java.util.UUID
-import kotlin.random.Random
 
 internal class LapisBluetoothAdapterFake(
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,

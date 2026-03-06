@@ -5,6 +5,7 @@ import android.content.Context
 import com.elianfabian.lapisbt.abstraction.impl.AndroidHelperImpl
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
+import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +65,7 @@ public interface LapisBt {
 
 	public fun pairDevice(deviceAddress: String): Boolean
 
-	// I'm not sure if we should keep this since this access an internal API
+	@InternalBluetoothReflectionApi
 	public fun unpairDevice(deviceAddress: String): Boolean
 
 	public suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean
