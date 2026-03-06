@@ -223,7 +223,9 @@ internal class LapisBtImpl(
 		}
 
 		val manuallyDisconnected = try {
-			clientSocket.outputStream.write(0)
+			withContext(Dispatchers.IO) {
+				clientSocket.outputStream.write(0)
+			}
 			true
 		}
 		catch (e: IOException) {
