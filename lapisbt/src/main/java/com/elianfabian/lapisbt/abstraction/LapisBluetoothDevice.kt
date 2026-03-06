@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.abstraction
 
+import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import java.util.UUID
 
 internal interface LapisBluetoothDevice {
@@ -16,7 +17,13 @@ internal interface LapisBluetoothDevice {
 	fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket
 	fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket
 	fun createBond(): Boolean
+
+	@InternalBluetoothReflectionApi
 	fun removeBond(): Boolean
+
+	@InternalBluetoothReflectionApi
 	fun isConnected(): Boolean
+
+	@InternalBluetoothReflectionApi
 	fun isEncrypted(): Boolean
 }

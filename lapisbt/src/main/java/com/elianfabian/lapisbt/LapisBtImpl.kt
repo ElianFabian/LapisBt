@@ -6,6 +6,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
+import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.toModel
@@ -337,9 +338,10 @@ internal class LapisBtImpl(
 		}
 
 		val androidDevice = lapisAdapter.getRemoteDevice(deviceAddress)
+		val isConnected = _clientSocketByAddress[deviceAddress]?.isConnected == true
 
 		return androidDevice.toModel(
-			connectionState = if (androidDevice.isConnected()) {
+			connectionState = if (isConnected) {
 				BluetoothDevice.ConnectionState.Connected
 			}
 			else BluetoothDevice.ConnectionState.Disconnected,
@@ -352,6 +354,7 @@ internal class LapisBtImpl(
 		return device.createBond()
 	}
 
+	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 		return device.removeBond()
@@ -619,10 +622,12 @@ internal class LapisBtImpl(
 					// This way we avoid connection or pairing issues.
 					// Maybe in future we consider a different approach or consider that this
 					// should be handled by the user of this library.
-					// Maybe when try to connect to a device and it fails we could silently scan for devices,
-					// check if it appears as a scanned device and do the same, but I'm not sure this is something
+					// Maybe when try to connect to a device, and it fails we could silently scan for devices,
+					// check if it appears as a scanned device and do the same, but I'm not sure if this is something
 					// we should actually do here
-					unpairDevice(newDevice.address)
+
+					// For now, we'll uncomment this, I think this should be the responsibility of the user of this library.
+					//unpairDevice(newDevice.address)
 				}
 
 				_events.emit(LapisBt.Event.OnDeviceScanned(newDevice))

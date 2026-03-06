@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt.abstraction.impl
 import android.os.Build
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
+import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import java.util.UUID
 
@@ -55,6 +56,7 @@ internal class LapisBluetoothDeviceImpl(
 		return device.createBond()
 	}
 
+	@InternalBluetoothReflectionApi
 	override fun removeBond(): Boolean {
 		try {
 			val method = device.javaClass.getMethod("removeBond")
@@ -66,6 +68,7 @@ internal class LapisBluetoothDeviceImpl(
 		}
 	}
 
+	@InternalBluetoothReflectionApi
 	override fun isConnected(): Boolean {
 		try {
 			val method = device.javaClass.getMethod("isConnected")
@@ -78,6 +81,7 @@ internal class LapisBluetoothDeviceImpl(
 	}
 
 	// TODO: Test this method
+	@InternalBluetoothReflectionApi
 	override fun isEncrypted(): Boolean {
 		try {
 			val method = device.javaClass.getMethod("isEncrypted")
