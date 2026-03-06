@@ -5,7 +5,6 @@ import android.bluetooth.BluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
-import com.elianfabian.lapisbt.util.generateAddress
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
