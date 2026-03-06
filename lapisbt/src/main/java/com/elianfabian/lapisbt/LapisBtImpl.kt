@@ -49,6 +49,7 @@ internal class LapisBtImpl(
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
+	// FIXME: when a scanned device is in the connected state it also appears in paired devices, this should not happen
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
