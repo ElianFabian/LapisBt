@@ -38,6 +38,8 @@ dependencies {
 
 	implementation(project(":lapisbt"))
 
+	// TODO: see if we should add this in the rpc library
+	//implementation(libs.kotlinReflect)
 	implementation(libs.androidx.coreKtx)
 	implementation(libs.androidx.appcompat)
 	implementation(libs.material)

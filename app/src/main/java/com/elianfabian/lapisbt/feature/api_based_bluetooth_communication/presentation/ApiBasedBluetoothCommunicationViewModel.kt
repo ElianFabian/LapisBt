@@ -12,6 +12,9 @@ import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.Si
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpcServer
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
+import com.elianfabian.lapisbt_rpc.getOrCreateBluetoothClientApi
+import com.elianfabian.lapisbt_rpc.registerBluetoothServerApi
+import com.elianfabian.lapisbt_rpc.unregisterBluetoothServerApi
 import com.zhuinden.flowcombinetuplekt.combineTuple
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
@@ -92,11 +95,14 @@ class ApiBasedBluetoothCommunicationViewModel(
 
 						println("$$$$$ Register bluetooth rpc server: $bluetoothRpcServer")
 
-						lapisBtRpc.registerBluetoothApiServer(bluetoothRpcServer, SimpleBluetoothRpc::class)
-						lapisBtRpc.getOrCreateBluetoothApiClient(event.connectedDevice.address, SimpleBluetoothRpc::class)
+						lapisBtRpc.registerBluetoothServerApi<SimpleBluetoothRpc>(
+							deviceAddress = event.connectedDevice.address,
+							server = bluetoothRpcServer,
+						)
+						//lapisBtRpc.getOrCreateBluetoothClientApi<SimpleBluetoothRpc>(event.connectedDevice.address)
 					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
-						lapisBtRpc.unregisterBluetoothApiServerByClass(SimpleBluetoothRpc::class)
+						lapisBtRpc.unregisterBluetoothServerApi<SimpleBluetoothRpc>(event.disconnectedDevice.address)
 
 						androidHelper.showToast("Device disconnected: '${event.disconnectedDevice.name}'")
 
@@ -406,7 +412,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			ApiBasedBluetoothCommunicationAction.ClickOpenAppSettingsRemotely -> {
 				when (val selectedDevice = _selectedDevice.value) {
 					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
-						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+						val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 							deviceAddress = selectedDevice.device.address,
 							apiInterface = SimpleBluetoothRpc::class,
 						)
@@ -421,7 +427,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 								it.connectionState == BluetoothDevice.ConnectionState.Connected
 							}
 							connectedDevices.forEach { device ->
-								val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+								val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 									deviceAddress = device.address,
 									apiInterface = SimpleBluetoothRpc::class,
 								)
@@ -438,7 +444,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			ApiBasedBluetoothCommunicationAction.ClickGetMyOwnAddress -> {
 				when (val selectedDevice = _selectedDevice.value) {
 					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
-						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+						val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 							deviceAddress = selectedDevice.device.address,
 							apiInterface = SimpleBluetoothRpc::class,
 						)
@@ -454,7 +460,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 								it.connectionState == BluetoothDevice.ConnectionState.Connected
 							}
 							connectedDevices.forEach { device ->
-								val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+								val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 									deviceAddress = device.address,
 									apiInterface = SimpleBluetoothRpc::class,
 								)
@@ -472,7 +478,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			is ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely -> {
 				when (val selectedDevice = _selectedDevice.value) {
 					is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
-						val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+						val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 							deviceAddress = selectedDevice.device.address,
 							apiInterface = SimpleBluetoothRpc::class,
 						)
@@ -486,7 +492,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 							it.connectionState == BluetoothDevice.ConnectionState.Connected
 						}
 						connectedDevices.forEach { device ->
-							val apiClient = lapisBtRpc.getOrCreateBluetoothApiClient(
+							val apiClient = lapisBtRpc.getOrCreateBluetoothClientApi(
 								deviceAddress = device.address,
 								apiInterface = SimpleBluetoothRpc::class,
 							)

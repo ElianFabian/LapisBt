@@ -110,6 +110,7 @@ public interface LapisBt {
 
 
 	public companion object {
+
 		public fun newInstance(context: Context): LapisBt {
 			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
@@ -118,6 +119,42 @@ public interface LapisBt {
 				androidHelper = AndroidHelperImpl(context),
 				bluetoothEvents = LapisBluetoothEventsImpl(context),
 			)
+		}
+
+		/**
+		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"
+		 *
+		 *
+		 * Alphabetic characters must be uppercase to be valid.
+		 *
+		 * @param address Bluetooth address as string
+		 * @return true if the address is valid, false otherwise
+		 */
+		public fun checkBluetoothAddress(address: String?): Boolean {
+			val addressLength = 17
+
+			if (address == null || address.length != addressLength) {
+				return false
+			}
+			for (i in 0..<addressLength) {
+				val c = address[i]
+				when (i % 3) {
+					0, 1 -> {
+						if ((c in '0'..'9') || (c in 'A'..'F')) {
+							// hex character, OK
+							break
+						}
+						return false
+					}
+					2 -> {
+						if (c == ':') {
+							break // OK
+						}
+						return false
+					}
+				}
+			}
+			return true
 		}
 	}
 }

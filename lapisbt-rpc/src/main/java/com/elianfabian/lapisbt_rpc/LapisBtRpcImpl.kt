@@ -5,18 +5,21 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 internal class LapisBtRpcImpl(
 	private val lapisBt: LapisBt,
 ) : LapisBtRpc {
 
-	private val _bluetoothClientApisByAddress = mutableMapOf<String, Map<KClass<*>, Any>>()
-	private val _bluetoothServerApiByInterface = mutableMapOf<KClass<*>, Any>()
+	private val _bluetoothClientApisByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
+	private val _bluetoothServerApiByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
+	private val _bluetoothDeviceRpcByAddress = ConcurrentHashMap<String, BluetoothDeviceRpc>()
 
 
-	@Suppress("UNCHECKED_CAST")
-	override fun <T : Any> getOrCreateBluetoothApiClient(deviceAddress: String, apiInterface: KClass<T>): T {
+	override fun <T : Any> getOrCreateBluetoothClientApi(deviceAddress: String, apiInterface: KClass<T>): T {
+		requireValidAddress(deviceAddress)
+
 		if (!apiInterface.java.isInterface) {
 			throw IllegalArgumentException("API interface ${apiInterface.qualifiedName} must be an interface")
 		}
@@ -24,47 +27,79 @@ internal class LapisBtRpcImpl(
 			throw IllegalArgumentException("API interface ${apiInterface.qualifiedName} must be annotated with @LapisRpc")
 		}
 
-		val apiClientsByClass = _bluetoothClientApisByAddress[deviceAddress]
-		if (apiClientsByClass != null) {
-			val apiClient = apiClientsByClass[apiInterface]
+		val clientApisByClass = _bluetoothClientApisByAddress[deviceAddress]
+		if (clientApisByClass != null) {
+			val apiClient = clientApisByClass[apiInterface]
 			if (apiClient != null) {
+				@Suppress("UNCHECKED_CAST")
 				return apiClient as T
 			}
 		}
 
-		// FIXME: right now the BluetoothDeviceRpc is created when we create an api client instance,
-		//  this implies that if we only need a server to receive messages from one device we can't do it
-		//  unless we also create a dummy client instance that allows the reception of messages.
-		//  A way to fix this could be to force the registration of servers with an address,
-		//  this way the BluetoothDeviceRpc will be created in any case, and we just have to reuse it.
-		val newApiClient = Proxy.newProxyInstance(
+		val bluetoothDeviceRpc = _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			BluetoothDeviceRpc(
+				deviceAddress = deviceAddress,
+				lapisBt = lapisBt,
+				lapisRpc = this@LapisBtRpcImpl,
+			)
+		}
+
+		@Suppress("UNCHECKED_CAST")
+		val newClientApi = Proxy.newProxyInstance(
 			apiInterface.java.classLoader,
 			arrayOf(apiInterface.java),
 			BluetoothApiClientInvocationHandler(
 				apiInterface = apiInterface.java,
-				bluetoothDeviceRpc = BluetoothDeviceRpc(
-					deviceAddress = deviceAddress,
-					lapisBt = lapisBt,
-					lapisRpc = this,
-				)
+				bluetoothDeviceRpc = bluetoothDeviceRpc,
 			),
 		) as T
 
-		val updatedApiClientsByClass = (apiClientsByClass ?: emptyMap()) + (apiInterface to newApiClient)
-		_bluetoothClientApisByAddress[deviceAddress] = updatedApiClientsByClass
-
-		return newApiClient
-	}
-
-	override fun getBluetoothApiClientByName(deviceAddress: String, apiName: String): Any? {
-		val apiClientsByClass = _bluetoothClientApisByAddress[deviceAddress] ?: return null
-		return apiClientsByClass.entries.firstOrNull { (apiInterface, _) ->
-			val annotation = apiInterface.java.getAnnotation(LapisRpc::class.java) ?: error("API interface ${apiInterface.qualifiedName} is missing @${LapisRpc::class.simpleName} annotation")
-			annotation.name == apiName
+		val clientApiByClass = _bluetoothClientApisByAddress.getOrPut(deviceAddress) {
+			ConcurrentHashMap<KClass<*>, Any>()
 		}
+		clientApiByClass[apiInterface] = newClientApi
+
+		return newClientApi
 	}
 
-	override fun <T : Any> registerBluetoothApiServer(server: T, apiInterface: KClass<T>) {
+	override fun getBluetoothClientApiByName(deviceAddress: String, apiName: String): Any {
+		requireValidAddress(deviceAddress)
+
+		val apiClientsByClass = _bluetoothClientApisByAddress[deviceAddress] ?: throw IllegalStateException("There's no client API registered for address '$deviceAddress'")
+		apiClientsByClass.entries.forEach { (apiInterface, clientApi) ->
+			val annotation = apiInterface.java.getAnnotation(LapisRpc::class.java) ?: error("API interface ${apiInterface.qualifiedName} is missing @${LapisRpc::class.simpleName} annotation")
+			if (annotation.name == apiName) {
+				return clientApi
+			}
+		}
+
+		throw IllegalStateException("There's no client API registered for address '$deviceAddress' and API name '$apiName'")
+	}
+
+	override fun <T : Any> unregisterBluetoothClientApi(deviceAddress: String, apiInterface: KClass<T>) {
+		requireValidAddress(deviceAddress)
+
+		val clientApis = _bluetoothClientApisByAddress[deviceAddress] ?: throw IllegalStateException("There's no client API registered for address '$deviceAddress'")
+		if (clientApis.remove(apiInterface) == null) {
+			throw IllegalStateException("There's no client API registered for address '$deviceAddress' and interface $apiInterface")
+		}
+
+		tryCleanupResources(deviceAddress)
+	}
+
+	override fun <T : Any> unregisterBluetoothApiClientsByAddress(deviceAddress: String) {
+		requireValidAddress(deviceAddress)
+
+		if (_bluetoothClientApisByAddress.remove(deviceAddress) == null) {
+			throw IllegalStateException("There's no client APIs registered for address '$deviceAddress'")
+		}
+
+		tryCleanupResources(deviceAddress)
+	}
+
+	override fun <T : Any> registerBluetoothServerApi(deviceAddress: String, server: T, apiInterface: KClass<T>) {
+		requireValidAddress(deviceAddress)
+
 		if (!apiInterface.java.isInterface) {
 			throw IllegalArgumentException("API interface ${apiInterface.qualifiedName} must be an interface")
 		}
@@ -72,43 +107,91 @@ internal class LapisBtRpcImpl(
 			throw IllegalArgumentException("API interface ${apiInterface.qualifiedName} must be annotated with @${LapisRpc::class.simpleName}")
 		}
 
-		if (_bluetoothServerApiByInterface.containsKey(apiInterface)) {
-			throw IllegalArgumentException("Server for interface ${apiInterface.qualifiedName} is already registered")
-		}
+		val existingServerApiByClass = _bluetoothServerApiByAddress[deviceAddress]
+		if (existingServerApiByClass != null) {
+			val serverApi = existingServerApiByClass[apiInterface]
+			if (serverApi != null) {
+				throw IllegalStateException("Server $serverApi for address $deviceAddress and interface $apiInterface already registered")
+			}
 
-		_bluetoothServerApiByInterface[apiInterface] = server
-	}
+			_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+				BluetoothDeviceRpc(
+					deviceAddress = deviceAddress,
+					lapisBt = lapisBt,
+					lapisRpc = this@LapisBtRpcImpl,
+				)
+			}
 
-	override fun getBluetoothApiServerByName(apiName: String): Any? {
-		val entry = _bluetoothServerApiByInterface.entries.firstOrNull { (serverClass, _) ->
-			val annotation = serverClass.java.getAnnotation(LapisRpc::class.java) ?: error("API interface ${serverClass.qualifiedName} is missing @${LapisRpc::class.simpleName} annotation")
-			annotation.name == apiName
-		} ?: return null
-
-		@Suppress("UNCHECKED_CAST")
-		return entry.value
-	}
-
-	override fun unregisterBluetoothApiClient(deviceAddress: String) {
-		_bluetoothClientApisByAddress.remove(deviceAddress)
-	}
-
-	override fun unregisterBluetoothApiServer(server: Any) {
-		val serverClass = server::class
-		if (!_bluetoothServerApiByInterface.containsKey(serverClass)) {
-			throw IllegalArgumentException("Server for interface ${serverClass.qualifiedName} is not registered")
-		}
-
-		_bluetoothServerApiByInterface.remove(serverClass)
-	}
-
-	override fun <T : Any> unregisterBluetoothApiServerByClass(apiInterface: KClass<T>) {
-		if (apiInterface in _bluetoothServerApiByInterface) {
-			_bluetoothServerApiByInterface.remove(apiInterface)
+			existingServerApiByClass[apiInterface] = server
 			return
 		}
 
-		throw IllegalStateException("There is no server register for interface: $apiInterface")
+		val serverApiByClass = _bluetoothServerApiByAddress.getOrPut(deviceAddress) {
+			ConcurrentHashMap<KClass<*>, Any>()
+		}
+		serverApiByClass[apiInterface] = server
+
+		_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			BluetoothDeviceRpc(
+				deviceAddress = deviceAddress,
+				lapisBt = lapisBt,
+				lapisRpc = this@LapisBtRpcImpl,
+			)
+		}
+	}
+
+	override fun getBluetoothServerApiByName(deviceAddress: String, apiName: String): Any {
+		requireValidAddress(deviceAddress)
+
+		val serverApis = _bluetoothServerApiByAddress[deviceAddress] ?: throw IllegalStateException("There's no server API registered for address '$deviceAddress'")
+
+		val serverApi = serverApis.entries.firstOrNull { (serverClass, _) ->
+			val annotation = serverClass.java.getAnnotation(LapisRpc::class.java) ?: error("API interface ${serverClass.qualifiedName} is missing @${LapisRpc::class.simpleName} annotation")
+			annotation.name == apiName
+		}?.value ?: throw IllegalStateException("There's no server API registered for address '$deviceAddress' and API name '$apiName'")
+
+		return serverApi
+	}
+
+	override fun <T : Any> unregisterBluetoothServerApi(deviceAddress: String, apiInterface: KClass<T>) {
+		requireValidAddress(deviceAddress)
+
+		val serverApis = _bluetoothServerApiByAddress[deviceAddress] ?: throw IllegalStateException("There's no server API registered for address '$deviceAddress'")
+		if (serverApis.remove(apiInterface) == null) {
+			throw IllegalStateException("There's no server API registered for address '$deviceAddress' and interface $apiInterface")
+		}
+
+		tryCleanupResources(deviceAddress)
+	}
+
+	override fun <T : Any> unregisterBluetoothServerApisByAddress(deviceAddress: String) {
+		requireValidAddress(deviceAddress)
+
+		if (_bluetoothServerApiByAddress.remove(deviceAddress) == null) {
+			throw IllegalStateException("There's no server APIs registered for address '$deviceAddress'")
+		}
+
+		tryCleanupResources(deviceAddress)
+	}
+
+	private fun requireValidAddress(deviceAddress: String) {
+		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
+			"The device address '$deviceAddress' is invalid"
+		}
+	}
+
+	private fun tryCleanupResources(deviceAddress: String) {
+		val hasClients = _bluetoothClientApisByAddress[deviceAddress]?.isNotEmpty() == true
+		val hasServers = _bluetoothServerApiByAddress[deviceAddress]?.isNotEmpty() == true
+
+		if (!hasClients && !hasServers) {
+			val bridge = _bluetoothDeviceRpcByAddress.remove(deviceAddress)
+
+			bridge?.dispose()
+
+			_bluetoothClientApisByAddress.remove(deviceAddress)
+			_bluetoothServerApiByAddress.remove(deviceAddress)
+		}
 	}
 }
 
@@ -121,7 +204,7 @@ private class BluetoothApiClientInvocationHandler(
 ) : InvocationHandler {
 
 	@Suppress("UNCHECKED_CAST")
-	override fun invoke(proxy: Any, method: Method, args: Array<out Any?>?): Any? {
+	override fun invoke(proxy: Any, method: Method, args: Array<out Any?>?): Any {
 		return bluetoothDeviceRpc.functionCall(
 			proxy = proxy,
 			apiInterface = apiInterface,

@@ -5,20 +5,21 @@ import kotlin.reflect.KClass
 
 public interface LapisBtRpc {
 
-	public fun <T : Any> getOrCreateBluetoothApiClient(deviceAddress: String, apiInterface: KClass<T>): T
+	public fun <T : Any> getOrCreateBluetoothClientApi(deviceAddress: String, apiInterface: KClass<T>): T
 
-	public fun getBluetoothApiClientByName(deviceAddress: String, apiName: String): Any?
+	public fun getBluetoothClientApiByName(deviceAddress: String, apiName: String): Any
 
-	public fun <T : Any> registerBluetoothApiServer(server: T, apiInterface: KClass<T>)
+	public fun <T : Any> unregisterBluetoothClientApi(deviceAddress: String, apiInterface: KClass<T>)
 
-	public fun getBluetoothApiServerByName(apiName: String): Any?
+	public fun <T : Any> unregisterBluetoothApiClientsByAddress(deviceAddress: String)
 
-	public fun unregisterBluetoothApiClient(deviceAddress: String)
+	public fun <T : Any> registerBluetoothServerApi(deviceAddress: String, server: T, apiInterface: KClass<T>)
 
-	public fun unregisterBluetoothApiServer(server: Any)
+	public fun getBluetoothServerApiByName(deviceAddress: String, apiName: String): Any
 
-	public fun <T : Any> unregisterBluetoothApiServerByClass(apiInterface: KClass<T>)
+	public fun <T : Any> unregisterBluetoothServerApi(deviceAddress: String, apiInterface: KClass<T>)
 
+	public fun <T : Any> unregisterBluetoothServerApisByAddress(deviceAddress: String)
 
 	public companion object {
 
@@ -26,4 +27,21 @@ public interface LapisBtRpc {
 			return LapisBtRpcImpl(lapisBt)
 		}
 	}
+}
+
+
+public inline fun <reified T : Any> LapisBtRpc.getOrCreateBluetoothClientApi(deviceAddress: String) {
+	getOrCreateBluetoothClientApi(deviceAddress, T::class)
+}
+
+public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothClientApi(deviceAddress: String) {
+	unregisterBluetoothClientApi(deviceAddress, T::class)
+}
+
+public inline fun <reified T : Any> LapisBtRpc.registerBluetoothServerApi(deviceAddress: String, server: T) {
+	registerBluetoothServerApi(deviceAddress, server, T::class)
+}
+
+public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothServerApi(deviceAddress: String) {
+	unregisterBluetoothServerApi(deviceAddress, T::class)
 }

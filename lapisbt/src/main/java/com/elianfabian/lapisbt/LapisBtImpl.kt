@@ -371,6 +371,7 @@ internal class LapisBtImpl(
 		return device.createBond()
 	}
 
+	// It seems that unpairing a device will force the disconnection
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
@@ -1052,6 +1053,7 @@ internal class LapisBtImpl(
 				ensureActive()
 
 				// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
+				println("$$$ connect 1")
 				connect()
 				return@withContext true
 			}
@@ -1063,6 +1065,7 @@ internal class LapisBtImpl(
 					ensureActive()
 
 					try {
+						println("$$$ connect 2")
 						connect()
 						return@withContext true
 					}
@@ -1081,46 +1084,8 @@ internal class LapisBtImpl(
 	}
 
 	private fun requireValidAddress(deviceAddress: String) {
-		require(checkBluetoothAddress(deviceAddress)) {
+		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
 			"The device address '$deviceAddress' is invalid"
-		}
-	}
-
-	companion object {
-		/**
-		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"
-		 *
-		 *
-		 * Alphabetic characters must be uppercase to be valid.
-		 *
-		 * @param address Bluetooth address as string
-		 * @return true if the address is valid, false otherwise
-		 */
-		fun checkBluetoothAddress(address: String?): Boolean {
-			val addressLength = 17
-
-			if (address == null || address.length != addressLength) {
-				return false
-			}
-			for (i in 0..<addressLength) {
-				val c = address[i]
-				when (i % 3) {
-					0, 1 -> {
-						if ((c in '0'..'9') || (c in 'A'..'F')) {
-							// hex character, OK
-							break
-						}
-						return false
-					}
-					2 -> {
-						if (c == ':') {
-							break // OK
-						}
-						return false
-					}
-				}
-			}
-			return true
 		}
 	}
 }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -144,6 +145,12 @@ internal class BluetoothDeviceRpc(
 			}
 			COROUTINE_SUSPENDED
 		}
+	}
+
+	fun dispose() {
+		_scope.cancel()
+
+		// TODO: we probably need to add more clean up logic here
 	}
 
 
@@ -401,19 +408,22 @@ internal class BluetoothDeviceRpc(
 		val request = RequestSerializer.deserialize(completePacket.payloadStream)
 		println("$$$$ process deserialized request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
 
-		val serverImplementation = lapisRpc.getBluetoothApiServerByName(request.apiName) ?: error("No server implementation found for API: ${request.apiName}")
+		val serverImplementation = lapisRpc.getBluetoothServerApiByName(
+			deviceAddress = deviceAddress,
+			apiName = request.apiName,
+		)
 
 		println("$$$$ Found server implementation for API ${request.apiName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
 
 		val apiInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
 			inter.getAnnotation(LapisRpc::class.java)?.name == request.apiName
-		} ?: error("No interface found for API: ${request.apiName}")
+		} ?: error("No interface found for API: ${request.apiName} for server $serverImplementation")
 
 		val method = apiInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
 			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${request.methodName}")
 			annotation?.name == request.methodName
-		} ?: error("No method found with name ${request.methodName} in API ${request.apiName}")
+		} ?: error("No method found with name ${request.methodName} in API ${request.apiName} for server $serverImplementation")
 
 		var index = 0
 		val deserializedArguments = request.arguments.mapValues { (key, valueBytes) ->
@@ -461,7 +471,7 @@ internal class BluetoothDeviceRpc(
 
 		val method = _pendingMethodByRequestId.remove(response.requestId) ?: error("No pending method found for response id: ${response.requestId}")
 		println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
-		val serializer = DefaultSerializationStrategy.serializerForClass(method.getSuspendReturnType()!!.kotlin) ?: error("No serializer found for return type: ${method.returnType}")
+		val serializer = DefaultSerializationStrategy.serializerForClass(method.getSuspendReturnType().kotlin) ?: error("No serializer found for return type: ${method.returnType}")
 
 		val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.data))
 
