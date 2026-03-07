@@ -542,8 +542,7 @@ internal class LapisBtImpl(
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
 									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-									AndroidBluetoothDevice.BOND_NONE -> BluetoothDevice.PairingState.None
-									else -> BluetoothDevice.PairingState.None
+									else -> error("Impossible bonding state at the point of execution: ${lapisDevice.bondState}")
 								},
 							)
 						}
