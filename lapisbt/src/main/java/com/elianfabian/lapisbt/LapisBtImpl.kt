@@ -58,11 +58,14 @@ internal class LapisBtImpl(
 	//  This is such a strange behaviour, no code of this library seemed to be executed when that happened, we'll have to see.
 	//  When this happens the second device has the first device visually as disconnected.
 	//  It seems that the dialog does not always appear, but the behavior still happens.
-	//  It seems that it happens around 4-6 minutes after connection.
+	//  It seems that it happens around 4-9 minutes after connection.
 	//  For the first device it goes from the bonding state to the none state.
 	//  For the second device it goes from the bonding state to the bonded state.
 	//  As for the tests done, no matters who is the server at the beginning, always the same device
 	//  is the one who has the other paired, so maybe it's a device specific issue.
+	//  It also seems that some random device has been trying to connect to my first device,
+	//  and when that happens the issue mentioned above occurs, but it seems
+	//  this also happens without that random device trying to pair my first device.
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
@@ -516,7 +519,7 @@ internal class LapisBtImpl(
 			// The device that has the other device paired when it scans for other devices the paired device will appear as scanned
 			bluetoothEvents.deviceBondStateChangeFlow.collect { lapisDevice ->
 
-				//println("$$$ Device bond state changed: ${lapisDevice.name} | ${lapisDevice.address} - Bond State: ${lapisDevice.bondState}")
+				println("$$$ Device bond state changed: ${lapisDevice.name} | ${lapisDevice.address} - Bond State: ${lapisDevice.bondState}")
 
 				_scannedDevices.update { devices ->
 					val updatedDevices = devices.mapNotNull { existingDevice ->
@@ -882,6 +885,8 @@ internal class LapisBtImpl(
 	}
 
 	// Both server and the device who connects have to do it insecurely to avoid the need of linking.
+	// It seems that when we connect to a device, for both the bond state changes to bonding and then none,
+	// which seems very weird.
 	private suspend fun connectToDeviceInternal(
 		deviceAddress: String,
 		serviceUuid: UUID,
