@@ -57,6 +57,12 @@ internal class LapisBtImpl(
 	//  the first device as paired, but the first device doesn't have the second device paired.
 	//  This is such a strange behaviour, no code of this library seemed to be executed when that happened, we'll have to see.
 	//  When this happens the second device has the first device visually as disconnected.
+	//  It seems that the dialog does not always appear, but the behavior still happens.
+	//  It seems that it happens around 4-6 minutes after connection.
+	//  For the first device it goes from the bonding state to the none state.
+	//  For the second device it goes from the bonding state to the bonded state.
+	//  As for the tests done, no matters who is the server at the beginning, always the same device
+	//  is the one who has the other paired, so maybe it's a device specific issue.
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
