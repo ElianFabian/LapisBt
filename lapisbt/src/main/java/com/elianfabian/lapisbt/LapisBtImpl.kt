@@ -49,6 +49,14 @@ internal class LapisBtImpl(
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
+	// FIXME: when a scanned device is in the connected state it also appears in paired devices, this should not happen
+	// FIXME: it also happens that sometimes for one device it seems the other is connected, but from the other side it is disconnected, I don't know why
+	//  they are actually connected, because I can send messages, we just have to see why it appears as disconnected.
+	//  NOTES: It seems that the fake disconnection issue is related to this other issue:
+	//  Sometimes in one device the pairing dialog appears for no reason, then it disappears, and then the second device has
+	//  the first device as paired, but the first device doesn't have the second device paired.
+	//  This is such a strange behaviour, no code of this library seemed to be executed when that happened, we'll have to see.
+	//  When this happens the second device has the first device visually as disconnected.
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
@@ -538,8 +546,7 @@ internal class LapisBtImpl(
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
 									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-									AndroidBluetoothDevice.BOND_NONE -> BluetoothDevice.PairingState.None
-									else -> BluetoothDevice.PairingState.None
+									else -> error("Impossible bonding state at the point of execution: ${lapisDevice.bondState}")
 								},
 							)
 						}
