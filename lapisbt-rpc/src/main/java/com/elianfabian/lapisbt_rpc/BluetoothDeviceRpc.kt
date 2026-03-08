@@ -131,6 +131,7 @@ internal class BluetoothDeviceRpc(
 
 			_scope.launch {
 				lapisBt.sendData(deviceAddress) { stream ->
+					// TODO: we should test that multiplexing truly works
 					sendRequest(
 						stream = stream,
 						request = request,
