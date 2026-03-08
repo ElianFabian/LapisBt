@@ -34,6 +34,7 @@ import java.io.OutputStream
 import java.io.SequenceInputStream
 import java.lang.reflect.Method
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
@@ -46,11 +47,11 @@ internal class BluetoothDeviceRpc(
 	private val lapisRpc: LapisBtRpc,
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-	private val _packetFragmentsById = mutableMapOf<UUID, MutableList<BluetoothPacket>>()
+	private val _packetFragmentsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
 	private val _packetChannel = Channel<BluetoothPacket>(capacity = Channel.UNLIMITED)
 	private val _completeBluetoothPacketChannel = Channel<CompleteBluetoothPacket>(capacity = Channel.UNLIMITED)
 	private val _pendingContinuationsByRequestId = mutableMapOf<UUID, Continuation<Any?>>()
-	private val _pendingMethodByRequestId = mutableMapOf<UUID, Method>()
+	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 
 
 	init {
@@ -172,7 +173,7 @@ internal class BluetoothDeviceRpc(
 			type = CompleteBluetoothPacket.TYPE_REQUEST,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { fragment ->
-			println("$$$$ Sending request with as packet with id ${fragment.packetId}, fragment type: ${if (fragment is BluetoothPacket.FirstFragment) "FirstFragment, length: ${fragment.length}" else (fragment as BluetoothPacket.Fragment).index}, payload size: ${fragment.payload.size}")
+			println("$$$$ Sending request with as packet with id ${fragment.packetId}, fragment type: ${if (fragment is BluetoothPacket.FirstFragment) "FirstFragment, length: ${fragment.length}, type: ${fragment.type}" else (fragment as BluetoothPacket.Fragment).index}, payload size: ${fragment.payload.size}")
 
 			serializeFragment(
 				stream = dataStream,
@@ -282,9 +283,13 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun readFirstFragment(stream: DataInputStream, id: UUID): BluetoothPacket.FirstFragment {
+		val uuidBytesSize = Long.SIZE_BYTES * 2
+		val typeBytesSize = Byte.SIZE_BYTES * 1
+		val lengthBytesSize = Int.SIZE_BYTES * 1
+
 		val type = stream.readByte()
 		val length = stream.readInt()
-		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 3 - Long.SIZE_BYTES * 2)
+		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize)
 
 		return BluetoothPacket.FirstFragment(
 			packetId = id,
@@ -295,7 +300,10 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun readFragment(stream: DataInputStream, id: UUID, index: Int): BluetoothPacket.Fragment {
-		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - Int.SIZE_BYTES * 2)
+		val uuidBytesSize = Long.SIZE_BYTES * 2
+		val indexBytesSize = Int.SIZE_BYTES * 1
+
+		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize - indexBytesSize)
 
 		return BluetoothPacket.Fragment(
 			packetId = id,
@@ -307,7 +315,7 @@ internal class BluetoothDeviceRpc(
 	private fun launchRawDataProcessing() {
 		_scope.launch {
 			lapisBt.receiveData(deviceAddress) { stream ->
-				println("$$$ Start receiving daaa")
+				println("$$$ Start receiving data")
 				while (true) {
 					val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 
@@ -319,9 +327,11 @@ internal class BluetoothDeviceRpc(
 					val leastSignificantBits = dataStream.readLong()
 					val id = UUID(mostSignificantBits, leastSignificantBits)
 
-					val isFirstFragment = id !in _packetFragmentsById
+					val packets = _packetFragmentsById.getOrPut(id) {
+						mutableListOf()
+					}
 
-					val packet = if (isFirstFragment) {
+					val packet = if (packets.isEmpty()) {
 						readFirstFragment(
 							stream = dataStream,
 							id = id,
@@ -336,6 +346,8 @@ internal class BluetoothDeviceRpc(
 						)
 					}
 
+					packets.add(packet)
+
 					_packetChannel.send(packet)
 				}
 			}
@@ -345,6 +357,7 @@ internal class BluetoothDeviceRpc(
 	private fun launchPacketProcessing() {
 		_scope.launch {
 			for (packet in _packetChannel) {
+				println("$$$$ processing packet: $packet")
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
 						println("$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, payload size: ${packet.payload.size}")
@@ -357,9 +370,6 @@ internal class BluetoothDeviceRpc(
 							_completeBluetoothPacketChannel.send(completePacket)
 							_packetFragmentsById.remove(packet.packetId)
 						}
-						else if (packet.length > 0) {
-							_packetFragmentsById[packet.packetId] = mutableListOf(packet)
-						}
 						else {
 							//Log.wtf(Tag, "Invalid packet length: ${packet.length} for packet with id: ${packet.id}")
 						}
@@ -367,10 +377,9 @@ internal class BluetoothDeviceRpc(
 					is BluetoothPacket.Fragment -> {
 						println("$$$$ Stored fragment with id ${packet.packetId}, index: ${packet.index}, payload size: ${packet.payload.size}")
 						val packets = _packetFragmentsById[packet.packetId]!!
-						packets.add(packet)
 
 						// Actually the first packet should always be in the first position, we'll test and see
-						val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: return@launch
+						val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: throw IllegalStateException("There should be a FirstFragment packet when processing a Fragment packet")
 
 						// Maybe this should be '>='?
 						if (packet.index == firstPacket.length - 1) {
