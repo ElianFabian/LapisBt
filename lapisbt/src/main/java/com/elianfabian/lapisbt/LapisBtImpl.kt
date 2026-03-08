@@ -66,6 +66,8 @@ internal class LapisBtImpl(
 	//  It also seems that some random device has been trying to connect to my first device,
 	//  and when that happens the issue mentioned above occurs, but it seems
 	//  this also happens without that random device trying to pair my first device.
+	//  We have to also check why when the second device that now has the firs device paired it now visually looks like
+	//  the first device is disconnected, even though it's not
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
