@@ -25,7 +25,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -49,14 +48,16 @@ internal class BluetoothDeviceRpc(
 	private val lapisRpc: LapisBtRpc,
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-	private val _packetFragmentsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
-	private val _packetChannel = Channel<BluetoothPacket>(capacity = Channel.UNLIMITED)
-	private val _completeBluetoothPacketChannel = Channel<CompleteBluetoothPacket>(capacity = Channel.UNLIMITED)
+	private val _remotePacketsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
+	private val _remotePacketChannel = Channel<BluetoothPacket>(capacity = Channel.UNLIMITED)
+	private val _remoteCompletePacketChannel = Channel<CompleteBluetoothPacket>(capacity = Channel.UNLIMITED)
 	private val _pendingContinuationsByRequestId = mutableMapOf<UUID, Continuation<Any?>>()
+	private val _pendingPacketToSendChannel = Channel<BluetoothPacket>(capacity = 1)
 	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 
 
 	init {
+		launchSendPacketProcessing()
 		launchRawDataProcessing()
 		launchPacketProcessing()
 		launchCompletePacketProcessing()
@@ -132,13 +133,7 @@ internal class BluetoothDeviceRpc(
 			)
 
 			_scope.launch {
-				lapisBt.sendData(deviceAddress) { stream ->
-					// TODO: we should test that multiplexing truly works
-					sendRequest(
-						stream = stream,
-						request = request,
-					)
-				}
+				sendRequest(request)
 			}
 			COROUTINE_SUSPENDED
 		}
@@ -159,7 +154,6 @@ internal class BluetoothDeviceRpc(
 
 
 	private suspend fun sendRequest(
-		stream: OutputStream,
 		request: LapisRequest,
 	) = withContext(Dispatchers.IO) {
 		println("$$$$ Sending request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
@@ -169,30 +163,20 @@ internal class BluetoothDeviceRpc(
 
 		RequestSerializer.serialize(payloadStream, request)
 
-		val dataStream = DataOutputStream(stream)
-
-		createFragments(
+		createPacketFragments(
 			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.TYPE_REQUEST,
 			payload = byteArrayOutputStream.toByteArray(),
-		).forEach { fragment ->
-			println("$$$$ Sending request with as packet with id ${fragment.packetId}, fragment type: ${if (fragment is BluetoothPacket.FirstFragment) "FirstFragment, length: ${fragment.length}, type: ${fragment.type}" else (fragment as BluetoothPacket.Fragment).index}, payload size: ${fragment.payload.size}")
+		).forEach { packet ->
+			println("$$$$ Sending request with as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}, type: ${packet.type}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
-			serializeFragment(
-				stream = dataStream,
-				fragment = fragment,
-			)
-
-			// Yield to allow other coroutines to run, this way we can send multiple requests concurrently
-			// without being blocked by large payloads
-			yield()
+			_pendingPacketToSendChannel.send(packet)
 		}
 
 		println("$$$$ Finished sending request with id ${request.requestId}")
 	}
 
 	private suspend fun sendResponse(
-		stream: OutputStream,
 		response: LapisResponse,
 	) = withContext(Dispatchers.IO) {
 		println("$$$$ Sending response for request id ${response.requestId}, data size: ${response.data.size}")
@@ -201,53 +185,47 @@ internal class BluetoothDeviceRpc(
 
 		ResponseSerializer.serialize(payloadStream, response)
 
-		createFragments(
+		createPacketFragments(
 			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.TYPE_RESPONSE,
 			payload = byteArrayOutputStream.toByteArray(),
-		).forEach { fragment ->
-			println("$$$$ Sending response as packet with id ${fragment.packetId}, fragment type: ${if (fragment is BluetoothPacket.FirstFragment) "FirstFragment, length: ${fragment.length}" else (fragment as BluetoothPacket.Fragment).index}, payload size: ${fragment.payload.size}")
+		).forEach { packet ->
+			println("$$$$ Sending response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
-			serializeFragment(
-				stream = stream,
-				fragment = fragment,
-			)
-
-			// Yield to allow other coroutines to run, this way we can send multiple responses concurrently
-			// without being blocked by large payloads
-			yield()
+			_pendingPacketToSendChannel.send(packet)
 		}
 
 		println("$$$$ Finished sending response with id ${response.requestId}")
 	}
 
-	private fun serializeFragment(
+	private fun serializePacket(
 		stream: OutputStream,
-		fragment: BluetoothPacket,
+		packet: BluetoothPacket,
 	) {
 		val dataStream = DataOutputStream(stream)
 
-		when (fragment) {
+		when (packet) {
 			is BluetoothPacket.FirstFragment -> {
-				dataStream.writeLong(fragment.packetId.mostSignificantBits)
-				dataStream.writeLong(fragment.packetId.leastSignificantBits)
-				dataStream.writeByte(fragment.type.toInt())
-				dataStream.writeInt(fragment.length)
-				dataStream.write(fragment.payload)
+				dataStream.writeLong(packet.packetId.mostSignificantBits)
+				dataStream.writeLong(packet.packetId.leastSignificantBits)
+				dataStream.writeByte(packet.type.toInt())
+				dataStream.writeInt(packet.length)
+				dataStream.write(packet.payload)
 			}
 			is BluetoothPacket.Fragment -> {
-				dataStream.writeLong(fragment.packetId.mostSignificantBits)
-				dataStream.writeLong(fragment.packetId.leastSignificantBits)
-				dataStream.writeInt(fragment.index)
-				dataStream.write(fragment.payload)
+				dataStream.writeLong(packet.packetId.mostSignificantBits)
+				dataStream.writeLong(packet.packetId.leastSignificantBits)
+				dataStream.writeInt(packet.index)
+				dataStream.write(packet.payload)
 			}
 		}
 
 		// I'm not sure if flush is necessary here, we'll see during testing
 		dataStream.flush()
+		println("$$$$ packet sent: $packet")
 	}
 
-	private fun createFragments(
+	private fun createPacketFragments(
 		packetId: UUID,
 		type: Byte,
 		payload: ByteArray,
@@ -330,7 +308,7 @@ internal class BluetoothDeviceRpc(
 					val leastSignificantBits = dataStream.readLong()
 					val id = UUID(mostSignificantBits, leastSignificantBits)
 
-					val packets = _packetFragmentsById.getOrPut(id) {
+					val packets = _remotePacketsById.getOrPut(id) {
 						mutableListOf()
 					}
 
@@ -351,7 +329,7 @@ internal class BluetoothDeviceRpc(
 
 					packets.add(packet)
 
-					_packetChannel.send(packet)
+					_remotePacketChannel.send(packet)
 				}
 			}
 		}
@@ -359,7 +337,7 @@ internal class BluetoothDeviceRpc(
 
 	private fun launchPacketProcessing() {
 		_scope.launch {
-			for (packet in _packetChannel) {
+			for (packet in _remotePacketChannel) {
 				println("$$$$ processing packet: $packet")
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
@@ -370,8 +348,8 @@ internal class BluetoothDeviceRpc(
 								type = CompleteBluetoothPacket.Type.fromByte(packet.type),
 								payloadStream = ByteArrayInputStream(packet.payload),
 							)
-							_completeBluetoothPacketChannel.send(completePacket)
-							_packetFragmentsById.remove(packet.packetId)
+							_remoteCompletePacketChannel.send(completePacket)
+							_remotePacketsById.remove(packet.packetId)
 						}
 						else {
 							//Log.wtf(Tag, "Invalid packet length: ${packet.length} for packet with id: ${packet.id}")
@@ -379,7 +357,7 @@ internal class BluetoothDeviceRpc(
 					}
 					is BluetoothPacket.Fragment -> {
 						println("$$$$ Stored fragment with id ${packet.packetId}, index: ${packet.index}, payload size: ${packet.payload.size}")
-						val packets = _packetFragmentsById[packet.packetId]!!
+						val packets = _remotePacketsById[packet.packetId]!!
 
 						// Actually the first packet should always be in the first position, we'll test and see
 						val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: throw IllegalStateException("There should be a FirstFragment packet when processing a Fragment packet")
@@ -405,8 +383,8 @@ internal class BluetoothDeviceRpc(
 										.asEnumeration()
 								)
 							)
-							_completeBluetoothPacketChannel.send(completePacket)
-							_packetFragmentsById.remove(packet.packetId)
+							_remoteCompletePacketChannel.send(completePacket)
+							_remotePacketsById.remove(packet.packetId)
 
 							println("$$$$ Assembled complete packet with id ${completePacket.packetId}, type: ${completePacket.type}, payload size: ${packets.sumOf { it.payload.size }}")
 						}
@@ -469,12 +447,7 @@ internal class BluetoothDeviceRpc(
 			data = serializedResult,
 		)
 
-		lapisBt.sendData(deviceAddress) { stream ->
-			sendResponse(
-				stream = stream,
-				response = response,
-			)
-		}
+		sendResponse(response)
 	}
 
 	private fun processPacketAsResponse(completePacket: CompleteBluetoothPacket) {
@@ -494,7 +467,7 @@ internal class BluetoothDeviceRpc(
 
 	private fun launchCompletePacketProcessing() {
 		_scope.launch(Dispatchers.IO) {
-			for (completePacket in _completeBluetoothPacketChannel) {
+			for (completePacket in _remoteCompletePacketChannel) {
 				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
 				when (completePacket.type) {
 					CompleteBluetoothPacket.Type.Request -> {
@@ -503,6 +476,19 @@ internal class BluetoothDeviceRpc(
 					CompleteBluetoothPacket.Type.Response -> {
 						processPacketAsResponse(completePacket)
 					}
+				}
+			}
+		}
+	}
+
+	private fun launchSendPacketProcessing() {
+		_scope.launch {
+			lapisBt.sendData(deviceAddress) { stream ->
+				for (packetToSend in _pendingPacketToSendChannel) {
+					serializePacket(
+						stream = stream,
+						packet = packetToSend,
+					)
 				}
 			}
 		}
