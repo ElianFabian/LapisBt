@@ -41,6 +41,8 @@ import kotlin.coroutines.intrinsics.intercepted
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+// TODO: we should somehow handle cancellation, when we cancel a call to a remote suspend function on the client side
+//  we should signal that to the other device so they can stop sending the data.
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
