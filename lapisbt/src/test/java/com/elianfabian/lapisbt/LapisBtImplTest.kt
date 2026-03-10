@@ -23,6 +23,7 @@ import org.junit.Test
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
+// TODO: we should add more tests
 class LapisBtImplTest {
 
 	private lateinit var lapisBt: LapisBt

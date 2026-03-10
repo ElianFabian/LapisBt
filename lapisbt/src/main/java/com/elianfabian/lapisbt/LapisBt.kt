@@ -19,6 +19,10 @@ public interface LapisBt {
 
 	public val scannedDevices: StateFlow<List<BluetoothDevice>>
 
+	// This state is useful to show the connected devices that come from direct connections
+	// (a connection made by knowing the address without the device being paired or scanned)
+	public val connectedDevices:  StateFlow<List<BluetoothDevice>>
+
 	public val events: SharedFlow<Event>
 
 	public val bluetoothDeviceName: StateFlow<String?>
