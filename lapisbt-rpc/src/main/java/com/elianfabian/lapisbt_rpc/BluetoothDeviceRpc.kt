@@ -263,7 +263,7 @@ internal class BluetoothDeviceRpc(
 		}
 	}
 
-	private fun readFirstFragment(stream: DataInputStream, id: UUID): BluetoothPacket.FirstFragment {
+	private fun deserializeFirstFragment(stream: DataInputStream, id: UUID): BluetoothPacket.FirstFragment {
 		val uuidBytesSize = Long.SIZE_BYTES * 2
 		val typeBytesSize = Byte.SIZE_BYTES * 1
 		val lengthBytesSize = Int.SIZE_BYTES * 1
@@ -280,7 +280,7 @@ internal class BluetoothDeviceRpc(
 		)
 	}
 
-	private fun readFragment(stream: DataInputStream, id: UUID, index: Int): BluetoothPacket.Fragment {
+	private fun deserializeFragment(stream: DataInputStream, id: UUID, index: Int): BluetoothPacket.Fragment {
 		val uuidBytesSize = Long.SIZE_BYTES * 2
 		val indexBytesSize = Int.SIZE_BYTES * 1
 
@@ -313,14 +313,14 @@ internal class BluetoothDeviceRpc(
 					}
 
 					val packet = if (packets.isEmpty()) {
-						readFirstFragment(
+						deserializeFirstFragment(
 							stream = dataStream,
 							id = id,
 						)
 					}
 					else {
 						val index = dataStream.readInt()
-						readFragment(
+						deserializeFragment(
 							stream = dataStream,
 							id = id,
 							index = index,
@@ -469,12 +469,14 @@ internal class BluetoothDeviceRpc(
 		_scope.launch(Dispatchers.IO) {
 			for (completePacket in _remoteCompletePacketChannel) {
 				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
-				when (completePacket.type) {
-					CompleteBluetoothPacket.Type.Request -> {
-						processPacketAsRequest(completePacket)
-					}
-					CompleteBluetoothPacket.Type.Response -> {
-						processPacketAsResponse(completePacket)
+				launch {
+					when (completePacket.type) {
+						CompleteBluetoothPacket.Type.Request -> {
+							processPacketAsRequest(completePacket)
+						}
+						CompleteBluetoothPacket.Type.Response -> {
+							processPacketAsResponse(completePacket)
+						}
 					}
 				}
 			}
