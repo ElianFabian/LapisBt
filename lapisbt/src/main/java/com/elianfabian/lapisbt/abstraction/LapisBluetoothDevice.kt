@@ -18,6 +18,8 @@ internal interface LapisBluetoothDevice {
 	fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket
 	fun createBond(): Boolean
 
+	// TODO: we might add the following internal API: cancelBondProcess()
+
 	@InternalBluetoothReflectionApi
 	fun removeBond(): Boolean
 
