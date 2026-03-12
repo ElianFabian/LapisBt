@@ -152,11 +152,12 @@ class ApiBasedBluetoothCommunicationViewModel(
 		_selectedDevice,
 		_currentDeviceAddress,
 		lapisBt.scannedDevices,
+		lapisBt.connectedDevices,
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
 				isWaitingForConnection, enteredBluetoothDeviceName,
-				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices,
+				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices, connectedDevices
 			),
 		->
 		ApiBasedBluetoothCommunicationState(
@@ -173,11 +174,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 //				it.connectionState == BluetoothDevice.ConnectionState.Connected
 //			}
 			selectedDevice = selectedDevice,
-			connectedDevices = devices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			} + scannedDevices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			},
+			connectedDevices = connectedDevices,
 			currentDeviceAddress = currentDeviceAddress,
 			isScanning = isScanning,
 			isBluetoothSupported = lapisBt.isBluetoothSupported,

@@ -629,6 +629,46 @@ private fun BluetoothDeviceList(
 					)
 				}
 			}
+			item {
+				Text(
+					text = "Connected devices",
+					fontWeight = FontWeight.Bold,
+					fontSize = 24.sp,
+				)
+			}
+			if (state.connectedDevices.isEmpty()) {
+				item {
+					Text(
+						text = "No connected devices",
+						modifier = Modifier.padding(bottom = 8.dp)
+					)
+				}
+			}
+			else {
+				items(state.connectedDevices) { device ->
+					BluetoothDeviceItem(
+						name = device.name,
+						address = device.address,
+						connectionState = device.connectionState,
+						pairingState = device.pairingState,
+						onClick = {
+							onAction(ApiBasedBluetoothCommunicationAction.ClickPairedDevice(device))
+						},
+						onLongClick = {
+							onAction(ApiBasedBluetoothCommunicationAction.LongClickPairedDevice(device))
+						},
+						onPair = {
+							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device))
+						},
+						onUnpair = {
+							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device))
+						},
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(vertical = 6.dp)
+					)
+				}
+			}
 		}
 	}
 }
