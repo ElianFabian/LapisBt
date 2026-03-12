@@ -54,6 +54,9 @@ internal class LapisBluetoothEventsImpl(
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
 	override val onActivityResumed: SharedFlow<Unit> = _onActivityResumed.asSharedFlow()
 
+	private val _pairingRequestFlow = MutableSharedFlow<LapisBluetoothEvents.PairingRequestEvent>()
+	override val pairingRequestFlow = _pairingRequestFlow.asSharedFlow()
+
 
 	override fun dispose() {
 		context.unregisterReceiver(_bluetoothStateChangeReceiver)
@@ -148,8 +151,17 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _pairingRequestBroadcastReceiver = PairingRequestBroadcastReceiver(
-		onPairingRequest = { androidDevice, _, _ ->
-			_deviceBondStateChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
+		onPairingRequest = { androidDevice, pairingKey, pairingVariant ->
+			val lapisDevice = LapisBluetoothDeviceImpl(androidDevice)
+
+			_pairingRequestFlow.tryEmit(
+				LapisBluetoothEvents.PairingRequestEvent(
+					androidDevice = lapisDevice,
+					pairingKey = pairingKey,
+					pairingVariant = pairingVariant,
+				)
+			)
+			_deviceBondStateChangeFlow.tryEmit(lapisDevice)
 		}
 	)
 

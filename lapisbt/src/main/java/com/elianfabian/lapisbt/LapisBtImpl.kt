@@ -495,6 +495,9 @@ internal class LapisBtImpl(
 					is LapisBt.Event.OnDeviceScanned -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingRequest -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -783,6 +786,44 @@ internal class LapisBtImpl(
 						}
 					}
 				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.pairingRequestFlow.collect { event ->
+				_pairedDevices.update { devices ->
+					devices.map { device ->
+						if (device.address == event.androidDevice.address) {
+							device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						}
+						else device
+					}
+				}
+				_scannedDevices.update { devices ->
+					devices.map { device ->
+						if (device.address == event.androidDevice.address) {
+							device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						}
+						else device
+					}
+				}
+				_connectedDevices.update { devices ->
+					devices.filter { it.address != event.androidDevice.address }
+				}
+
+
+				val pairingVariant = when (val pairingVariant = event.pairingVariant) {
+					AndroidBluetoothDevice.PAIRING_VARIANT_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin
+					AndroidBluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION -> LapisBt.Event.OnPairingRequest.PairingVariant.PasskeyConfirmation
+					else -> error("No pairing variant for value: $pairingVariant")
+				}
+
+				_events.emit(
+					LapisBt.Event.OnPairingRequest(
+						device = event.androidDevice.toModel(connectionState = BluetoothDevice.ConnectionState.Disconnected),
+						pairingKey = event.pairingKey,
+						pairingVariant = pairingVariant,
+					)
+				)
 			}
 		}
 		_scope.launch {
