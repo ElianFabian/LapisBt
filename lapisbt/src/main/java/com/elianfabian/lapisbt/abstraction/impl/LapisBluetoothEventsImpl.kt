@@ -17,6 +17,7 @@ import com.elianfabian.lapisbt.broadcast_receiver.DeviceFoundBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceNameChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DiscoveryStateChangeBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.PairingRequestBroadcastReceiver
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -65,6 +66,7 @@ internal class LapisBluetoothEventsImpl(
 		context.unregisterReceiver(_deviceUuidsChangeReceiver)
 		context.unregisterReceiver(_deviceFoundReceiver)
 		context.unregisterReceiver(_discoveryStateChangeReceiver)
+		context.unregisterReceiver(_pairingRequestBroadcastReceiver)
 	}
 
 
@@ -97,7 +99,15 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
-		onStateChange = { androidDevice, _, _ ->
+		onStateChange = { androidDevice, _, newState ->
+			if (newState == AndroidBluetoothDevice.BOND_BONDING) {
+				// We ignore the bonding state because it is not reliable
+				// the bonding state can be trigger when you're trying to connect to a device
+				// or when a device is connecting to you.
+				// For this reason we'll use this ACTION_PAIRING_REQUEST to reliable get notified
+				// about the bonding state.
+				return@DeviceBondStateChangeBroadcastReceiver
+			}
 			_deviceBondStateChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)
@@ -120,7 +130,7 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
-		onUuidsChange = { androidDevice, uuids ->
+		onUuidsChange = { androidDevice, _ ->
 			_deviceUuidsChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)
@@ -134,6 +144,12 @@ internal class LapisBluetoothEventsImpl(
 	private val _discoveryStateChangeReceiver = DiscoveryStateChangeBroadcastReceiver(
 		onDiscoveryStateChange = { isDiscovering ->
 			_isDiscoveringFlow.tryEmit(isDiscovering)
+		}
+	)
+
+	private val _pairingRequestBroadcastReceiver = PairingRequestBroadcastReceiver(
+		onPairingRequest = { androidDevice, _, _ ->
+			_deviceBondStateChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)
 
@@ -152,7 +168,6 @@ internal class LapisBluetoothEventsImpl(
 			IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
 		)
 		if (Build.VERSION.SDK_INT >= 30) {
-			// TODO: we should test that this works
 			context.registerReceiver(
 				_deviceAliasChangeReceiver,
 				IntentFilter(AndroidBluetoothDevice.ACTION_ALIAS_CHANGED),
@@ -187,6 +202,10 @@ internal class LapisBluetoothEventsImpl(
 				addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
 				addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
 			},
+		)
+		context.registerReceiver(
+			_pairingRequestBroadcastReceiver,
+			IntentFilter(AndroidBluetoothDevice.ACTION_PAIRING_REQUEST),
 		)
 	}
 }
