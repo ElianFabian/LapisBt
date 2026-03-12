@@ -16,12 +16,5 @@ internal interface LapisBluetoothEvents {
 	val onActivityResumed: SharedFlow<Unit>
 
 
-
-	fun dispose() {
-		// TODO: I think this is triggered when a remote device requests pairing
-		//  I want to implement it and test it later
-		AndroidBluetoothDevice.ACTION_PAIRING_REQUEST
-		AndroidBluetoothDevice.EXTRA_PAIRING_KEY
-		AndroidBluetoothDevice.EXTRA_PAIRING_VARIANT
-	}
+	fun dispose()
 }
