@@ -10,9 +10,7 @@ import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
-import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
 import com.elianfabian.lapisbt.model.BluetoothDevice
-import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.zhuinden.flowcombinetuplekt.combineTuple
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
