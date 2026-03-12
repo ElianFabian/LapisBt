@@ -5,7 +5,6 @@ import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.app.common.domain.MultiplePermissionController
 import com.elianfabian.lapisbt.app.common.domain.NotificationController
-import com.elianfabian.lapisbt.app.common.domain.NotificationController.*
 import com.elianfabian.lapisbt.app.common.domain.PermissionController
 import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
@@ -175,7 +174,7 @@ class ManualBluetoothCommunicationViewModel(
 													message = messages
 														.last { it.senderAddress != currentDeviceAddress && !it.isRead }
 														.let {
-															GroupMessageNotification(
+															NotificationController.GroupMessageNotification(
 																senderName = it.senderName ?: it.senderAddress,
 																content = it.content,
 															)
@@ -216,6 +215,9 @@ class ManualBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnDeviceScanned -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingRequest -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -243,11 +245,12 @@ class ManualBluetoothCommunicationViewModel(
 		_selectedDevice,
 		_currentDeviceAddress,
 		lapisBt.scannedDevices,
+		lapisBt.connectedDevices,
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
 				messages, enteredMessage, isWaitingForConnection, enteredBluetoothDeviceName,
-				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices,
+				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices, connectedDevices
 			),
 		->
 		ManualBluetoothCommunicationState(
@@ -266,11 +269,7 @@ class ManualBluetoothCommunicationViewModel(
 //			}
 			,
 			selectedDevice = selectedDevice,
-			connectedDevices = devices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			} + scannedDevices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			},
+			connectedDevices = connectedDevices,
 			currentDeviceAddress = currentDeviceAddress,
 			isScanning = isScanning,
 			isBluetoothSupported = lapisBt.isBluetoothSupported,
