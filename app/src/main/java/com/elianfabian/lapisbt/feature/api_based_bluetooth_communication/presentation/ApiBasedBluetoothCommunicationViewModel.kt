@@ -129,6 +129,9 @@ class ApiBasedBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnDeviceScanned -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingRequest -> {
+						// no-op
+					}
 				}
 			}
 		}

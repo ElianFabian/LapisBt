@@ -1,6 +1,5 @@
 package com.elianfabian.lapisbt.abstraction
 
-import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 
 internal interface LapisBluetoothEvents {
@@ -13,15 +12,17 @@ internal interface LapisBluetoothEvents {
 	val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothDevice>
 	val deviceFoundFlow: SharedFlow<LapisBluetoothDevice>
 	val isDiscoveringFlow: SharedFlow<Boolean>
+	val pairingRequestFlow: SharedFlow<PairingRequestEvent>
 	val onActivityResumed: SharedFlow<Unit>
 
 
+	fun dispose()
 
-	fun dispose() {
-		// TODO: I think this is triggered when a remote device requests pairing
-		//  I want to implement it and test it later
-		AndroidBluetoothDevice.ACTION_PAIRING_REQUEST
-		AndroidBluetoothDevice.EXTRA_PAIRING_KEY
-		AndroidBluetoothDevice.EXTRA_PAIRING_VARIANT
-	}
+
+
+	data class PairingRequestEvent(
+		val androidDevice: LapisBluetoothDevice,
+		val pairingKey: Int,
+		val pairingVariant: Int,
+	)
 }

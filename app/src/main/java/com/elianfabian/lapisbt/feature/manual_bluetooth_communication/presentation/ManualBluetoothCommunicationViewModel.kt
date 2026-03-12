@@ -207,6 +207,9 @@ class ManualBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnDeviceScanned -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingRequest -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -234,11 +237,12 @@ class ManualBluetoothCommunicationViewModel(
 		_selectedDevice,
 		_currentDeviceAddress,
 		lapisBt.scannedDevices,
+		lapisBt.connectedDevices,
 	).map {
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
 				messages, enteredMessage, isWaitingForConnection, enteredBluetoothDeviceName,
-				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices,
+				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices, connectedDevices
 			),
 		->
 		ManualBluetoothCommunicationState(
@@ -255,11 +259,7 @@ class ManualBluetoothCommunicationViewModel(
 //				it.connectionState == BluetoothDevice.ConnectionState.Connected
 //			}
 			selectedDevice = selectedDevice,
-			connectedDevices = devices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			} + scannedDevices.filter {
-				it.connectionState == BluetoothDevice.ConnectionState.Connected
-			},
+			connectedDevices = connectedDevices,
 			currentDeviceAddress = currentDeviceAddress,
 			isScanning = isScanning,
 			isBluetoothSupported = lapisBt.isBluetoothSupported,

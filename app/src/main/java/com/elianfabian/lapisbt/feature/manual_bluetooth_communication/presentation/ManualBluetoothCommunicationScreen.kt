@@ -587,6 +587,49 @@ private fun BluetoothDeviceList(
 			}
 			item {
 				Spacer(Modifier.height(16.dp))
+			}
+			item {
+				Text(
+					text = "Connected devices",
+					fontWeight = FontWeight.Bold,
+					fontSize = 24.sp,
+				)
+			}
+			if (state.connectedDevices.isEmpty()) {
+				item {
+					Text(
+						text = "No connected devices",
+						modifier = Modifier.padding(bottom = 8.dp)
+					)
+				}
+			}
+			else {
+				items(state.connectedDevices) { device ->
+					BluetoothDeviceItem(
+						name = device.name,
+						address = device.address,
+						connectionState = device.connectionState,
+						pairingState = device.pairingState,
+						onClick = {
+							onAction(ManualBluetoothCommunicationAction.ClickScannedDevice(device))
+						},
+						onLongClick = {
+							onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(device))
+						},
+						onPair = {
+							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+						},
+						onUnpair = {
+							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
+						},
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(vertical = 6.dp)
+					)
+				}
+			}
+			item {
+				Spacer(Modifier.height(16.dp))
 				Text(
 					text = "Messages",
 					fontWeight = FontWeight.Bold,
