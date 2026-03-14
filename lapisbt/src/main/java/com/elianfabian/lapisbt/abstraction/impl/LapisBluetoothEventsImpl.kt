@@ -54,11 +54,14 @@ internal class LapisBluetoothEventsImpl(
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
 	override val onActivityResumed: SharedFlow<Unit> = _onActivityResumed.asSharedFlow()
 
-	private val _pairingRequestFlow = MutableSharedFlow<LapisBluetoothEvents.PairingRequestEvent>()
+	private val _pairingRequestFlow = MutableSharedFlow<LapisBluetoothEvents.PairingRequestEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val pairingRequestFlow = _pairingRequestFlow.asSharedFlow()
 
 
 	override fun dispose() {
+		val application = context.applicationContext as Application
+		application.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
+
 		context.unregisterReceiver(_bluetoothStateChangeReceiver)
 		if (Build.VERSION.SDK_INT >= 30) {
 			context.unregisterReceiver(_deviceAliasChangeReceiver)
@@ -102,7 +105,10 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
-		onStateChange = { androidDevice, _, newState ->
+		onStateChange = { androidDevice, oldState, newState ->
+			if (newState == oldState) {
+				return@DeviceBondStateChangeBroadcastReceiver
+			}
 			if (newState == AndroidBluetoothDevice.BOND_BONDING) {
 				// We ignore the bonding state because it is not reliable
 				// the bonding state can be trigger when you're trying to connect to a device
@@ -173,7 +179,7 @@ internal class LapisBluetoothEventsImpl(
 
 	private fun initialize() {
 		val application = context.applicationContext as Application
-		application.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
+		application.registerActivityLifecycleCallbacks(_activityLifecycleCallbacks)
 
 		context.registerReceiver(
 			_bluetoothStateChangeReceiver,

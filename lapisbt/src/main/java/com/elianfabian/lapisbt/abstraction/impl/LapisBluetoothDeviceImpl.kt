@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt.abstraction.impl
 
 import android.os.Build
+import androidx.annotation.RequiresApi
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
@@ -56,10 +57,43 @@ internal class LapisBluetoothDeviceImpl(
 		return device.createBond()
 	}
 
+	@RequiresApi(31)
+	override fun setAlias(alias: String?): Int {
+		return device.setAlias(alias)
+	}
+
+	override fun setPin(pin: ByteArray): Boolean {
+		return device.setPin(pin)
+	}
+
 	@InternalBluetoothReflectionApi
 	override fun removeBond(): Boolean {
 		try {
 			val method = device.javaClass.getMethod("removeBond")
+
+			return method.invoke(device) as Boolean
+		}
+		catch (_: Exception) {
+			return false
+		}
+	}
+
+	@InternalBluetoothReflectionApi
+	override fun cancelBondProcess(): Boolean {
+		try {
+			val method = device.javaClass.getMethod("cancelBondProcess")
+
+			return method.invoke(device) as Boolean
+		}
+		catch (_: Exception) {
+			return false
+		}
+	}
+
+	@InternalBluetoothReflectionApi
+	override fun isBondingInitiatedLocally(): Boolean {
+		try {
+			val method = device.javaClass.getMethod("cancelBondProcess")
 
 			return method.invoke(device) as Boolean
 		}
