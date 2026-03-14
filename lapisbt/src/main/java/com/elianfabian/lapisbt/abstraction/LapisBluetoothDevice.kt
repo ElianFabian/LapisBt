@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.abstraction
 
+import androidx.annotation.RequiresApi
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import java.util.UUID
 
@@ -18,10 +19,20 @@ internal interface LapisBluetoothDevice {
 	fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket
 	fun createBond(): Boolean
 
-	// TODO: we might add the following internal API: cancelBondProcess()
+	@RequiresApi(31)
+	fun setAlias(alias: String?): Int
+
+	fun setPin(pin: ByteArray): Boolean
 
 	@InternalBluetoothReflectionApi
 	fun removeBond(): Boolean
+
+	@InternalBluetoothReflectionApi
+	fun cancelBondProcess(): Boolean
+
+	// It seems that calling this function during pairing will make the pairing fail
+	@InternalBluetoothReflectionApi
+	fun isBondingInitiatedLocally(): Boolean
 
 	@InternalBluetoothReflectionApi
 	fun isConnected(): Boolean

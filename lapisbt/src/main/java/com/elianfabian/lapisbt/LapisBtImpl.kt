@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -365,13 +366,41 @@ internal class LapisBtImpl(
 	// NOTES: when 2 devices are connected and we try to pair them the connection is closed
 	override fun pairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
-		return device.createBond()
+
+		if (device.createBond()) {
+			_scannedDevices.update { devices ->
+				devices.map { device ->
+					if (device.address == deviceAddress) {
+						device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
+					}
+					else device
+				}
+			}
+			_connectedDevices.update { devices ->
+				devices.map { device ->
+					if (device.address == deviceAddress) {
+						device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
+					}
+					else device
+				}
+			}
+
+			return true
+		}
+
+		return false
 	}
 
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 		return device.removeBond()
+	}
+
+	@InternalBluetoothReflectionApi
+	override fun cancelPairingAttempt(deviceAddress: String): Boolean {
+		val device = lapisAdapter.getRemoteDevice(deviceAddress)
+		return device.cancelBondProcess()
 	}
 
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
@@ -595,7 +624,9 @@ internal class LapisBtImpl(
 //					}
 //					else updatedDevices
 
-					updatedDevices
+					updatedDevices.also {
+						println("$$$$ deviceBondStateChangeFlow.scannedDevices: $updatedDevices")
+					}
 				}
 				_pairedDevices.update { devices ->
 					val updatedDevices = devices.mapNotNull { existingDevice ->
@@ -645,7 +676,17 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.deviceDisconnectedFlow.collect { disconnectedDevice ->
+				println("$$$ disconnectedDevice: $disconnectedDevice")
+
 				if (disconnectedDevice.address in _skipDisconnectionEventForDevices) {
+					return@collect
+				}
+
+				// Disconnection events aren't always reliable, they might get fired
+				// even when trying to bond, and if no action is taking the dialog
+				// times out, and then this event happens.
+				// To solve it we just manually check the corresponding client socket.
+				if (disconnectedDevice.address !in _clientSocketByAddress) {
 					return@collect
 				}
 
@@ -790,6 +831,9 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.pairingRequestFlow.collect { event ->
+
+				println("$$$ bluetoothEvents.pairingRequestFlow: $event")
+
 				_pairedDevices.update { devices ->
 					devices.map { device ->
 						if (device.address == event.androidDevice.address) {
@@ -858,8 +902,7 @@ internal class LapisBtImpl(
 				)
 			}
 		}
-
-		_scannedDevices.updateAndGet { devices ->
+		_scannedDevices.update { devices ->
 			devices.map { device ->
 				if (_clientSocketByAddress.contains(device.address)) {
 					device.copy(
@@ -869,8 +912,7 @@ internal class LapisBtImpl(
 				else device
 			}
 		}
-
-		_scannedDevices.updateAndGet { devices ->
+		_connectedDevices.update { devices ->
 			devices.mapNotNull { device ->
 				if (_clientSocketByAddress.contains(device.address)) {
 					device

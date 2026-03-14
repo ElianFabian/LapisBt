@@ -9,6 +9,7 @@ import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
@@ -71,6 +72,9 @@ public interface LapisBt {
 
 	@InternalBluetoothReflectionApi
 	public fun unpairDevice(deviceAddress: String): Boolean
+
+	@InternalBluetoothReflectionApi
+	public fun cancelPairingAttempt(deviceAddress: String): Boolean
 
 	public suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean
 

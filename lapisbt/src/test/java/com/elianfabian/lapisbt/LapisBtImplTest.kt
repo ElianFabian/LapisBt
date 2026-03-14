@@ -10,6 +10,7 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -24,6 +25,7 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 // TODO: we should add more tests
+// FIXME: we made several behavioral changes, so now we have to update the tests
 class LapisBtImplTest {
 
 	private lateinit var lapisBt: LapisBt
@@ -165,7 +167,10 @@ class LapisBtImplTest {
 
 	@Test
 	fun `pair and unpair functions updates scannedDevices and pairedDevices`() = runTest(timeout = ShortTimeout * 4) {
-		val device = lapisAdapterFake.getScannableDevices().first()
+		lapisBt.startScan()
+		lapisBt.scannedDevices.first { it.size >= 3 }
+
+		val device = lapisBt.scannedDevices.first().first()
 
 		lapisBt.pairDevice(device.address)
 
@@ -282,7 +287,7 @@ class LapisBtImplTest {
 		val result = lapisBt.connectToDevice(device.address, serviceUuid)
 		assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 
-		val updated = lapisBt.scannedDevices.value.first { it.address == device.address }
+		val updated = lapisBt.connectedDevices.value.first { it.address == device.address }
 		assertThat(updated.connectionState).isEqualTo(BluetoothDevice.ConnectionState.Connected)
 	}
 
@@ -290,6 +295,8 @@ class LapisBtImplTest {
 	fun `device connection flow updates connection state correctly`() = runTest(timeout = MediumTimeout * 2) {
 		val device = lapisAdapterFake.getScannableDevices().first()
 		bluetoothEventsFake.emitDeviceFound(device)
+		lapisBt.startScan()
+		lapisBt.scannedDevices.first { it.size >= 3 }
 		lapisBt.scannedDevices.first { devices ->
 			devices.any { it.address == device.address }
 		}
