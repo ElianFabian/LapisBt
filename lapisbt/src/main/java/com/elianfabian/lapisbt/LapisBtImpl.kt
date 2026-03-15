@@ -1192,10 +1192,10 @@ internal class LapisBtImpl(
 		 * @param address Bluetooth address as string
 		 * @return true if the address is valid, false otherwise
 		 */
-		fun checkBluetoothAddress(address: String?): Boolean {
+		fun checkBluetoothAddress(address: String): Boolean {
 			val addressLength = 17
 
-			if (address == null || address.length != addressLength) {
+			if (address.length != addressLength) {
 				return false
 			}
 			for (i in 0..<addressLength) {
