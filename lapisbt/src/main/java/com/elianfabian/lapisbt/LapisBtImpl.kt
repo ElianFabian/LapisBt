@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +26,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -277,7 +275,7 @@ internal class LapisBtImpl(
 					disconnectedDevice = lapisAdapter.getRemoteDevice(deviceAddress).toModel(
 						connectionState = BluetoothDevice.ConnectionState.Disconnected
 					),
-					manuallyDisconnected = manuallyDisconnected,
+					disconnectedLocally = manuallyDisconnected,
 				)
 			)
 
@@ -705,7 +703,7 @@ internal class LapisBtImpl(
 						disconnectedDevice = disconnectedDevice.toModel(
 							connectionState = BluetoothDevice.ConnectionState.Disconnected
 						),
-						manuallyDisconnected = false,
+						disconnectedLocally = false,
 					)
 				)
 			}
@@ -809,7 +807,7 @@ internal class LapisBtImpl(
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
-											manuallyDisconnected = true,
+											disconnectedLocally = true,
 										)
 									)
 								}
@@ -827,7 +825,7 @@ internal class LapisBtImpl(
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
-											manuallyDisconnected = true,
+											disconnectedLocally = true,
 										)
 									)
 								}
@@ -994,7 +992,7 @@ internal class LapisBtImpl(
 		_events.emit(
 			LapisBt.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
-				manuallyConnected = false,
+				connectedLocally = false,
 			)
 		)
 
@@ -1080,7 +1078,7 @@ internal class LapisBtImpl(
 		_events.emit(
 			LapisBt.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
-				manuallyConnected = true,
+				connectedLocally = true,
 			)
 		)
 

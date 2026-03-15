@@ -9,7 +9,6 @@ import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
@@ -102,7 +101,7 @@ public interface LapisBt {
 		public data class OnDeviceConnected(
 			val connectedDevice: BluetoothDevice,
 			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
-			val manuallyConnected: Boolean,
+			val connectedLocally: Boolean,
 		) : Event
 
 		public data class OnDeviceDisconnected(
@@ -110,7 +109,7 @@ public interface LapisBt {
 			// This indicates if was the current user who intentionally disconnected the device
 			// In the case the user intentionally disconnects from the device but it was the other device
 			// who disconnected from us it will count as not manually disconnected
-			val manuallyDisconnected: Boolean,
+			val disconnectedLocally: Boolean,
 		) : Event
 
 		public data class OnDeviceScanned(val scannedDevice: BluetoothDevice) : Event
