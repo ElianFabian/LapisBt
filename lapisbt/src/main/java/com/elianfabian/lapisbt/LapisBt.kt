@@ -119,6 +119,7 @@ public interface LapisBt {
 			val device: BluetoothDevice,
 			val pairingKey: Int,
 			val pairingVariant: PairingVariant,
+			val initiatedLocally: Boolean,
 		) : Event {
 			public enum class PairingVariant {
 				Pin,

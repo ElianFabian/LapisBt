@@ -109,6 +109,9 @@ internal class LapisBtImpl(
 	// This is to avoid duplicate disconnection events
 	private val _skipDisconnectionEventForDevices = mutableSetOf<String>()
 
+	// This is to know which device stared the bonding process
+	private val _pairingsStarted = mutableSetOf<String>()
+
 
 	init {
 		initialize()
@@ -385,6 +388,8 @@ internal class LapisBtImpl(
 				}
 			}
 
+			_pairingsStarted.add(deviceAddress)
+
 			return true
 		}
 
@@ -400,7 +405,12 @@ internal class LapisBtImpl(
 	@InternalBluetoothReflectionApi
 	override fun cancelPairingAttempt(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
-		return device.cancelBondProcess()
+
+		if (device.cancelBondProcess()) {
+			_pairingsStarted.remove(deviceAddress)
+			return true
+		}
+		return false
 	}
 
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
@@ -866,8 +876,11 @@ internal class LapisBtImpl(
 						device = event.androidDevice.toModel(connectionState = BluetoothDevice.ConnectionState.Disconnected),
 						pairingKey = event.pairingKey,
 						pairingVariant = pairingVariant,
+						initiatedLocally = _pairingsStarted.contains(event.androidDevice.address),
 					)
 				)
+
+				_pairingsStarted.remove(event.androidDevice.address)
 			}
 		}
 		_scope.launch {
