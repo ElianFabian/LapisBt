@@ -863,9 +863,17 @@ internal class LapisBtImpl(
 				}
 
 
+				// Maybe pairing variant should be a sealed interface so we can add an unknown value,
+				// but for now I think this is useful for development in the very unlikely case
+				// we experience a value different from the ones defined here.
 				val pairingVariant = when (val pairingVariant = event.pairingVariant) {
 					AndroidBluetoothDevice.PAIRING_VARIANT_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin
 					AndroidBluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION -> LapisBt.Event.OnPairingRequest.PairingVariant.PasskeyConfirmation
+					AndroidInternalConstants.PAIRING_VARIANT_CONSENT -> LapisBt.Event.OnPairingRequest.PairingVariant.Consent
+					AndroidInternalConstants.PAIRING_VARIANT_DISPLAY_PASSKEY -> LapisBt.Event.OnPairingRequest.PairingVariant.DisplayPasskey
+					AndroidInternalConstants.PAIRING_VARIANT_DISPLAY_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.DisplayPin
+					AndroidInternalConstants.PAIRING_VARIANT_OOB_CONSENT -> LapisBt.Event.OnPairingRequest.PairingVariant.OobConsent
+					AndroidInternalConstants.PAIRING_VARIANT_PIN_16_DIGITS -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin16Digits
 					else -> error("No pairing variant for value: $pairingVariant")
 				}
 
@@ -1210,5 +1218,18 @@ internal class LapisBtImpl(
 			}
 			return true
 		}
+	}
+
+	private object AndroidInternalConstants {
+
+		const val PAIRING_VARIANT_CONSENT = 3
+
+		const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
+
+		const val PAIRING_VARIANT_DISPLAY_PIN = 5
+
+		const val PAIRING_VARIANT_OOB_CONSENT = 6
+
+		const val PAIRING_VARIANT_PIN_16_DIGITS = 7
 	}
 }

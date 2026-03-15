@@ -123,6 +123,14 @@ public interface LapisBt {
 			public enum class PairingVariant {
 				Pin,
 				PasskeyConfirmation,
+
+				// These are internal values (during testing I accidentally got the 'consent' pairing variant,
+				// so this is why we're adding them just in case
+				Consent,
+				DisplayPasskey,
+				DisplayPin,
+				OobConsent,
+				Pin16Digits,
 			}
 		}
 	}
