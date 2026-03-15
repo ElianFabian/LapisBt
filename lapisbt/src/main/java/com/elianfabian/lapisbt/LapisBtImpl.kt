@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -119,6 +118,9 @@ internal class LapisBtImpl(
 
 	// This is to avoid duplicate disconnection events
 	private val _skipDisconnectionEventForDevices = mutableSetOf<String>()
+
+	// This is to know which device stared the bonding process
+	private val _pairingsStarted = mutableSetOf<String>()
 
 
 	init {
@@ -285,7 +287,7 @@ internal class LapisBtImpl(
 					disconnectedDevice = lapisAdapter.getRemoteDevice(deviceAddress).toModel(
 						connectionState = BluetoothDevice.ConnectionState.Disconnected
 					),
-					manuallyDisconnected = manuallyDisconnected,
+					disconnectedLocally = manuallyDisconnected,
 				)
 			)
 
@@ -400,6 +402,8 @@ internal class LapisBtImpl(
 				}
 			}
 
+			_pairingsStarted.add(deviceAddress)
+
 			return true
 		}
 
@@ -416,7 +420,12 @@ internal class LapisBtImpl(
 	@InternalBluetoothReflectionApi
 	override fun cancelPairingAttempt(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
-		return device.cancelBondProcess()
+
+		if (device.cancelBondProcess()) {
+			_pairingsStarted.remove(deviceAddress)
+			return true
+		}
+		return false
 	}
 
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
@@ -711,7 +720,7 @@ internal class LapisBtImpl(
 						disconnectedDevice = disconnectedDevice.toModel(
 							connectionState = BluetoothDevice.ConnectionState.Disconnected
 						),
-						manuallyDisconnected = false,
+						disconnectedLocally = false,
 					)
 				)
 			}
@@ -815,7 +824,7 @@ internal class LapisBtImpl(
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
-											manuallyDisconnected = true,
+											disconnectedLocally = true,
 										)
 									)
 								}
@@ -833,7 +842,7 @@ internal class LapisBtImpl(
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
-											manuallyDisconnected = true,
+											disconnectedLocally = true,
 										)
 									)
 								}
@@ -871,9 +880,17 @@ internal class LapisBtImpl(
 				}
 
 
+				// Maybe pairing variant should be a sealed interface so we can add an unknown value,
+				// but for now I think this is useful for development in the very unlikely case
+				// we experience a value different from the ones defined here.
 				val pairingVariant = when (val pairingVariant = event.pairingVariant) {
 					AndroidBluetoothDevice.PAIRING_VARIANT_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin
 					AndroidBluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION -> LapisBt.Event.OnPairingRequest.PairingVariant.PasskeyConfirmation
+					AndroidInternalConstants.PAIRING_VARIANT_CONSENT -> LapisBt.Event.OnPairingRequest.PairingVariant.Consent
+					AndroidInternalConstants.PAIRING_VARIANT_DISPLAY_PASSKEY -> LapisBt.Event.OnPairingRequest.PairingVariant.DisplayPasskey
+					AndroidInternalConstants.PAIRING_VARIANT_DISPLAY_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.DisplayPin
+					AndroidInternalConstants.PAIRING_VARIANT_OOB_CONSENT -> LapisBt.Event.OnPairingRequest.PairingVariant.OobConsent
+					AndroidInternalConstants.PAIRING_VARIANT_PIN_16_DIGITS -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin16Digits
 					else -> error("No pairing variant for value: $pairingVariant")
 				}
 
@@ -882,8 +899,11 @@ internal class LapisBtImpl(
 						device = event.androidDevice.toModel(connectionState = BluetoothDevice.ConnectionState.Disconnected),
 						pairingKey = event.pairingKey,
 						pairingVariant = pairingVariant,
+						initiatedLocally = _pairingsStarted.contains(event.androidDevice.address),
 					)
 				)
+
+				_pairingsStarted.remove(event.androidDevice.address)
 			}
 		}
 		_scope.launch {
@@ -997,7 +1017,7 @@ internal class LapisBtImpl(
 		_events.emit(
 			LapisBt.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
-				manuallyConnected = false,
+				connectedLocally = false,
 			)
 		)
 
@@ -1085,7 +1105,7 @@ internal class LapisBtImpl(
 		_events.emit(
 			LapisBt.Event.OnDeviceConnected(
 				connectedDevice = connectedDevice,
-				manuallyConnected = true,
+				connectedLocally = true,
 			)
 		)
 
@@ -1180,5 +1200,56 @@ internal class LapisBtImpl(
 		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
 			"The device address '$deviceAddress' is invalid"
 		}
+	}
+
+	companion object {
+		/**
+		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"
+		 *
+		 *
+		 * Alphabetic characters must be uppercase to be valid.
+		 *
+		 * @param address Bluetooth address as string
+		 * @return true if the address is valid, false otherwise
+		 */
+		fun checkBluetoothAddress(address: String?): Boolean {
+			val addressLength = 17
+
+			if (address == null || address.length != addressLength) {
+				return false
+			}
+			for (i in 0..<addressLength) {
+				val c = address[i]
+				when (i % 3) {
+					0, 1 -> {
+						if ((c in '0'..'9') || (c in 'A'..'F')) {
+							// hex character, OK
+							break
+						}
+						return false
+					}
+					2 -> {
+						if (c == ':') {
+							break // OK
+						}
+						return false
+					}
+				}
+			}
+			return true
+		}
+	}
+
+	private object AndroidInternalConstants {
+
+		const val PAIRING_VARIANT_CONSENT = 3
+
+		const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
+
+		const val PAIRING_VARIANT_DISPLAY_PIN = 5
+
+		const val PAIRING_VARIANT_OOB_CONSENT = 6
+
+		const val PAIRING_VARIANT_PIN_16_DIGITS = 7
 	}
 }

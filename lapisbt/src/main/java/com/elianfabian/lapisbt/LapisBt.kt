@@ -102,7 +102,7 @@ public interface LapisBt {
 		public data class OnDeviceConnected(
 			val connectedDevice: BluetoothDevice,
 			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
-			val manuallyConnected: Boolean,
+			val connectedLocally: Boolean,
 		) : Event
 
 		public data class OnDeviceDisconnected(
@@ -110,7 +110,7 @@ public interface LapisBt {
 			// This indicates if was the current user who intentionally disconnected the device
 			// In the case the user intentionally disconnects from the device but it was the other device
 			// who disconnected from us it will count as not manually disconnected
-			val manuallyDisconnected: Boolean,
+			val disconnectedLocally: Boolean,
 		) : Event
 
 		public data class OnDeviceScanned(val scannedDevice: BluetoothDevice) : Event
@@ -119,10 +119,19 @@ public interface LapisBt {
 			val device: BluetoothDevice,
 			val pairingKey: Int,
 			val pairingVariant: PairingVariant,
+			val initiatedLocally: Boolean,
 		) : Event {
 			public enum class PairingVariant {
 				Pin,
 				PasskeyConfirmation,
+
+				// These are internal values (during testing I accidentally got the 'consent' pairing variant,
+				// so this is why we're adding them just in case
+				Consent,
+				DisplayPasskey,
+				DisplayPin,
+				OobConsent,
+				Pin16Digits,
 			}
 		}
 	}
