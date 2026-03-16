@@ -68,6 +68,7 @@ internal class LapisBtImpl(
 	//  this also happens without that random device trying to pair my first device.
 	//  We have to also check why when the second device that now has the firs device paired it now visually looks like
 	//  the first device is disconnected, even though it's not
+	//  The weird unknown device tries to pair with my first device with the pairing variant of: PAIRING_VARIANT_CONSENT
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
@@ -121,6 +122,8 @@ internal class LapisBtImpl(
 
 	// This is to know which device stared the bonding process
 	private val _pairingsStarted = mutableSetOf<String>()
+
+	private val _unpairingsStarted = mutableSetOf<String>()
 
 
 	init {
@@ -414,7 +417,13 @@ internal class LapisBtImpl(
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
-		return device.removeBond()
+
+		if (device.removeBond()) {
+			_unpairingsStarted.add(deviceAddress)
+			return true
+		}
+
+		return false
 	}
 
 	@InternalBluetoothReflectionApi
@@ -624,11 +633,8 @@ internal class LapisBtImpl(
 				println("$$$ Device bond state changed: $lapisDevice")
 
 				_scannedDevices.update { devices ->
-					val updatedDevices = devices.mapNotNull { existingDevice ->
+					devices.map { existingDevice ->
 						if (existingDevice.address == lapisDevice.address) {
-							if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED) {
-								return@mapNotNull null
-							}
 							existingDevice.copy(
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
@@ -639,18 +645,6 @@ internal class LapisBtImpl(
 							)
 						}
 						else existingDevice
-					}
-
-//					if (lapisDevice.address !in updatedDevices.map { it.address } && lapisDevice.bondState != AndroidBluetoothDevice.BOND_BONDED) {
-//						val newDevice = lapisDevice.toModel(
-//							connectionState = BluetoothDevice.ConnectionState.Disconnected,
-//						)
-//						updatedDevices + newDevice
-//					}
-//					else updatedDevices
-
-					updatedDevices.also {
-						println("$$$$ deviceBondStateChangeFlow.scannedDevices: $updatedDevices")
 					}
 				}
 				_pairedDevices.update { devices ->
@@ -672,7 +666,10 @@ internal class LapisBtImpl(
 
 					if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED && lapisDevice.address !in devices.map { it.address } && lapisDevice.address !in _scannedDevices.value.map { it.address }) {
 						val newDevice = lapisDevice.toModel(
-							connectionState = BluetoothDevice.ConnectionState.Disconnected,
+							connectionState = if (_clientSocketByAddress[lapisDevice.address]?.isConnected == true) {
+								BluetoothDevice.ConnectionState.Connected
+							}
+							else BluetoothDevice.ConnectionState.Disconnected,
 						)
 						println("$$$ newPairedDevice: $lapisDevice")
 						updatedDevices + newDevice
@@ -680,12 +677,13 @@ internal class LapisBtImpl(
 					else updatedDevices
 				}
 				_connectedDevices.update { devices ->
-					devices.mapNotNull { existingDevice ->
+					devices.map { existingDevice ->
 						if (existingDevice.address == lapisDevice.address) {
-							if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED) {
-								return@mapNotNull null
-							}
 							existingDevice.copy(
+								connectionState = if (_clientSocketByAddress[lapisDevice.address]?.isConnected == true) {
+									BluetoothDevice.ConnectionState.Connected
+								}
+								else BluetoothDevice.ConnectionState.Disconnected,
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
 									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
@@ -720,9 +718,11 @@ internal class LapisBtImpl(
 						disconnectedDevice = disconnectedDevice.toModel(
 							connectionState = BluetoothDevice.ConnectionState.Disconnected
 						),
-						disconnectedLocally = false,
+						disconnectedLocally = _unpairingsStarted.contains(disconnectedDevice.address),
 					)
 				)
+
+				_unpairingsStarted.remove(disconnectedDevice.address)
 			}
 		}
 		_scope.launch {
@@ -874,9 +874,6 @@ internal class LapisBtImpl(
 						}
 						else device
 					}
-				}
-				_connectedDevices.update { devices ->
-					devices.filter { it.address != event.androidDevice.address }
 				}
 
 
