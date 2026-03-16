@@ -42,6 +42,11 @@ import kotlin.coroutines.resumeWithException
 
 // TODO: we should somehow handle cancellation, when we cancel a call to a remote suspend function on the client side
 //  we should signal that to the other device so they can stop sending the data.
+// TODO: use the parameters name to sort the values so that neither the client nor the server has to worry about
+//  the other of the parameters when defining a function
+// TODO: add remote exceptions
+// TODO: add device not connected exception
+// TODO: add support for flows
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
