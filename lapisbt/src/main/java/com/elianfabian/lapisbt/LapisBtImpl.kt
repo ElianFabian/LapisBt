@@ -636,6 +636,10 @@ internal class LapisBtImpl(
 					devices.map { existingDevice ->
 						if (existingDevice.address == lapisDevice.address) {
 							existingDevice.copy(
+								connectionState = if (_clientSocketByAddress[lapisDevice.address]?.isConnected == true) {
+									BluetoothDevice.ConnectionState.Connected
+								}
+								else BluetoothDevice.ConnectionState.Disconnected,
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
 									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
@@ -654,6 +658,10 @@ internal class LapisBtImpl(
 								return@mapNotNull null
 							}
 							existingDevice.copy(
+								connectionState = if (_clientSocketByAddress[lapisDevice.address]?.isConnected == true) {
+									BluetoothDevice.ConnectionState.Connected
+								}
+								else BluetoothDevice.ConnectionState.Disconnected,
 								pairingState = when (lapisDevice.bondState) {
 									AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
 									AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
@@ -1183,6 +1191,9 @@ internal class LapisBtImpl(
 					}
 					catch (e: IOException) {
 						println("$$$ e1: ${e.message}")
+						if (e.message == "socket closed") {
+							return@withContext false
+						}
 					}
 				}
 				close()
