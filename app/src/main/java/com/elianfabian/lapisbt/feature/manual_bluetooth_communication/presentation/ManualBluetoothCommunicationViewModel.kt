@@ -108,6 +108,7 @@ class ManualBluetoothCommunicationViewModel(
 		}
 		_scope.launch {
 			lapisBt.events.collect { event ->
+				println("$$$ event: $event")
 				when (event) {
 					is LapisBt.Event.OnDeviceConnected -> {
 						if (_selectedDevice.value == ManualBluetoothCommunicationState.SelectedDevice.None) {
