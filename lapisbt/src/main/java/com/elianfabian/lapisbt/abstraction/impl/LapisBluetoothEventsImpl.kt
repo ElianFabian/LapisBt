@@ -126,6 +126,7 @@ internal class LapisBluetoothEventsImpl(
 			// When we try to connect to a paired device, this callback executes with isConnected to true and after some small time (around 4s)
 			// it executes again with isConnected to false, so the 'true' value here it's not reliable
 			// So we only care about the false value
+			println("$$$$ DeviceConnectionStateChangeBroadcastReceiver($isConnected): LapisBluetoothDeviceImpl(androidDevice)")
 			if (!isConnected) {
 				_deviceDisconnectedFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 			}
