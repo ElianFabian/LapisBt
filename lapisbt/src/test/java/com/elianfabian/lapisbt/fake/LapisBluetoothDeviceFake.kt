@@ -20,6 +20,7 @@ internal data class LapisBluetoothDeviceFake(
 	override var bondState: Int = BluetoothDevice.BOND_NONE,
 	override var alias: String? = null,
 	override var uuids: List<UUID>? = emptyList(),
+	override val deviceClass: Int = BluetoothClass.Device.PHONE_SMART,
 	override val majorDeviceClass: Int = BluetoothClass.Device.Major.PHONE,
 	override val addressType: Int = BluetoothDevice.ADDRESS_TYPE_UNKNOWN,
 	override val type: Int = BluetoothDevice.DEVICE_TYPE_CLASSIC,
