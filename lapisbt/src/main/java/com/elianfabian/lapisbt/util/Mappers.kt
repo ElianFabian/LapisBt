@@ -1,18 +1,6 @@
 package com.elianfabian.lapisbt.util
 
-import android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO
-import android.bluetooth.BluetoothClass.Device.Major.COMPUTER
-import android.bluetooth.BluetoothClass.Device.Major.HEALTH
-import android.bluetooth.BluetoothClass.Device.Major.IMAGING
-import android.bluetooth.BluetoothClass.Device.Major.MISC
-import android.bluetooth.BluetoothClass.Device.Major.NETWORKING
-import android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL
-import android.bluetooth.BluetoothClass.Device.Major.PHONE
-import android.bluetooth.BluetoothClass.Device.Major.TOY
-import android.bluetooth.BluetoothClass.Device.Major.WEARABLE
-import android.bluetooth.BluetoothDevice.BOND_BONDED
-import android.bluetooth.BluetoothDevice.BOND_BONDING
-import android.bluetooth.BluetoothDevice.BOND_NONE
+import android.bluetooth.BluetoothClass
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
 
@@ -29,16 +17,17 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			else -> BluetoothDevice.AddressType.NotSupported
 		},
 		majorDeviceClass = when (this.majorDeviceClass) {
-			AUDIO_VIDEO -> BluetoothDevice.MajorDeviceClass.AudioVideo
-			COMPUTER -> BluetoothDevice.MajorDeviceClass.Computer
-			HEALTH -> BluetoothDevice.MajorDeviceClass.Health
-			IMAGING -> BluetoothDevice.MajorDeviceClass.Imaging
-			WEARABLE -> BluetoothDevice.MajorDeviceClass.Wearable
-			MISC -> BluetoothDevice.MajorDeviceClass.Misc
-			PHONE -> BluetoothDevice.MajorDeviceClass.Phone
-			NETWORKING -> BluetoothDevice.MajorDeviceClass.Networking
-			TOY -> BluetoothDevice.MajorDeviceClass.Toy
-			PERIPHERAL -> BluetoothDevice.MajorDeviceClass.Peripheral
+			BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.MajorDeviceClass.AudioVideo
+			BluetoothClass.Device.Major.COMPUTER -> BluetoothDevice.MajorDeviceClass.Computer
+			BluetoothClass.Device.Major.HEALTH -> BluetoothDevice.MajorDeviceClass.Health
+			BluetoothClass.Device.Major.IMAGING -> BluetoothDevice.MajorDeviceClass.Imaging
+			BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.MajorDeviceClass.Wearable
+			BluetoothClass.Device.Major.MISC -> BluetoothDevice.MajorDeviceClass.Misc
+			BluetoothClass.Device.Major.PHONE -> BluetoothDevice.MajorDeviceClass.Phone
+			BluetoothClass.Device.Major.NETWORKING -> BluetoothDevice.MajorDeviceClass.Networking
+			BluetoothClass.Device.Major.TOY -> BluetoothDevice.MajorDeviceClass.Toy
+			BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.MajorDeviceClass.Peripheral
+			BluetoothClass.Device.Major.UNCATEGORIZED -> BluetoothDevice.MajorDeviceClass.Uncategorized
 			else -> BluetoothDevice.MajorDeviceClass.Uncategorized
 		},
 		type = when (this.type) {
@@ -50,9 +39,9 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 		},
 		uuids = this.uuids,
 		pairingState = when (this.bondState) {
-			BOND_BONDED -> BluetoothDevice.PairingState.Paired
-			BOND_BONDING -> BluetoothDevice.PairingState.Pairing
-			BOND_NONE -> BluetoothDevice.PairingState.None
+			AndroidBluetoothDevice.BOND_BONDED -> BluetoothDevice.PairingState.Paired
+			AndroidBluetoothDevice.BOND_BONDING -> BluetoothDevice.PairingState.Pairing
+			AndroidBluetoothDevice.BOND_NONE -> BluetoothDevice.PairingState.None
 			else -> BluetoothDevice.PairingState.None
 		},
 		connectionState = connectionState,
