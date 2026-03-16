@@ -128,6 +128,6 @@ internal class LapisBluetoothDeviceImpl(
 	}
 
 	override fun toString(): String {
-		return "LapisBluetoothDeviceImpl(device=$device, address='$address', name=$name, alias=$alias, uuids=$uuids, deviceClass=$deviceClass, majorDeviceClass=$majorDeviceClass, addressType=$addressType, type=$type, bondState=$bondState)"
+		return "LapisBluetoothDeviceImpl(address='$address', name=$name, alias=$alias, uuids=$uuids, deviceClass=$deviceClass, majorDeviceClass=$majorDeviceClass, addressType=$addressType, type=$type, bondState=$bondState)"
 	}
 }
