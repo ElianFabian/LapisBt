@@ -1082,6 +1082,8 @@ internal class LapisBtImpl(
 				}
 			}
 
+			_skipDisconnectionEventForDevices.add(deviceAddress)
+
 			return LapisBt.ConnectionResult.CouldNotConnect
 		}
 
