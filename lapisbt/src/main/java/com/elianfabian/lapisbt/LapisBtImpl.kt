@@ -739,9 +739,10 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.deviceDisconnectedFlow.collect { disconnectedDevice ->
-				println("$$$ disconnectedDevice: $disconnectedDevice")
+				println("$$$ disconnectedDevice: $disconnectedDevice | $_skipDisconnectionEventForDevices")
 
 				if (disconnectedDevice.address in _skipDisconnectionEventForDevices) {
+					_skipDisconnectionEventForDevices.remove(disconnectedDevice.address)
 					return@collect
 				}
 
