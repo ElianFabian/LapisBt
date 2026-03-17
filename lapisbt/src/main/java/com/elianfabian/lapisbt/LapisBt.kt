@@ -149,9 +149,9 @@ public interface LapisBt {
 		@NotReliableBluetoothApi
 		public data class OnPairingFailed(
 			val device: BluetoothDevice,
-			val reason: Type,
+			val reason: Reason,
 		) : Event {
-			public enum class Type {
+			public enum class Reason {
 				AuthFailed,
 				AuthRejected,
 				AuthCanceled,
