@@ -31,7 +31,6 @@ internal interface LapisBluetoothDevice {
 	@InternalBluetoothReflectionApi
 	fun cancelBondProcess(): Boolean
 
-	// It seems that calling this function during pairing will make the pairing fail
 	@InternalBluetoothReflectionApi
 	fun isBondingInitiatedLocally(): Boolean
 
