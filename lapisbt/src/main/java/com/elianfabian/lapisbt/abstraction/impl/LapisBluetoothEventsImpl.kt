@@ -31,28 +31,31 @@ internal class LapisBluetoothEventsImpl(
 	override val bluetoothStateFlow = _bluetoothStateFlow.asSharedFlow()
 
 	private val _deviceAliasChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceAliasChangeFlow: SharedFlow<LapisBluetoothDevice> = _deviceAliasChangeFlow.asSharedFlow()
+	override val deviceAliasChangeFlow = _deviceAliasChangeFlow.asSharedFlow()
 
 	private val _deviceBondStateChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceBondStateChangeFlow: SharedFlow<LapisBluetoothDevice> = _deviceBondStateChangeFlow.asSharedFlow()
+	override val deviceBondStateChangeFlow = _deviceBondStateChangeFlow.asSharedFlow()
+
+	private val _unbondReasonFlow = MutableSharedFlow<LapisBluetoothEvents.UnbondReasonEvent>(extraBufferCapacity = Int.MAX_VALUE)
+	override val unbondReasonFlow = _unbondReasonFlow.asSharedFlow()
 
 	private val _deviceDisconnectedFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceDisconnectedFlow: SharedFlow<LapisBluetoothDevice> = _deviceDisconnectedFlow.asSharedFlow()
 
 	private val _deviceNameFlow = MutableSharedFlow<String?>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceNameFlow: SharedFlow<String?> = _deviceNameFlow.asSharedFlow()
+	override val deviceNameFlow = _deviceNameFlow.asSharedFlow()
 
 	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothDevice> = _deviceUuidsChangeFlow.asSharedFlow()
+	override val deviceUuidsChangeFlow = _deviceUuidsChangeFlow.asSharedFlow()
 
 	private val _deviceFoundFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceFoundFlow: SharedFlow<LapisBluetoothDevice> = _deviceFoundFlow.asSharedFlow()
+	override val deviceFoundFlow = _deviceFoundFlow.asSharedFlow()
 
 	private val _isDiscoveringFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = Int.MAX_VALUE)
-	override val isDiscoveringFlow: SharedFlow<Boolean> = _isDiscoveringFlow.asSharedFlow()
+	override val isDiscoveringFlow = _isDiscoveringFlow.asSharedFlow()
 
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
-	override val onActivityResumed: SharedFlow<Unit> = _onActivityResumed.asSharedFlow()
+	override val onActivityResumed = _onActivityResumed.asSharedFlow()
 
 	private val _pairingRequestFlow = MutableSharedFlow<LapisBluetoothEvents.PairingRequestEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val pairingRequestFlow = _pairingRequestFlow.asSharedFlow()
@@ -105,7 +108,7 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
-		onStateChange = { androidDevice, oldState, newState ->
+		onStateChange = { androidDevice, oldState, newState, reason ->
 			if (newState == oldState) {
 				return@DeviceBondStateChangeBroadcastReceiver
 			}
@@ -117,7 +120,19 @@ internal class LapisBluetoothEventsImpl(
 				// about the bonding state.
 				return@DeviceBondStateChangeBroadcastReceiver
 			}
-			_deviceBondStateChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
+
+			val device = LapisBluetoothDeviceImpl(androidDevice)
+
+			if (reason > 0) {
+				_unbondReasonFlow.tryEmit(
+					LapisBluetoothEvents.UnbondReasonEvent(
+						androidDevice = device,
+						reason = reason,
+					)
+				)
+			}
+
+			_deviceBondStateChangeFlow.tryEmit(device)
 		}
 	)
 

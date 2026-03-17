@@ -6,6 +6,7 @@ import com.elianfabian.lapisbt.abstraction.impl.AndroidHelperImpl
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
+import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,7 +66,7 @@ public interface LapisBt {
 
 	public suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
 
-	public fun getRemoteDevice(deviceAddress: String): BluetoothDevice?
+	public fun getRemoteDevice(deviceAddress: String): BluetoothDevice
 
 	public fun pairDevice(deviceAddress: String): Boolean
 
@@ -131,6 +132,34 @@ public interface LapisBt {
 				DisplayPin,
 				OobConsent,
 				Pin16Digits,
+			}
+		}
+
+		// This event is based on internal APIs, so this may not work as expected.
+		// Use it at your own risk.
+		// This event might be removed in future versions of this library.
+		// NOTES:
+		// - Value AuthFailed (1) was received for both pairing dialog timeout and
+		// when the device which initiated the pairing canceled the process.
+		// - Value RemoteDeviceDown (4) was received by a device which tried to pair with another
+		// but the pairing just randomly failed, the dialog didn't even show up.
+		// - Value Removed (9) was received by the remote device when it canceled the request and also
+		// when a device unbonded another device.
+		@NotReliableBluetoothApi
+		public data class OnPairingFailed(
+			val device: BluetoothDevice,
+			val reason: Type,
+		) : Event {
+			public enum class Type {
+				AuthFailed,
+				AuthRejected,
+				AuthCanceled,
+				RemoteDeviceDown,
+				DiscoveryInProgress,
+				AuthTimeout,
+				RepeatedAttempts,
+				RemoteAuthCanceled,
+				Removed,
 			}
 		}
 	}

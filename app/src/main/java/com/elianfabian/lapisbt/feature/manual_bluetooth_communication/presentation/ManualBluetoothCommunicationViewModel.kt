@@ -219,6 +219,9 @@ class ManualBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnPairingRequest -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingFailed -> {
+						// no-op
+					}
 				}
 			}
 		}
