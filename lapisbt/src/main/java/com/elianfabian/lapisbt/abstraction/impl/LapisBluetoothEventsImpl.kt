@@ -241,5 +241,9 @@ internal class LapisBluetoothEventsImpl(
 			_pairingRequestBroadcastReceiver,
 			IntentFilter(AndroidBluetoothDevice.ACTION_PAIRING_REQUEST),
 		)
+
+
+		// NOTES:
+		// - ACTION_ACL_DISCONNECT_REQUESTED: I haven't observed this action being fired during testing
 	}
 }
