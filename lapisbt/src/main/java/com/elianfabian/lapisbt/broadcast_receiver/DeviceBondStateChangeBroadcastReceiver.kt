@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.contentToString
 
 internal class DeviceBondStateChangeBroadcastReceiver(
 	private val onStateChange: (device: AndroidBluetoothDevice, oldState: Int, newState: Int, reason: Int) -> Unit,
