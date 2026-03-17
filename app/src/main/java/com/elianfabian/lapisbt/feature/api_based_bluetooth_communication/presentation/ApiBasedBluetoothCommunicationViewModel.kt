@@ -10,9 +10,9 @@ import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpc
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpcServer
+import com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationState
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
-import com.elianfabian.lapisbt_rpc.getOrCreateBluetoothClientApi
 import com.elianfabian.lapisbt_rpc.registerBluetoothServerApi
 import com.elianfabian.lapisbt_rpc.unregisterBluetoothServerApi
 import com.zhuinden.flowcombinetuplekt.combineTuple
@@ -229,7 +229,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 							return@launch
 						}
 					}
-					requestPermissionsAndEnableBluetoothBeforeExecuting {
+					requestPermissionsBeforeExecuting {
 						if (!lapisBt.startScan()) {
 							// In some devices, at least for Xiaomi Mi MIX 2S API level 29 (for Samsung Galaxy Note 9 API level 29 this does not reproduce),
 							// if this returns false we likely need to turn on location
@@ -256,7 +256,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			}
 			is ApiBasedBluetoothCommunicationAction.StartServer -> {
 				_scope.launch {
-					requestPermissionsAndEnableBluetoothBeforeExecuting {
+					requestPermissionsBeforeExecuting {
 						val result = if (_useSecureConnection.value) {
 							lapisBt.startBluetoothServer(
 								serviceName = ConnectionName,
@@ -288,7 +288,9 @@ class ApiBasedBluetoothCommunicationViewModel(
 			}
 			is ApiBasedBluetoothCommunicationAction.MakeDeviceDiscoverable -> {
 				_scope.launch {
-					androidHelper.showMakeDeviceDiscoverableDialog(seconds = 300)
+					requestPermissionsBeforeExecuting(enableBluetooth = false) {
+						androidHelper.showMakeDeviceDiscoverableDialog(seconds = 300)
+					}
 				}
 			}
 			is ApiBasedBluetoothCommunicationAction.ClickPairedDevice -> {
@@ -397,7 +399,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			}
 			is ApiBasedBluetoothCommunicationAction.EnableBluetooth -> {
 				_scope.launch {
-					requestPermissionsAndEnableBluetoothBeforeExecuting {
+					requestPermissionsBeforeExecuting {
 						// no-op, this will request the proper permissions to then enable bluetooth
 					}
 				}
@@ -513,7 +515,10 @@ class ApiBasedBluetoothCommunicationViewModel(
 		}
 	}
 
-	private suspend fun requestPermissionsAndEnableBluetoothBeforeExecuting(action: suspend () -> Unit) {
+	private suspend fun requestPermissionsBeforeExecuting(
+		enableBluetooth: Boolean = true,
+		action: suspend () -> Unit,
+	) {
 		val result = bluetoothPermissionController.request()
 		if (result.allArePermanentlyDenied) {
 			_permissionDialog.value = ApiBasedBluetoothCommunicationState.PermissionDialogState(
@@ -535,7 +540,9 @@ class ApiBasedBluetoothCommunicationViewModel(
 			return
 		}
 
-		val shouldShowEnableBluetoothDialog = lapisBt.canEnableBluetooth
+		// Even though there are different permissions for different things
+		// since we always request them all at once we can just check for
+		val shouldShowEnableBluetoothDialog = enableBluetooth
 			&& !lapisBt.state.value.isOn
 			&& result.values.all { it == PermissionState.Granted }
 		if (shouldShowEnableBluetoothDialog) {

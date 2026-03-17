@@ -7,6 +7,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
+import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
@@ -44,7 +45,7 @@ internal class LapisBtImpl(
 
 	private val _scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-	private val _isBluetoothConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
+	private val _isConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
 
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
@@ -79,7 +80,7 @@ internal class LapisBtImpl(
 	override val events = _events.asSharedFlow()
 
 	private val _bluetoothDeviceName = MutableStateFlow<String?>(
-		if (canEnableBluetooth) {
+		if (androidHelper.isBluetoothConnectGranted()) {
 			lapisAdapter.name
 		}
 		else null
@@ -88,9 +89,6 @@ internal class LapisBtImpl(
 
 	override val isBluetoothSupported: Boolean
 		get() = androidHelper.isBluetoothSupported()
-
-	override val canEnableBluetooth: Boolean
-		get() = androidHelper.isBluetoothConnectGranted()
 
 	private val _bluetoothState = MutableStateFlow(
 		if (lapisAdapter.isEnabled) {
@@ -132,7 +130,7 @@ internal class LapisBtImpl(
 
 
 	override fun setBluetoothDeviceName(newName: String): Boolean {
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			return false
 		}
 //		if (!canChangeBluetoothDeviceName) {
@@ -228,15 +226,13 @@ internal class LapisBtImpl(
 	override suspend fun disconnectFromDevice(deviceAddress: String): Boolean {
 		requireValidAddress(deviceAddress)
 
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		println("$$$ disconnectFromDevice called for $deviceAddress")
 		if (!lapisAdapter.isEnabled) {
 			return false
 		}
-
-		// TODO: maybe this is not necessary, since we can observe the disconnection in the bluetoothEvents
 
 		// If the clientSocket is null it should mean it was already disconnected
 		val clientSocket = _clientSocketByAddress[deviceAddress] ?: return false
@@ -269,7 +265,7 @@ internal class LapisBtImpl(
 			}
 		}
 
-		val manuallyDisconnected = try {
+		val disconnectedLocally = try {
 			withContext(Dispatchers.IO) {
 				clientSocket.outputStream.write(0)
 			}
@@ -290,7 +286,7 @@ internal class LapisBtImpl(
 					disconnectedDevice = lapisAdapter.getRemoteDevice(deviceAddress).toModel(
 						connectionState = BluetoothDevice.ConnectionState.Disconnected
 					),
-					disconnectedLocally = manuallyDisconnected,
+					disconnectedLocally = disconnectedLocally,
 				)
 			)
 
@@ -307,7 +303,7 @@ internal class LapisBtImpl(
 	override suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean {
 		requireValidAddress(deviceAddress)
 
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!lapisAdapter.isEnabled) {
@@ -575,9 +571,9 @@ internal class LapisBtImpl(
 			bluetoothEvents.onActivityResumed.collect {
 				updateDevices()
 
-				_isBluetoothConnectPermissionGranted.value = androidHelper.isBluetoothConnectGranted()
+				_isConnectPermissionGranted.value = androidHelper.isBluetoothConnectGranted()
 
-				if (canEnableBluetooth) {
+				if (androidHelper.isBluetoothConnectGranted()) {
 					_bluetoothDeviceName.value = lapisAdapter.name
 				}
 			}
@@ -716,14 +712,14 @@ internal class LapisBtImpl(
 			bluetoothEvents.unbondReasonFlow.collect { unbondReason ->
 				val reason = when (unbondReason.reason) {
 					AndroidInternalConstants.UNBOND_REASON_AUTH_FAILED -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_AUTH_REJECTED -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_REMOTE_DEVICE_DOWN -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_DISCOVERY_IN_PROGRESS -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_AUTH_TIMEOUT -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_REPEATED_ATTEMPTS -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_REMOTE_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
-					AndroidInternalConstants.UNBOND_REASON_REMOVED -> LapisBt.Event.OnPairingFailed.Reason.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_AUTH_REJECTED -> LapisBt.Event.OnPairingFailed.Reason.AuthRejected
+					AndroidInternalConstants.UNBOND_REASON_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Reason.AuthCanceled
+					AndroidInternalConstants.UNBOND_REASON_REMOTE_DEVICE_DOWN -> LapisBt.Event.OnPairingFailed.Reason.RemoteDeviceDown
+					AndroidInternalConstants.UNBOND_REASON_DISCOVERY_IN_PROGRESS -> LapisBt.Event.OnPairingFailed.Reason.DiscoveryInProgress
+					AndroidInternalConstants.UNBOND_REASON_AUTH_TIMEOUT -> LapisBt.Event.OnPairingFailed.Reason.AuthTimeout
+					AndroidInternalConstants.UNBOND_REASON_REPEATED_ATTEMPTS -> LapisBt.Event.OnPairingFailed.Reason.RepeatedAttempts
+					AndroidInternalConstants.UNBOND_REASON_REMOTE_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Reason.RemoteAuthCanceled
+					AndroidInternalConstants.UNBOND_REASON_REMOVED -> LapisBt.Event.OnPairingFailed.Reason.Removed
 					else -> error("Impossible value for unbond reason: ${unbondReason.reason}")
 				}
 
@@ -947,7 +943,7 @@ internal class LapisBtImpl(
 		_scope.launch {
 			combine(
 				_bluetoothState.map { it.isOn },
-				_isBluetoothConnectPermissionGranted,
+				_isConnectPermissionGranted,
 			) { isBluetoothOn, isBluetoothConnectPermissionGranted ->
 				if (isBluetoothOn) {
 					updateDevices()
@@ -961,7 +957,7 @@ internal class LapisBtImpl(
 	}
 
 	private fun updateDevices() {
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			return
 		}
 
@@ -1002,7 +998,7 @@ internal class LapisBtImpl(
 		serviceUuid: UUID,
 		insecure: Boolean = false,
 	): LapisBt.ConnectionResult {
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!lapisAdapter.isEnabled) {
@@ -1072,7 +1068,7 @@ internal class LapisBtImpl(
 	): LapisBt.ConnectionResult {
 		requireValidAddress(deviceAddress)
 
-		if (!canEnableBluetooth) {
+		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 		if (!_bluetoothState.value.isOn) {
