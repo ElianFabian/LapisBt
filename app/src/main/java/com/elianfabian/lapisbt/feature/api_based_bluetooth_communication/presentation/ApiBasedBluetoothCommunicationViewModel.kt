@@ -132,6 +132,9 @@ class ApiBasedBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnPairingRequest -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingFailed -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -160,7 +163,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			(
 				devices, isScanning, bluetoothState, permissionDialog, bluetoothName,
 				isWaitingForConnection, enteredBluetoothDeviceName,
-				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices, connectedDevices
+				useSecureConnection, selectedDevice, currentDeviceAddress, scannedDevices, connectedDevices,
 			),
 		->
 		ApiBasedBluetoothCommunicationState(

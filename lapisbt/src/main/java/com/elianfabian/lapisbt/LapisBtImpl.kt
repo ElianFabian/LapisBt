@@ -351,6 +351,10 @@ internal class LapisBtImpl(
 	}
 
 	override fun getRemoteDevice(deviceAddress: String): BluetoothDevice {
+		return getRemoteDeviceInternal(deviceAddress)
+	}
+
+	private fun getRemoteDeviceInternal(deviceAddress: String): BluetoothDevice {
 		requireValidAddress(deviceAddress)
 
 		val pairedDevice = _pairedDevices.value.find { it.address == deviceAddress }
@@ -561,6 +565,9 @@ internal class LapisBtImpl(
 					is LapisBt.Event.OnPairingRequest -> {
 						// no-op
 					}
+					is LapisBt.Event.OnPairingFailed -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -703,6 +710,31 @@ internal class LapisBtImpl(
 						else existingDevice
 					}
 				}
+			}
+		}
+		_scope.launch {
+			bluetoothEvents.unbondReasonFlow.collect { unbondReason ->
+				val reason = when (unbondReason.reason) {
+					AndroidInternalConstants.UNBOND_REASON_AUTH_FAILED -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_AUTH_REJECTED -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_REMOTE_DEVICE_DOWN -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_DISCOVERY_IN_PROGRESS -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_AUTH_TIMEOUT -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_REPEATED_ATTEMPTS -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_REMOTE_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					AndroidInternalConstants.UNBOND_REASON_REMOVED -> LapisBt.Event.OnPairingFailed.Type.AuthFailed
+					else -> error("Impossible value for unbond reason: ${unbondReason.reason}")
+				}
+
+				val device = getRemoteDeviceInternal(unbondReason.androidDevice.address)
+
+				_events.emit(
+					LapisBt.Event.OnPairingFailed(
+						device = device,
+						reason = reason,
+					)
+				)
 			}
 		}
 		_scope.launch {
@@ -1253,13 +1285,19 @@ internal class LapisBtImpl(
 	private object AndroidInternalConstants {
 
 		const val PAIRING_VARIANT_CONSENT = 3
-
 		const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
-
 		const val PAIRING_VARIANT_DISPLAY_PIN = 5
-
 		const val PAIRING_VARIANT_OOB_CONSENT = 6
-
 		const val PAIRING_VARIANT_PIN_16_DIGITS = 7
+
+		const val UNBOND_REASON_AUTH_FAILED = 1
+		const val UNBOND_REASON_AUTH_REJECTED = 2
+		const val UNBOND_REASON_AUTH_CANCELED = 3
+		const val UNBOND_REASON_REMOTE_DEVICE_DOWN = 4
+		const val UNBOND_REASON_DISCOVERY_IN_PROGRESS = 5
+		const val UNBOND_REASON_AUTH_TIMEOUT = 6
+		const val UNBOND_REASON_REPEATED_ATTEMPTS = 7
+		const val UNBOND_REASON_REMOTE_AUTH_CANCELED = 8
+		const val UNBOND_REASON_REMOVED = 9
 	}
 }
