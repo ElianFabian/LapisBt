@@ -49,6 +49,7 @@ import kotlin.coroutines.resumeWithException
 //  the other of the parameters when defining a function
 // TODO: add remote exceptions
 // TODO: add device not connected exception
+// TODO: add support for Result type
 // TODO: add support for flows
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
