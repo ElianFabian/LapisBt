@@ -116,7 +116,7 @@ internal class LapisBluetoothEventsImpl(
 				// We ignore the bonding state because it is not reliable
 				// the bonding state can be trigger when you're trying to connect to a device
 				// or when a device is connecting to you.
-				// For this reason we'll use this ACTION_PAIRING_REQUEST to reliable get notified
+				// For this reason we'll use this ACTION_PAIRING_REQUEST to reliably get notified
 				// about the bonding state.
 				return@DeviceBondStateChangeBroadcastReceiver
 			}
