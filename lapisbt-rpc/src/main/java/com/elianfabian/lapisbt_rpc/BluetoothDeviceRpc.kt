@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
@@ -34,6 +35,8 @@ import java.io.SequenceInputStream
 import java.lang.reflect.Method
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.dropLast
+import kotlin.collections.orEmpty
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
@@ -420,26 +423,36 @@ internal class BluetoothDeviceRpc(
 			annotation?.name == request.methodName
 		} ?: error("No method found with name ${request.methodName} in API ${request.apiName} for server $serverImplementation")
 
-		var index = 0
-		val deserializedArguments = request.arguments.mapValues { (key, valueBytes) ->
-			val valueStream = ByteArrayInputStream(valueBytes)
-			val valueType = method.parameterTypes.getOrNull(index) ?: error("Not enough parameter types in method ${method.name} for argument $key")
-			val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
-
-			serializer?.deserialize(valueStream).also {
-				index++
-			}
-		}
-
 		// TODO: at the moment all functions are suspended, but later we'll support non-suspended functions too, so we'll have to check if the method is suspended or not and call it accordingly
 		if (!method.isSuspend()) {
 			throw IllegalArgumentException("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
 		}
 
+		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
+			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
+			paramAnnotation.name
+		}
 
-		val result = method.invokeSuspend(serverImplementation, *deserializedArguments.values.toTypedArray())
+		val args = parametersNames.mapIndexed { index, name ->
+			val valueBytes = request.arguments[name]
+				?: error("Missing parameter '$name'")
 
-		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $deserializedArguments, returned result: $result")
+			val valueType = method.parameterTypes[index]
+			val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
+			val valueStream = ByteArrayInputStream(valueBytes)
+
+			serializer?.deserialize(valueStream)
+		}.toTypedArray()
+
+		request.arguments.keys.forEach { clientParameterName ->
+			if (clientParameterName !in parametersNames) {
+				Log.w(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with API name '${request.apiName}'")
+			}
+		}
+
+		val result = method.invokeSuspend(serverImplementation, *args)
+
+		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
 
 		@Suppress("UNCHECKED_CAST")
 		val serializer = DefaultSerializationStrategy.serializerForClass(if (result == null) Nothing::class else result::class) as? LapisSerializer<Any?> ?: error("No serializer registered for return type: ${result?.let { it::class.qualifiedName } ?: "null"}")
@@ -504,5 +517,7 @@ internal class BluetoothDeviceRpc(
 
 	companion object {
 		const val BLUETOOTH_PACKET_LENGTH = 256
+
+		private val TAG = BluetoothDeviceRpc::class.simpleName!!
 	}
 }
