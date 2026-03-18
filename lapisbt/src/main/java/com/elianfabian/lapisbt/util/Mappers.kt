@@ -14,7 +14,7 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			AndroidBluetoothDevice.ADDRESS_TYPE_RANDOM -> BluetoothDevice.AddressType.Random
 			AndroidBluetoothDevice.ADDRESS_TYPE_ANONYMOUS -> BluetoothDevice.AddressType.Anonymous
 			AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN -> BluetoothDevice.AddressType.Unknown
-			else -> BluetoothDevice.AddressType.NotSupported
+			else -> BluetoothDevice.AddressType.UnknownValue(this.addressType)
 		},
 		deviceClass = when (this.deviceClass) {
 			BluetoothClass.Device.COMPUTER_UNCATEGORIZED -> BluetoothDevice.DeviceClass.Computer.Uncategorized
@@ -71,13 +71,13 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 
 			else -> when (this.majorDeviceClass) {
 				BluetoothClass.Device.Major.UNCATEGORIZED -> BluetoothDevice.DeviceClass.Uncategorized
-				BluetoothClass.Device.Major.COMPUTER -> BluetoothDevice.DeviceClass.Computer.Unknown(this.deviceClass)
-				BluetoothClass.Device.Major.PHONE -> BluetoothDevice.DeviceClass.Phone.Unknown(this.deviceClass)
-				BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.DeviceClass.AudioVideo.Unknown(this.deviceClass)
-				BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.DeviceClass.Wearable.Unknown(this.deviceClass)
-				BluetoothClass.Device.Major.TOY -> BluetoothDevice.DeviceClass.Toy.Unknown(this.deviceClass)
-				BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.DeviceClass.Peripheral.Unknown(this.deviceClass)
-				else -> BluetoothDevice.DeviceClass.Unknown(this.deviceClass)
+				BluetoothClass.Device.Major.COMPUTER -> BluetoothDevice.DeviceClass.Computer.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.PHONE -> BluetoothDevice.DeviceClass.Phone.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.DeviceClass.AudioVideo.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.DeviceClass.Wearable.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.TOY -> BluetoothDevice.DeviceClass.Toy.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.DeviceClass.Peripheral.UnknownValue(this.deviceClass)
+				else -> BluetoothDevice.DeviceClass.UnknownValue(this.deviceClass)
 			}
 		},
 		majorDeviceClass = when (this.majorDeviceClass) {
@@ -92,14 +92,14 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			BluetoothClass.Device.Major.TOY -> BluetoothDevice.MajorDeviceClass.Toy
 			BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.MajorDeviceClass.Peripheral
 			BluetoothClass.Device.Major.UNCATEGORIZED -> BluetoothDevice.MajorDeviceClass.Uncategorized
-			else -> BluetoothDevice.MajorDeviceClass.Uncategorized
+			else -> BluetoothDevice.MajorDeviceClass.UnknownValue(this.majorDeviceClass)
 		},
 		type = when (this.type) {
 			AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC -> BluetoothDevice.Type.Classic
 			AndroidBluetoothDevice.DEVICE_TYPE_LE -> BluetoothDevice.Type.Le
 			AndroidBluetoothDevice.DEVICE_TYPE_DUAL -> BluetoothDevice.Type.Dual
 			AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN -> BluetoothDevice.Type.Unknown
-			else -> BluetoothDevice.Type.Unknown
+			else -> BluetoothDevice.Type.UnknownValue(this.type)
 		},
 		uuids = this.uuids,
 		pairingState = when (this.bondState) {

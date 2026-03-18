@@ -1,13 +1,13 @@
 package com.elianfabian.lapisbt
 
 import android.bluetooth.BluetoothAdapter
+import android.util.Log
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
-import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
@@ -123,6 +123,9 @@ internal class LapisBtImpl(
 
 	private val _unpairingsStarted = mutableSetOf<String>()
 
+	// This is to check unexpected bonded devices
+	// There's more information about this in the code below
+	private val _incomingPairingRequests = mutableSetOf<String>()
 
 	init {
 		initialize()
@@ -564,6 +567,9 @@ internal class LapisBtImpl(
 					is LapisBt.Event.OnPairingFailed -> {
 						// no-op
 					}
+					is LapisBt.Event.OnUnexpectedPairedDevice -> {
+						// no-op
+					}
 				}
 			}
 		}
@@ -705,6 +711,29 @@ internal class LapisBtImpl(
 						}
 						else existingDevice
 					}
+				}
+
+				// In some cases, while this device is actively connected (without bonding),
+				// a third-party device may initiate a pairing request (with the device we're connected to).
+				// Even if that request is rejected or times out,
+				// the Android Bluetooth stack can incorrectly
+				// transition the *current connected device* into a BONDED state on this side only.
+				//
+				// This results in an inconsistent state where:
+				// - This device reports the peer as BONDED
+				// - The peer device does NOT consider itself bonded
+				//
+				// The bonded device in this case did not explicitly request pairing with us.
+				// We treat this as a spurious/ghost bond caused by the stack and ignore it.
+				if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED && lapisDevice.address !in _incomingPairingRequests) {
+					Log.w(TAG, "Unexpected bonded device ${lapisDevice.address}. This is very likely a Bluetooth stack bug, and the bonded device didn't actually try to pair with this device.")
+
+					_events.emit(
+						LapisBt.Event.OnUnexpectedPairedDevice(getRemoteDeviceInternal(lapisDevice.address))
+					)
+				}
+				else if (lapisDevice.bondState != AndroidBluetoothDevice.BOND_BONDING && lapisDevice.address in _incomingPairingRequests) {
+					_incomingPairingRequests.remove(lapisDevice.address)
 				}
 			}
 		}
@@ -930,12 +959,14 @@ internal class LapisBtImpl(
 
 				_events.emit(
 					LapisBt.Event.OnPairingRequest(
-						device = event.androidDevice.toModel(connectionState = BluetoothDevice.ConnectionState.Disconnected),
+						device = getRemoteDeviceInternal(event.androidDevice.address),
 						pairingKey = event.pairingKey,
 						pairingVariant = pairingVariant,
 						initiatedLocally = _pairingsStarted.contains(event.androidDevice.address),
 					)
 				)
+
+				_incomingPairingRequests.add(event.androidDevice.address)
 
 				_pairingsStarted.remove(event.androidDevice.address)
 			}
@@ -1242,6 +1273,9 @@ internal class LapisBtImpl(
 	}
 
 	companion object {
+
+		private val TAG = this::class.simpleName!!
+
 		/**
 		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"
 		 *
