@@ -1,14 +1,19 @@
 package com.elianfabian.lapisbt_rpc
 
 import android.util.Log
+import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
+import com.elianfabian.lapisbt_rpc.exception.RemoteException
 import com.elianfabian.lapisbt.LapisBt
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
+import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
+import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
 import com.elianfabian.lapisbt_rpc.util.asEnumeration
@@ -87,6 +92,11 @@ internal class BluetoothDeviceRpc(
 				"equals" -> proxy == args?.get(0)
 				else -> method.invoke(this, *args.orEmpty())
 			}
+		}
+
+		if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
+			// TODO: Maybe we could add a configuration so we can choose to whether suspend or throw an exception
+			throw DeviceNotConnectedException(deviceAddress)
 		}
 
 		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
@@ -174,7 +184,7 @@ internal class BluetoothDeviceRpc(
 
 		createPacketFragments(
 			packetId = UUID.randomUUID(),
-			type = CompleteBluetoothPacket.TYPE_REQUEST,
+			type = CompleteBluetoothPacket.Type.Request.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
 			println("$$$$ Sending request with as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}, type: ${packet.type}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
@@ -196,7 +206,7 @@ internal class BluetoothDeviceRpc(
 
 		createPacketFragments(
 			packetId = UUID.randomUUID(),
-			type = CompleteBluetoothPacket.TYPE_RESPONSE,
+			type = CompleteBluetoothPacket.Type.Response.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
 			println("$$$$ Sending response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
@@ -205,6 +215,29 @@ internal class BluetoothDeviceRpc(
 		}
 
 		println("$$$$ Finished sending response with id ${response.requestId}")
+	}
+
+	private suspend fun sendErrorResponse(
+		errorResponse: LapisErrorResponse,
+	) = withContext(Dispatchers.IO) {
+		println("$$$$ Sending error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		ErrorResponseSerializer.serialize(payloadStream, errorResponse)
+
+		createPacketFragments(
+			packetId = UUID.randomUUID(),
+			type = CompleteBluetoothPacket.Type.ErrorResponse.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+		).forEach { packet ->
+			println("$$$$ Sending error response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
+
+			_pendingPacketToSendChannel.send(packet)
+		}
+
+		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
 	}
 
 	private fun serializePacket(
@@ -361,7 +394,7 @@ internal class BluetoothDeviceRpc(
 							_remotePacketsById.remove(packet.packetId)
 						}
 						else {
-							//Log.wtf(Tag, "Invalid packet length: ${packet.length} for packet with id: ${packet.id}")
+							Log.wtf(TAG, "Invalid packet length: ${packet.length} for packet with id: ${packet.packetId}")
 						}
 					}
 					is BluetoothPacket.Fragment -> {
@@ -416,17 +449,33 @@ internal class BluetoothDeviceRpc(
 
 		val apiInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
 			inter.getAnnotation(LapisRpc::class.java)?.name == request.apiName
-		} ?: error("No interface found for API: ${request.apiName} for server $serverImplementation")
+		} ?: return sendErrorResponse(
+			LapisErrorResponse(
+				requestId = request.requestId,
+				message = "No interface found for API: ${request.apiName}",
+			)
+		)
 
 		val method = apiInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
 			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${request.methodName}")
 			annotation?.name == request.methodName
-		} ?: error("No method found with name ${request.methodName} in API ${request.apiName} for server $serverImplementation")
+		} ?: return sendErrorResponse(
+			LapisErrorResponse(
+				requestId = request.requestId,
+				message = "No method found with name ${request.methodName} in API ${request.apiName}",
+			)
+		)
 
 		// TODO: at the moment all functions are suspended, but later we'll support non-suspended functions too, so we'll have to check if the method is suspended or not and call it accordingly
 		if (!method.isSuspend()) {
-			throw IllegalArgumentException("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
+			sendErrorResponse(
+				LapisErrorResponse(
+					requestId = request.requestId,
+					message = "The method '${request.methodName}' in API ${request.apiName} is not marked as suspend",
+				)
+			)
+			error("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
 		}
 
 		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
@@ -434,9 +483,13 @@ internal class BluetoothDeviceRpc(
 			paramAnnotation.name
 		}
 
-		val args = parametersNames.mapIndexed { index, name ->
+		val missingParameters = mutableListOf<String>()
+		val args = parametersNames.mapIndexedNotNull { index, name ->
 			val valueBytes = request.arguments[name]
-				?: error("Missing parameter '$name'")
+			if (valueBytes == null) {
+				missingParameters.add(name)
+				return@mapIndexedNotNull null
+			}
 
 			val valueType = method.parameterTypes[index]
 			val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
@@ -445,13 +498,38 @@ internal class BluetoothDeviceRpc(
 			serializer?.deserialize(valueStream)
 		}.toTypedArray()
 
+		if (missingParameters.isNotEmpty()) {
+			val message = "Missing parameters from request ${request.requestId} for API server ${request.apiName}, and method ${request.methodName}: $missingParameters"
+
+			sendErrorResponse(
+				LapisErrorResponse(
+					requestId = request.requestId,
+					message = message,
+				)
+			)
+
+			Log.w(TAG, message)
+			return
+		}
+
 		request.arguments.keys.forEach { clientParameterName ->
 			if (clientParameterName !in parametersNames) {
 				Log.w(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with API name '${request.apiName}'")
 			}
 		}
 
-		val result = method.invokeSuspend(serverImplementation, *args)
+		val result = try {
+			method.invokeSuspend(serverImplementation, *args)
+		}
+		catch (e: Throwable) {
+			sendErrorResponse(
+				LapisErrorResponse(
+					requestId = request.requestId,
+					message = e.stackTraceToString(),
+				)
+			)
+			return
+		}
 
 		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
 
@@ -484,6 +562,20 @@ internal class BluetoothDeviceRpc(
 		continuation.resume(deserializedResult)
 	}
 
+	private fun processPacketAsErrorResponse(completePacket: CompleteBluetoothPacket) {
+		val errorResponse = ErrorResponseSerializer.deserialize(completePacket.payloadStream)
+		println("$$$$ process deserialized error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
+
+		val method = _pendingMethodByRequestId.remove(errorResponse.requestId) ?: error("No pending method found for error response id: ${errorResponse.requestId}")
+		println("$$$$ Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+
+		val continuation = _pendingContinuationsByRequestId.remove(errorResponse.requestId) ?: error("No pending continuation found for error response id: ${errorResponse.requestId}")
+
+		val exception = RemoteException(errorResponse.message)
+
+		continuation.resumeWithException(exception)
+	}
+
 	private fun launchCompletePacketProcessing() {
 		_scope.launch(Dispatchers.IO) {
 			for (completePacket in _remoteCompletePacketChannel) {
@@ -495,6 +587,9 @@ internal class BluetoothDeviceRpc(
 						}
 						CompleteBluetoothPacket.Type.Response -> {
 							processPacketAsResponse(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ErrorResponse -> {
+							processPacketAsErrorResponse(completePacket)
 						}
 					}
 				}

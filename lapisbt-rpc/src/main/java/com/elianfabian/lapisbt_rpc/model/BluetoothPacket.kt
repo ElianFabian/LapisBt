@@ -72,14 +72,10 @@ internal data class CompleteBluetoothPacket(
 	val type: Type,
 	val payloadStream: InputStream,
 ) {
-	companion object {
-		const val TYPE_REQUEST: Byte = 0x01
-		const val TYPE_RESPONSE: Byte = 0x02
-	}
-
 	enum class Type(val byteValue: Byte) {
-		Request(TYPE_REQUEST),
-		Response(TYPE_RESPONSE);
+		Request(0x01),
+		Response(0x02),
+		ErrorResponse(0x03);
 
 		companion object {
 			private val map = entries.associateBy(Type::byteValue)
