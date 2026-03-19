@@ -50,6 +50,26 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			BluetoothClass.Device.AUDIO_VIDEO_VIDEO_CONFERENCING -> BluetoothDevice.DeviceClass.AudioVideo.VideoConferencing
 			BluetoothClass.Device.AUDIO_VIDEO_VIDEO_GAMING_TOY -> BluetoothDevice.DeviceClass.AudioVideo.VideoGamingToy
 
+			BluetoothClass.Device.PERIPHERAL_NON_KEYBOARD_NON_POINTING -> BluetoothDevice.DeviceClass.Peripheral.NonKeyboardNonPointing
+			BluetoothClass.Device.PERIPHERAL_KEYBOARD -> BluetoothDevice.DeviceClass.Peripheral.Keyboard
+			BluetoothClass.Device.PERIPHERAL_POINTING -> BluetoothDevice.DeviceClass.Peripheral.Pointing
+			BluetoothClass.Device.PERIPHERAL_KEYBOARD_POINTING -> BluetoothDevice.DeviceClass.Peripheral.KeyboardPointing
+
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_JOYSTICK -> BluetoothDevice.DeviceClass.Peripheral.Joystick
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_GAMEPAD -> BluetoothDevice.DeviceClass.Peripheral.Gamepad
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_REMOTE_CONTROL -> BluetoothDevice.DeviceClass.Peripheral.RemoteControl
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_SENSING_DEVICE -> BluetoothDevice.DeviceClass.Peripheral.SensingDevice
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_DIGITIZER_TABLET -> BluetoothDevice.DeviceClass.Peripheral.DigitizerTablet
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_CARD_READER -> BluetoothDevice.DeviceClass.Peripheral.CardReader
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_DIGITAL_PEN -> BluetoothDevice.DeviceClass.Peripheral.DigitalPen
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_HANDHELD_SCANNER -> BluetoothDevice.DeviceClass.Peripheral.HandheldScanner
+			BluetoothDevice.ExtraDeviceClass.PERIPHERAL_HANDHELD_GESTURAL_INPUT -> BluetoothDevice.DeviceClass.Peripheral.HandheldGesturalInput
+
+			BluetoothDevice.ExtraDeviceClass.IMAGING_DISPLAY -> BluetoothDevice.DeviceClass.Imaging.Display
+			BluetoothDevice.ExtraDeviceClass.IMAGING_CAMERA -> BluetoothDevice.DeviceClass.Imaging.Camera
+			BluetoothDevice.ExtraDeviceClass.IMAGING_SCANNER -> BluetoothDevice.DeviceClass.Imaging.Scanner
+			BluetoothDevice.ExtraDeviceClass.IMAGING_PRINTER -> BluetoothDevice.DeviceClass.Imaging.Printer
+
 			BluetoothClass.Device.WEARABLE_UNCATEGORIZED -> BluetoothDevice.DeviceClass.Wearable.Uncategorized
 			BluetoothClass.Device.WEARABLE_WRIST_WATCH -> BluetoothDevice.DeviceClass.Wearable.WristWatch
 			BluetoothClass.Device.WEARABLE_PAGER -> BluetoothDevice.DeviceClass.Wearable.Pager
@@ -64,33 +84,48 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			BluetoothClass.Device.TOY_CONTROLLER -> BluetoothDevice.DeviceClass.Toy.Controller
 			BluetoothClass.Device.TOY_GAME -> BluetoothDevice.DeviceClass.Toy.Game
 
-			BluetoothClass.Device.PERIPHERAL_NON_KEYBOARD_NON_POINTING -> BluetoothDevice.DeviceClass.Peripheral.NonKeyboardNonPointing
-			BluetoothClass.Device.PERIPHERAL_KEYBOARD -> BluetoothDevice.DeviceClass.Peripheral.Keyboard
-			BluetoothClass.Device.PERIPHERAL_POINTING -> BluetoothDevice.DeviceClass.Peripheral.Pointing
-			BluetoothClass.Device.PERIPHERAL_KEYBOARD_POINTING -> BluetoothDevice.DeviceClass.Peripheral.KeyboardPointing
+			BluetoothClass.Device.HEALTH_UNCATEGORIZED -> BluetoothDevice.DeviceClass.Health.Uncategorized
+			BluetoothClass.Device.HEALTH_BLOOD_PRESSURE -> BluetoothDevice.DeviceClass.Health.BloodPressureMonitor
+			BluetoothClass.Device.HEALTH_THERMOMETER -> BluetoothDevice.DeviceClass.Health.Thermometer
+			BluetoothClass.Device.HEALTH_WEIGHING -> BluetoothDevice.DeviceClass.Health.WeighingScale
+			BluetoothClass.Device.HEALTH_GLUCOSE -> BluetoothDevice.DeviceClass.Health.GlucoseMeter
+			BluetoothClass.Device.HEALTH_PULSE_OXIMETER -> BluetoothDevice.DeviceClass.Health.PulseOximeter
+			BluetoothClass.Device.HEALTH_PULSE_RATE -> BluetoothDevice.DeviceClass.Health.HeartPulseRateMonitor
+			BluetoothClass.Device.HEALTH_DATA_DISPLAY -> BluetoothDevice.DeviceClass.Health.DataDisplay
+
+			BluetoothDevice.ExtraDeviceClass.HEALTH_STEP_COUNTER -> BluetoothDevice.DeviceClass.Health.StepCounter
+			BluetoothDevice.ExtraDeviceClass.HEALTH_BODY_COMPOSITION_ANALYZER -> BluetoothDevice.DeviceClass.Health.BodyCompositionAnalyzer
+			BluetoothDevice.ExtraDeviceClass.HEALTH_PEAK_FLOW_MONITOR -> BluetoothDevice.DeviceClass.Health.PeakFlowMonitor
+			BluetoothDevice.ExtraDeviceClass.HEALTH_MEDICATION_MONITOR -> BluetoothDevice.DeviceClass.Health.MedicationMonitor
+			BluetoothDevice.ExtraDeviceClass.HEALTH_KNEE_PROSTHESIS -> BluetoothDevice.DeviceClass.Health.KneeProsthesis
+			BluetoothDevice.ExtraDeviceClass.HEALTH_ANKLE_PROSTHESIS -> BluetoothDevice.DeviceClass.Health.AnkleProsthesis
+			BluetoothDevice.ExtraDeviceClass.HEALTH_GENERIC_HEALTH_MANAGER -> BluetoothDevice.DeviceClass.Health.GenericHealthManager
+			BluetoothDevice.ExtraDeviceClass.HEALTH_PERSONAL_MOBILITY_DEVICE -> BluetoothDevice.DeviceClass.Health.PersonaMobilityDevice
 
 			else -> when (this.majorDeviceClass) {
 				BluetoothClass.Device.Major.UNCATEGORIZED -> BluetoothDevice.DeviceClass.Uncategorized
 				BluetoothClass.Device.Major.COMPUTER -> BluetoothDevice.DeviceClass.Computer.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.PHONE -> BluetoothDevice.DeviceClass.Phone.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.DeviceClass.AudioVideo.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.DeviceClass.Peripheral.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.IMAGING -> BluetoothDevice.DeviceClass.Imaging.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.DeviceClass.Wearable.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.TOY -> BluetoothDevice.DeviceClass.Toy.UnknownValue(this.deviceClass)
-				BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.DeviceClass.Peripheral.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.HEALTH -> BluetoothDevice.DeviceClass.Health.UnknownValue(this.deviceClass)
 				else -> BluetoothDevice.DeviceClass.UnknownValue(this.deviceClass)
 			}
 		},
 		majorDeviceClass = when (this.majorDeviceClass) {
-			BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.MajorDeviceClass.AudioVideo
+			BluetoothClass.Device.Major.MISC -> BluetoothDevice.MajorDeviceClass.Miscellaneous
 			BluetoothClass.Device.Major.COMPUTER -> BluetoothDevice.MajorDeviceClass.Computer
-			BluetoothClass.Device.Major.HEALTH -> BluetoothDevice.MajorDeviceClass.Health
-			BluetoothClass.Device.Major.IMAGING -> BluetoothDevice.MajorDeviceClass.Imaging
-			BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.MajorDeviceClass.Wearable
-			BluetoothClass.Device.Major.MISC -> BluetoothDevice.MajorDeviceClass.Misc
 			BluetoothClass.Device.Major.PHONE -> BluetoothDevice.MajorDeviceClass.Phone
 			BluetoothClass.Device.Major.NETWORKING -> BluetoothDevice.MajorDeviceClass.Networking
-			BluetoothClass.Device.Major.TOY -> BluetoothDevice.MajorDeviceClass.Toy
+			BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.MajorDeviceClass.AudioVideo
 			BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.MajorDeviceClass.Peripheral
+			BluetoothClass.Device.Major.IMAGING -> BluetoothDevice.MajorDeviceClass.Imaging
+			BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.MajorDeviceClass.Wearable
+			BluetoothClass.Device.Major.TOY -> BluetoothDevice.MajorDeviceClass.Toy
+			BluetoothClass.Device.Major.HEALTH -> BluetoothDevice.MajorDeviceClass.Health
 			BluetoothClass.Device.Major.UNCATEGORIZED -> BluetoothDevice.MajorDeviceClass.Uncategorized
 			else -> BluetoothDevice.MajorDeviceClass.UnknownValue(this.majorDeviceClass)
 		},
