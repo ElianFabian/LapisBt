@@ -567,7 +567,7 @@ internal class LapisBtImpl(
 					is LapisBt.Event.OnPairingFailed -> {
 						// no-op
 					}
-					is LapisBt.Event.OnUnexpectedPairedDevice -> {
+					is LapisBt.Event.OnUnexpectedDevicePaired -> {
 						// no-op
 					}
 				}
@@ -729,7 +729,7 @@ internal class LapisBtImpl(
 					Log.w(TAG, "Unexpected bonded device ${lapisDevice.address}. This is very likely a Bluetooth stack bug, and the bonded device didn't actually try to pair with this device.")
 
 					_events.emit(
-						LapisBt.Event.OnUnexpectedPairedDevice(getRemoteDeviceInternal(lapisDevice.address))
+						LapisBt.Event.OnUnexpectedDevicePaired(getRemoteDeviceInternal(lapisDevice.address))
 					)
 				}
 				else if (lapisDevice.bondState != AndroidBluetoothDevice.BOND_BONDING && lapisDevice.address in _incomingPairingRequests) {

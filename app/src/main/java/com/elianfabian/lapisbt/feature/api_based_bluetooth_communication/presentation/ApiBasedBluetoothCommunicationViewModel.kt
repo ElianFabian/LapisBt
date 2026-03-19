@@ -135,7 +135,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 					is LapisBt.Event.OnPairingFailed -> {
 						// no-op
 					}
-					is LapisBt.Event.OnUnexpectedPairedDevice -> {
+					is LapisBt.Event.OnUnexpectedDevicePaired -> {
 						// no-op
 					}
 				}

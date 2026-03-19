@@ -163,7 +163,7 @@ public interface LapisBt {
 		// This is event is triggered when a device that didn't try to pair with us
 		// appears now as bonded
 		// So if this event is ever triggered is probably due to a Bluetooth stack bug
-		public data class OnUnexpectedPairedDevice(
+		public data class OnUnexpectedDevicePaired(
 			val device: BluetoothDevice,
 		) : Event
 	}
