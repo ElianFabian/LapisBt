@@ -56,6 +56,8 @@ import kotlin.coroutines.resumeWithException
 // TODO: add device not connected exception
 // TODO: add support for Result type
 // TODO: add support for flows
+// TODO: we could improve the performance by generating the complete packet while receiving the fragments
+//  instead of waiting for all the packets to be received
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
