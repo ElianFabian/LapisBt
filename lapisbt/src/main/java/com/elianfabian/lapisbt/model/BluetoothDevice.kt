@@ -104,6 +104,18 @@ public data class BluetoothDevice(
 			public data class UnknownValue(val value: Int) : Toy
 		}
 
+		public sealed interface Health : DeviceClass {
+			public data object Uncategorized : DeviceClass
+			public data object BloodPressure : DeviceClass
+			public data object Thermometer : DeviceClass
+			public data object Weighing : DeviceClass
+			public data object Glucose : DeviceClass
+			public data object PulseOximeter : DeviceClass
+			public data object PulseRate : DeviceClass
+			public data object DataDisplay : DeviceClass
+			public data class UnknownValue(val value: Int) : Health
+		}
+
 		public sealed interface Peripheral : DeviceClass {
 			public data object NonKeyboardNonPointing : Peripheral
 			public data object Keyboard : Peripheral

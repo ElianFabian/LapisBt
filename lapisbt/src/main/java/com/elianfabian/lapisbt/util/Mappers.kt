@@ -64,6 +64,15 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 			BluetoothClass.Device.TOY_CONTROLLER -> BluetoothDevice.DeviceClass.Toy.Controller
 			BluetoothClass.Device.TOY_GAME -> BluetoothDevice.DeviceClass.Toy.Game
 
+			BluetoothClass.Device.HEALTH_UNCATEGORIZED -> BluetoothDevice.DeviceClass.Health.Uncategorized
+			BluetoothClass.Device.HEALTH_BLOOD_PRESSURE -> BluetoothDevice.DeviceClass.Health.BloodPressure
+			BluetoothClass.Device.HEALTH_THERMOMETER -> BluetoothDevice.DeviceClass.Health.Thermometer
+			BluetoothClass.Device.HEALTH_WEIGHING -> BluetoothDevice.DeviceClass.Health.Weighing
+			BluetoothClass.Device.HEALTH_GLUCOSE -> BluetoothDevice.DeviceClass.Health.Glucose
+			BluetoothClass.Device.HEALTH_PULSE_OXIMETER -> BluetoothDevice.DeviceClass.Health.PulseOximeter
+			BluetoothClass.Device.HEALTH_PULSE_RATE -> BluetoothDevice.DeviceClass.Health.PulseRate
+			BluetoothClass.Device.HEALTH_DATA_DISPLAY -> BluetoothDevice.DeviceClass.Health.DataDisplay
+
 			BluetoothClass.Device.PERIPHERAL_NON_KEYBOARD_NON_POINTING -> BluetoothDevice.DeviceClass.Peripheral.NonKeyboardNonPointing
 			BluetoothClass.Device.PERIPHERAL_KEYBOARD -> BluetoothDevice.DeviceClass.Peripheral.Keyboard
 			BluetoothClass.Device.PERIPHERAL_POINTING -> BluetoothDevice.DeviceClass.Peripheral.Pointing
@@ -76,6 +85,7 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 				BluetoothClass.Device.Major.AUDIO_VIDEO -> BluetoothDevice.DeviceClass.AudioVideo.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.WEARABLE -> BluetoothDevice.DeviceClass.Wearable.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.TOY -> BluetoothDevice.DeviceClass.Toy.UnknownValue(this.deviceClass)
+				BluetoothClass.Device.Major.HEALTH -> BluetoothDevice.DeviceClass.Health.UnknownValue(this.deviceClass)
 				BluetoothClass.Device.Major.PERIPHERAL -> BluetoothDevice.DeviceClass.Peripheral.UnknownValue(this.deviceClass)
 				else -> BluetoothDevice.DeviceClass.UnknownValue(this.deviceClass)
 			}
