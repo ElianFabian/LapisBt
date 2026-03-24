@@ -49,26 +49,6 @@ internal class LapisBtImpl(
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
-	// FIXME: when a scanned device is in the connected state it also appears in paired devices, this should not happen
-	// FIXME: it also happens that sometimes for one device it seems the other is connected, but from the other side it is disconnected, I don't know why
-	//  they are actually connected, because I can send messages, we just have to see why it appears as disconnected.
-	//  NOTES: It seems that the fake disconnection issue is related to this other issue:
-	//  Sometimes in one device the pairing dialog appears for no reason, then it disappears, and then the second device has
-	//  the first device as paired, but the first device doesn't have the second device paired.
-	//  This is such a strange behaviour, no code of this library seemed to be executed when that happened, we'll have to see.
-	//  When this happens the second device has the first device visually as disconnected.
-	//  It seems that the dialog does not always appear, but the behavior still happens.
-	//  It seems that it happens around 4-9 minutes after connection.
-	//  For the first device it goes from the bonding state to the none state.
-	//  For the second device it goes from the bonding state to the bonded state.
-	//  As for the tests done, no matters who is the server at the beginning, always the same device
-	//  is the one who has the other paired, so maybe it's a device specific issue.
-	//  It also seems that some random device has been trying to connect to my first device,
-	//  and when that happens the issue mentioned above occurs, but it seems
-	//  this also happens without that random device trying to pair my first device.
-	//  We have to also check why when the second device that now has the firs device paired it now visually looks like
-	//  the first device is disconnected, even though it's not
-	//  The weird unknown device tries to pair with my first device with the pairing variant of: PAIRING_VARIANT_CONSENT
 	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
