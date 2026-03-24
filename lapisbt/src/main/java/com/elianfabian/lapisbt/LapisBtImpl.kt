@@ -362,9 +362,6 @@ internal class LapisBtImpl(
 		)
 	}
 
-	// TODO: during development I've seen random pairings between my devices,
-	//  I don't really know why, I don't think this function was even called in those
-	//  cases. We'll have to check it out.
 	// NOTES: when 2 devices are connected and we try to pair them the connection is closed
 	override fun pairDevice(deviceAddress: String): Boolean {
 		println("$$$$ LapisBtImpl.pairDevice: $deviceAddress")
