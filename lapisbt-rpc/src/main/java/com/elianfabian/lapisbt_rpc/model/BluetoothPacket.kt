@@ -75,7 +75,8 @@ internal data class CompleteBluetoothPacket(
 	enum class Type(val byteValue: Byte) {
 		Request(0x01),
 		Response(0x02),
-		ErrorResponse(0x03);
+		ErrorResponse(0x03),
+		Cancellation(0x04);
 
 		companion object {
 			private val map = entries.associateBy(Type::byteValue)

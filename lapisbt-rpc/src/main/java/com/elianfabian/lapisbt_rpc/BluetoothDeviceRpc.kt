@@ -1,18 +1,20 @@
 package com.elianfabian.lapisbt_rpc
 
 import android.util.Log
-import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
-import com.elianfabian.lapisbt_rpc.exception.RemoteException
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
+import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
+import com.elianfabian.lapisbt_rpc.exception.RemoteException
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
+import com.elianfabian.lapisbt_rpc.model.LapisCancellation
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
+import com.elianfabian.lapisbt_rpc.serializer.CancellationSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
@@ -29,7 +31,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -40,20 +45,16 @@ import java.io.SequenceInputStream
 import java.lang.reflect.Method
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.dropLast
-import kotlin.collections.orEmpty
 import kotlin.coroutines.Continuation
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.intrinsics.intercepted
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.startCoroutine
 
-// TODO: we should somehow handle cancellation, when we cancel a call to a remote suspend function on the client side
-//  we should signal that to the other device so they can stop sending the data.
 // TODO: use the parameters name to sort the values so that neither the client nor the server has to worry about
 //  the other of the parameters when defining a function
-// TODO: add remote exceptions
-// TODO: add device not connected exception
 // TODO: add support for Result type
 // TODO: add support for flows
 // TODO: we could improve the performance by generating the complete packet while receiving the fragments
@@ -70,6 +71,7 @@ internal class BluetoothDeviceRpc(
 	private val _pendingContinuationsByRequestId = mutableMapOf<UUID, Continuation<Any?>>()
 	private val _pendingPacketToSendChannel = Channel<BluetoothPacket>(capacity = 1)
 	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
+	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
 
 
 	init {
@@ -129,33 +131,63 @@ internal class BluetoothDeviceRpc(
 
 			val requestId = UUID.randomUUID()
 			_pendingContinuationsByRequestId[requestId] = continuation
-			continuation.context[Job]?.invokeOnCompletion {
-				_pendingContinuationsByRequestId.remove(requestId)
-				_pendingMethodByRequestId.remove(requestId)
-				println("$$$$ Continuation for request with id $requestId was cancelled, removed pending continuation and method")
-			}
+			println("$$$ functionCall($requestId).job = ${continuation.context[Job]}")
+			println("$$$$ functionCall($requestId).context = ${continuation.context}")
 			_pendingMethodByRequestId[requestId] = method
 
 
-			// TODO: maybe we should serialize and deserialize using byte arrays instead of streams
+			val rpcBlock = suspend {
+				suspendCancellableCoroutine { cancellableContinuation ->
+					val requestId = UUID.randomUUID()
 
-			val request = LapisRequest(
-				requestId = requestId,
-				apiName = apiName,
-				methodName = methodName,
-				arguments = argumentsByName.mapValues { (_, value) ->
-					val byteArrayOutputStream = ByteArrayOutputStream()
+					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
+					_pendingMethodByRequestId[requestId] = method
 
-					@Suppress("UNCHECKED_CAST")
-					val serializer = DefaultSerializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
-					serializer.serialize(byteArrayOutputStream, value)
-					byteArrayOutputStream.toByteArray()
-				},
-			)
+					cancellableContinuation.invokeOnCancellation { cause ->
+						println("$$$ invokeOnCompletion($requestId): $cause")
+						_pendingContinuationsByRequestId.remove(requestId)
+						_pendingMethodByRequestId.remove(requestId)
 
-			_scope.launch {
-				sendRequest(request)
+						if (cause is CancellationException) {
+							_scope.launch {
+								try {
+									sendCancellation(LapisCancellation(requestId = requestId))
+								}
+								catch (e: Exception) {
+									Log.e(TAG, "Failed to send cancellation for $requestId", e)
+								}
+							}
+						}
+					}
+
+					_scope.launch {
+						try {
+							val request = LapisRequest(
+								requestId = requestId,
+								apiName = apiName,
+								methodName = methodName,
+								arguments = argumentsByName.mapValues { (_, value) ->
+									val byteArrayOutputStream = ByteArrayOutputStream()
+
+									@Suppress("UNCHECKED_CAST")
+									val serializer = DefaultSerializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
+									serializer.serialize(byteArrayOutputStream, value)
+									byteArrayOutputStream.toByteArray()
+								},
+							)
+
+							sendRequest(request)
+						}
+						catch (e: Exception) {
+							if (cancellableContinuation.isActive) {
+								cancellableContinuation.resumeWithException(e)
+							}
+						}
+					}
+				}
 			}
+
+			rpcBlock.startCoroutine(continuation)
 			COROUTINE_SUSPENDED
 		}
 		catch (t: Throwable) {
@@ -240,6 +272,29 @@ internal class BluetoothDeviceRpc(
 		}
 
 		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
+	}
+
+	private suspend fun sendCancellation(
+		cancellation: LapisCancellation,
+	) = withContext(Dispatchers.IO) {
+		println("$$$$ Sending cancellation for request id ${cancellation.requestId}")
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		CancellationSerializer.serialize(payloadStream, cancellation)
+
+		createPacketFragments(
+			packetId = UUID.randomUUID(),
+			type = CompleteBluetoothPacket.Type.Cancellation.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+		).forEach { packet ->
+			println("$$$$ Sending cancellation as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
+
+			_pendingPacketToSendChannel.send(packet)
+		}
+
+		println("$$$$ Finished sending cancellation with id ${cancellation.requestId}")
 	}
 
 	private fun serializePacket(
@@ -520,8 +575,16 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 
+		val currentJob = currentCoroutineContext()[Job]
+		if (currentJob != null) {
+			_activeServerJobs[request.requestId] = currentJob
+		}
+
 		val result = try {
 			method.invokeSuspend(serverImplementation, *args)
+		}
+		catch (e: CancellationException) {
+			throw e
 		}
 		catch (e: Throwable) {
 			sendErrorResponse(
@@ -532,6 +595,10 @@ internal class BluetoothDeviceRpc(
 			)
 			return
 		}
+		finally {
+			_activeServerJobs.remove(request.requestId)
+		}
+
 
 		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
 
@@ -578,6 +645,14 @@ internal class BluetoothDeviceRpc(
 		continuation.resumeWithException(exception)
 	}
 
+	private fun processPacketAsCancellation(completePacket: CompleteBluetoothPacket) {
+		val cancellation = CancellationSerializer.deserialize(completePacket.payloadStream)
+
+		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}")
+
+		_activeServerJobs.remove(cancellation.requestId)?.cancel()
+	}
+
 	private fun launchCompletePacketProcessing() {
 		_scope.launch(Dispatchers.IO) {
 			for (completePacket in _remoteCompletePacketChannel) {
@@ -592,6 +667,9 @@ internal class BluetoothDeviceRpc(
 						}
 						CompleteBluetoothPacket.Type.ErrorResponse -> {
 							processPacketAsErrorResponse(completePacket)
+						}
+						CompleteBluetoothPacket.Type.Cancellation -> {
+							processPacketAsCancellation(completePacket)
 						}
 					}
 				}
