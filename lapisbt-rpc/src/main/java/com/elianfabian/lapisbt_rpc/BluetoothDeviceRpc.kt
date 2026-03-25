@@ -53,6 +53,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.startCoroutine
 
+// TODO: we should find a way to encapsulate the logic for different types of functions (suspend, flow, ...)
 // TODO: use the parameters name to sort the values so that neither the client nor the server has to worry about
 //  the other of the parameters when defining a function
 // TODO: add support for Result type
