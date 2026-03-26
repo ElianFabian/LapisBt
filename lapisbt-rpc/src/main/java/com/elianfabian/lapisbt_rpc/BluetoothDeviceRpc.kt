@@ -69,13 +69,38 @@ internal class BluetoothDeviceRpc(
 	private val _remotePacketsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
 	private val _remotePacketChannel = Channel<BluetoothPacket>(capacity = Channel.UNLIMITED)
 	private val _remoteCompletePacketChannel = Channel<CompleteBluetoothPacket>(capacity = Channel.UNLIMITED)
-	private val _pendingContinuationsByRequestId = mutableMapOf<UUID, Continuation<Any?>>()
+	private val _pendingContinuationsByRequestId = ConcurrentHashMap<UUID, Continuation<Any?>>()
 	private val _pendingPacketToSendChannel = Channel<BluetoothPacket>(capacity = 1)
 	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
 
 
 	init {
+		_scope.launch {
+			lapisBt.events.collect { event ->
+				when (event) {
+					is LapisBt.Event.OnDeviceDisconnected -> {
+						if (event.disconnectedDevice.address != deviceAddress) {
+							return@collect
+						}
+
+						_pendingMethodByRequestId.clear()
+						_pendingPacketToSendChannel.close()
+
+						_activeServerJobs.forEach { (_, job) ->
+							job.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+						}
+						_activeServerJobs.clear()
+
+						_pendingContinuationsByRequestId.forEach { (_, continuation) ->
+							continuation.resumeWithException(CancellationException("Device '$deviceAddress' disconnected"))
+						}
+						_pendingContinuationsByRequestId.clear()
+					}
+					else -> Unit
+				}
+			}
+		}
 		launchSendPacketProcessing()
 		launchRawDataProcessing()
 		launchPacketProcessing()
@@ -83,7 +108,6 @@ internal class BluetoothDeviceRpc(
 	}
 
 
-	@Suppress("UNUSED_PARAMETER")
 	fun functionCall(
 		proxy: Any,
 		apiInterface: Class<*>,
@@ -132,10 +156,7 @@ internal class BluetoothDeviceRpc(
 
 			val requestId = UUID.randomUUID()
 			_pendingContinuationsByRequestId[requestId] = continuation
-			println("$$$ functionCall($requestId).job = ${continuation.context[Job]}")
-			println("$$$$ functionCall($requestId).context = ${continuation.context}")
 			_pendingMethodByRequestId[requestId] = method
-
 
 			val rpcBlock = suspend {
 				suspendCancellableCoroutine { cancellableContinuation ->
