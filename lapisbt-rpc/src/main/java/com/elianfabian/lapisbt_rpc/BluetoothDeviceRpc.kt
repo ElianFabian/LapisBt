@@ -224,7 +224,18 @@ internal class BluetoothDeviceRpc(
 	fun dispose() {
 		_scope.cancel()
 
-		// TODO: we probably need to add more clean up logic here
+		_pendingMethodByRequestId.clear()
+		_pendingPacketToSendChannel.close()
+
+		_activeServerJobs.forEach { (_, job) ->
+			job.cancel(CancellationException("BluetoothDeviceRpc for '$deviceAddress' was disposed"))
+		}
+		_activeServerJobs.clear()
+
+		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
+			continuation.resumeWithException(CancellationException("BluetoothDeviceRpc for '$deviceAddress' was disposed"))
+		}
+		_pendingContinuationsByRequestId.clear()
 	}
 
 
