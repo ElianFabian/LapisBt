@@ -40,8 +40,6 @@ internal sealed interface BluetoothPacket {
 
 	data class Fragment(
 		override val packetId: UUID,
-		// For the index is a relevant data for the logic, but we might change it to get rid of it and save some space
-		val index: Int,
 		override val payload: ByteArray,
 	) : BluetoothPacket {
 
@@ -52,15 +50,13 @@ internal sealed interface BluetoothPacket {
 			other as Fragment
 
 			if (packetId != other.packetId) return false
-			if (index != other.index) return false
 			if (!payload.contentEquals(other.payload)) return false
 
 			return true
 		}
 
 		override fun hashCode(): Int {
-			var result = index
-			result = 31 * result + packetId.hashCode()
+			var result = packetId.hashCode()
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}
