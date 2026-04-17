@@ -23,7 +23,6 @@ import com.elianfabian.lapisbt_rpc.util.getRawClass
 import com.elianfabian.lapisbt_rpc.util.getSuspendReturnType
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
 import com.elianfabian.lapisbt_rpc.util.isSuspend
-import com.elianfabian.lapisbt_rpc.util.logDebug
 import com.elianfabian.lapisbt_rpc.util.padded
 import com.elianfabian.lapisbt_rpc.util.readNBytesCompat
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +32,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -128,7 +128,7 @@ internal class BluetoothDeviceRpc(
 			throw DeviceNotConnectedException(deviceAddress)
 		}
 
-		logDebug(TAG, "$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
+		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
 		val parameterTypes = method.parameterTypes
 		val isSuspend = parameterTypes.isNotEmpty() && Continuation::class.java.isAssignableFrom(parameterTypes.last())
 
@@ -160,11 +160,13 @@ internal class BluetoothDeviceRpc(
 
 			val rpcBlock = suspend {
 				suspendCancellableCoroutine { cancellableContinuation ->
+					val requestId = UUID.randomUUID()
+
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
 					_pendingMethodByRequestId[requestId] = method
 
 					cancellableContinuation.invokeOnCancellation { cause ->
-						logDebug(TAG, "$$$ invokeOnCompletion($requestId): $cause")
+						println("$$$ invokeOnCompletion($requestId): $cause")
 						_pendingContinuationsByRequestId.remove(requestId)
 						_pendingMethodByRequestId.remove(requestId)
 
@@ -240,7 +242,7 @@ internal class BluetoothDeviceRpc(
 	private suspend fun sendRequest(
 		request: LapisRequest,
 	) = withContext(Dispatchers.IO) {
-		logDebug(TAG, "$$$$ Sending request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
+		println("$$$$ Sending request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
 
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
@@ -252,18 +254,18 @@ internal class BluetoothDeviceRpc(
 			type = CompleteBluetoothPacket.Type.Request.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
-			logDebug(TAG, "$$$$ Sending request with as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}, type: ${packet.type}" else "fragment"}, payload size: ${packet.payload.size}")
+			println("$$$$ Sending request with as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}, type: ${packet.type}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
 			_pendingPacketToSendChannel.send(packet)
 		}
 
-		logDebug(TAG, "$$$$ Finished sending request with id ${request.requestId}")
+		println("$$$$ Finished sending request with id ${request.requestId}")
 	}
 
 	private suspend fun sendResponse(
 		response: LapisResponse,
 	) = withContext(Dispatchers.IO) {
-		logDebug(TAG, "$$$$ Sending response for request id ${response.requestId}, data size: ${response.data.size}")
+		println("$$$$ Sending response for request id ${response.requestId}, data size: ${response.data.size}")
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
 
@@ -274,18 +276,18 @@ internal class BluetoothDeviceRpc(
 			type = CompleteBluetoothPacket.Type.Response.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
-			logDebug(TAG, "$$$$ Sending response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else "fragment"}, payload size: ${packet.payload.size}")
+			println("$$$$ Sending response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
 			_pendingPacketToSendChannel.send(packet)
 		}
 
-		logDebug(TAG, "$$$$ Finished sending response with id ${response.requestId}")
+		println("$$$$ Finished sending response with id ${response.requestId}")
 	}
 
 	private suspend fun sendErrorResponse(
 		errorResponse: LapisErrorResponse,
 	) = withContext(Dispatchers.IO) {
-		logDebug(TAG, "$$$$ Sending error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
+		println("$$$$ Sending error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
 
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
@@ -297,18 +299,18 @@ internal class BluetoothDeviceRpc(
 			type = CompleteBluetoothPacket.Type.ErrorResponse.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
-			logDebug(TAG, "$$$$ Sending error response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else "fragment"}, payload size: ${packet.payload.size}")
+			println("$$$$ Sending error response as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
 			_pendingPacketToSendChannel.send(packet)
 		}
 
-		logDebug(TAG, "$$$$ Finished sending error response with id ${errorResponse.requestId}")
+		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
 	}
 
 	private suspend fun sendCancellation(
 		cancellation: LapisCancellation,
 	) = withContext(Dispatchers.IO) {
-		logDebug(TAG, "$$$$ Sending cancellation for request id ${cancellation.requestId}")
+		println("$$$$ Sending cancellation for request id ${cancellation.requestId}")
 
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
@@ -320,12 +322,12 @@ internal class BluetoothDeviceRpc(
 			type = CompleteBluetoothPacket.Type.Cancellation.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		).forEach { packet ->
-			logDebug(TAG, "$$$$ Sending cancellation as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else "fragment"}, payload size: ${packet.payload.size}")
+			println("$$$$ Sending cancellation as packet with id ${packet.packetId}, fragment type: ${if (packet is BluetoothPacket.FirstFragment) "FirstFragment, length: ${packet.length}" else (packet as BluetoothPacket.Fragment).index}, payload size: ${packet.payload.size}")
 
 			_pendingPacketToSendChannel.send(packet)
 		}
 
-		logDebug(TAG, "$$$$ Finished sending cancellation with id ${cancellation.requestId}")
+		println("$$$$ Finished sending cancellation with id ${cancellation.requestId}")
 	}
 
 	private fun serializePacket(
@@ -345,14 +347,14 @@ internal class BluetoothDeviceRpc(
 			is BluetoothPacket.Fragment -> {
 				dataStream.writeLong(packet.packetId.mostSignificantBits)
 				dataStream.writeLong(packet.packetId.leastSignificantBits)
-				//dataStream.writeInt(packet.index)
+				dataStream.writeInt(packet.index)
 				dataStream.write(packet.payload)
 			}
 		}
 
-		// calling flush() doesn't seem to make any difference in the performance
-		//dataStream.flush()
-		logDebug(TAG, "$$$$ packet sent: $packet")
+		// I'm not sure if flush is necessary here, we'll see during testing
+		dataStream.flush()
+		println("$$$$ packet sent: $packet")
 	}
 
 	private fun createPacketFragments(
@@ -361,13 +363,13 @@ internal class BluetoothDeviceRpc(
 		payload: ByteArray,
 	): Sequence<BluetoothPacket> = sequence {
 		val uuidBytesSize = Long.SIZE_BYTES * 2
-		//val indexBytesSize = Int.SIZE_BYTES * 1
+		val indexBytesSize = Int.SIZE_BYTES * 1
 		val typeBytesSize = Byte.SIZE_BYTES * 1
 		val lengthBytesSize = Int.SIZE_BYTES * 1
 
 		val firstFragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize
 		val remainingPayload = payload.size - firstFragmentPayloadSize
-		val fragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize// - indexBytesSize
+		val fragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize - indexBytesSize
 		val numberOfFragments = if (remainingPayload <= 0) {
 			0
 		}
@@ -377,7 +379,7 @@ internal class BluetoothDeviceRpc(
 			packetId = packetId,
 			type = type,
 			length = numberOfFragments,
-			payload = payload.sliceArray(0 until minOf(payload.size, firstFragmentPayloadSize)).padded(firstFragmentPayloadSize).also { logDebug(TAG, "$$$ payload size: ${it.size}, target: $firstFragmentPayloadSize, full size: ${payload.size}") },
+			payload = payload.sliceArray(0 until minOf(payload.size, firstFragmentPayloadSize)).padded(firstFragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $firstFragmentPayloadSize, full size: ${payload.size}") },
 		)
 		yield(firstFragment)
 
@@ -386,7 +388,8 @@ internal class BluetoothDeviceRpc(
 			val end = minOf(start + fragmentPayloadSize, payload.size)
 			val fragment = BluetoothPacket.Fragment(
 				packetId = packetId,
-				payload = payload.sliceArray(start until end).padded(fragmentPayloadSize).also { logDebug(TAG, "$$$ payload size: ${it.size}, target: $fragmentPayloadSize") },
+				index = index,
+				payload = payload.sliceArray(start until end).padded(fragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $fragmentPayloadSize") },
 			)
 			yield(fragment)
 		}
@@ -409,14 +412,15 @@ internal class BluetoothDeviceRpc(
 		)
 	}
 
-	private fun deserializeFragment(stream: DataInputStream, id: UUID): BluetoothPacket.Fragment {
+	private fun deserializeFragment(stream: DataInputStream, id: UUID, index: Int): BluetoothPacket.Fragment {
 		val uuidBytesSize = Long.SIZE_BYTES * 2
-		//val indexBytesSize = Int.SIZE_BYTES * 1
+		val indexBytesSize = Int.SIZE_BYTES * 1
 
-		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize)
+		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize - indexBytesSize)
 
 		return BluetoothPacket.Fragment(
 			packetId = id,
+			index = index,
 			payload = payload,
 		)
 	}
@@ -424,11 +428,11 @@ internal class BluetoothDeviceRpc(
 	private fun launchRawDataProcessing() {
 		_scope.launch {
 			lapisBt.receiveData(deviceAddress) { stream ->
-				logDebug(TAG, "$$$ Start receiving data")
+				println("$$$ Start receiving data")
 				while (true) {
 					val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 
-					logDebug(TAG, "$$$$ Received raw data with size ${bytes.size}")
+					println("$$$$ Received raw data with size ${bytes.size}")
 
 					val dataStream = DataInputStream(ByteArrayInputStream(bytes))
 
@@ -447,9 +451,11 @@ internal class BluetoothDeviceRpc(
 						)
 					}
 					else {
+						val index = dataStream.readInt()
 						deserializeFragment(
 							stream = dataStream,
 							id = id,
+							index = index,
 						)
 					}
 
@@ -463,12 +469,11 @@ internal class BluetoothDeviceRpc(
 
 	private fun launchPacketProcessing() {
 		_scope.launch {
-			val currentPacketCountById = mutableMapOf<UUID, Int>()
 			for (packet in _remotePacketChannel) {
-				logDebug(TAG, "$$$$ processing packet: $packet")
+				println("$$$$ processing packet: $packet")
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
-						logDebug(TAG, "$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, payload size: ${packet.payload.size}")
+						println("$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, payload size: ${packet.payload.size}")
 						if (packet.length == 0) {
 							val completePacket = CompleteBluetoothPacket(
 								packetId = packet.packetId,
@@ -479,21 +484,27 @@ internal class BluetoothDeviceRpc(
 							_remotePacketsById.remove(packet.packetId)
 						}
 						else {
-							currentPacketCountById[packet.packetId] = 0
+							Log.wtf(TAG, "Invalid packet length: ${packet.length} for packet with id: ${packet.packetId}")
 						}
 					}
 					is BluetoothPacket.Fragment -> {
-						logDebug(TAG, "$$$$ Stored fragment with id ${packet.packetId}, payload size: ${packet.payload.size}")
+						println("$$$$ Stored fragment with id ${packet.packetId}, index: ${packet.index}, payload size: ${packet.payload.size}")
 						val packets = _remotePacketsById[packet.packetId]!!
 
+						// Actually the first packet should always be in the first position, we'll test and see
 						val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: throw IllegalStateException("There should be a FirstFragment packet when processing a Fragment packet")
 
-						val previousPacketCount = currentPacketCountById[packet.packetId] ?: throw IllegalStateException("Current packet count should be tracked for packet id ${packet.packetId}")
-						val currentPacketCount = previousPacketCount + 1
-						currentPacketCountById[packet.packetId] = currentPacketCount
-
-						val isFinalFragment = currentPacketCount == firstPacket.length
-						if (isFinalFragment) {
+						// Maybe this should be '>='?
+						if (packet.index == firstPacket.length - 1) {
+//							val completePacket = CompleteBluetoothPacket(
+//								id = packet.id,
+//								type = firstPacket.type,
+//								payloadStream = packets
+//									.sortedBy { it.index }
+//									.flatMap { it.payload.toList() }
+//									.toByteArray(),
+//							)
+							// I think this should be more efficient
 							val completePacket = CompleteBluetoothPacket(
 								packetId = packet.packetId,
 								type = CompleteBluetoothPacket.Type.fromByte(firstPacket.type),
@@ -506,12 +517,8 @@ internal class BluetoothDeviceRpc(
 							)
 							_remoteCompletePacketChannel.send(completePacket)
 							_remotePacketsById.remove(packet.packetId)
-							currentPacketCountById.remove(packet.packetId)
 
-							logDebug(TAG, "$$$$ Assembled complete packet with id ${completePacket.packetId}, type: ${completePacket.type}, payload size: ${packets.sumOf { it.payload.size }}")
-						}
-						else if (currentPacketCount > firstPacket.length) {
-							throw IllegalStateException("Received more fragments than expected for packet id ${packet.packetId}")
+							println("$$$$ Assembled complete packet with id ${completePacket.packetId}, type: ${completePacket.type}, payload size: ${packets.sumOf { it.payload.size }}")
 						}
 					}
 				}
@@ -521,14 +528,14 @@ internal class BluetoothDeviceRpc(
 
 	private suspend fun processPacketAsRequest(completePacket: CompleteBluetoothPacket) {
 		val request = RequestSerializer.deserialize(completePacket.payloadStream)
-		logDebug(TAG, "$$$$ process deserialized request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
+		println("$$$$ process deserialized request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.arguments.keys.joinToString()}")
 
 		val serverImplementation = lapisRpc.getBluetoothServerApiByName(
 			deviceAddress = deviceAddress,
 			apiName = request.apiName,
 		)
 
-		logDebug(TAG, "$$$$ Found server implementation for API ${request.apiName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
+		println("$$$$ Found server implementation for API ${request.apiName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
 
 		val apiInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
 			inter.getAnnotation(LapisRpc::class.java)?.name == request.apiName
@@ -541,7 +548,7 @@ internal class BluetoothDeviceRpc(
 
 		val method = apiInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
-			logDebug(TAG, "$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${request.methodName}")
+			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${request.methodName}")
 			annotation?.name == request.methodName
 		} ?: return sendErrorResponse(
 			LapisErrorResponse(
@@ -626,7 +633,7 @@ internal class BluetoothDeviceRpc(
 		}
 
 
-		logDebug(TAG, "$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
+		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
 
 		@Suppress("UNCHECKED_CAST")
 		val serializer = DefaultSerializationStrategy.serializerForClass(if (result == null) Nothing::class else result::class) as? LapisSerializer<Any?> ?: error("No serializer registered for return type: ${result?.let { it::class.qualifiedName } ?: "null"}")
@@ -644,10 +651,10 @@ internal class BluetoothDeviceRpc(
 
 	private fun processPacketAsResponse(completePacket: CompleteBluetoothPacket) {
 		val response = ResponseSerializer.deserialize(completePacket.payloadStream)
-		logDebug(TAG, "$$$$ process deserialized response for request id ${response.requestId}, data size: ${response.data.size}")
+		println("$$$$ process deserialized response for request id ${response.requestId}, data size: ${response.data.size}")
 
 		val method = _pendingMethodByRequestId.remove(response.requestId) ?: error("No pending method found for response id: ${response.requestId}")
-		logDebug(TAG, "$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+		println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 		val serializer = DefaultSerializationStrategy.serializerForClass(method.getSuspendReturnType().kotlin) ?: error("No serializer found for return type: ${method.returnType}")
 
 		val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.data))
@@ -659,10 +666,10 @@ internal class BluetoothDeviceRpc(
 
 	private fun processPacketAsErrorResponse(completePacket: CompleteBluetoothPacket) {
 		val errorResponse = ErrorResponseSerializer.deserialize(completePacket.payloadStream)
-		logDebug(TAG, "$$$$ process deserialized error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
+		println("$$$$ process deserialized error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
 
 		val method = _pendingMethodByRequestId.remove(errorResponse.requestId) ?: error("No pending method found for error response id: ${errorResponse.requestId}")
-		logDebug(TAG, "$$$$ Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+		println("$$$$ Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
 		val continuation = _pendingContinuationsByRequestId.remove(errorResponse.requestId) ?: error("No pending continuation found for error response id: ${errorResponse.requestId}")
 
@@ -674,19 +681,15 @@ internal class BluetoothDeviceRpc(
 	private fun processPacketAsCancellation(completePacket: CompleteBluetoothPacket) {
 		val cancellation = CancellationSerializer.deserialize(completePacket.payloadStream)
 
-		logDebug(TAG, "$$$$ process deserialized cancellation for request id ${cancellation.requestId}")
+		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}")
 
 		_activeServerJobs.remove(cancellation.requestId)?.cancel()
 	}
 
-	// 2026-04-07 15:28:07.446  2113-2233  InputDispatcher         system_server                        E  channel '5ed9c09 com.elianfabian.lapisbt.app/com.elianfabian.lapisbt.app.MainActivity (server)' ~ Channel is unrecoverably broken and will be disposed!
-	// It is strange that the received log is printted before the assembled log, maybe it's a threading issue?
-	// Received complete packet with id afbb807b-7b54-4faf-b262-576d7d63a535, type: Request
-	// Assembled complete packet with id afbb807b-7b54-4faf-b262-576d7d63a535, type: Request, payload size: 83307
 	private fun launchCompletePacketProcessing() {
 		_scope.launch(Dispatchers.IO) {
 			for (completePacket in _remoteCompletePacketChannel) {
-				logDebug(TAG, "$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
+				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
 				launch {
 					when (completePacket.type) {
 						CompleteBluetoothPacket.Type.Request -> {
