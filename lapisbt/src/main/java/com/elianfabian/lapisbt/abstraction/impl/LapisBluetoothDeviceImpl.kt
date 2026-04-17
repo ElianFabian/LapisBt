@@ -24,11 +24,11 @@ internal class LapisBluetoothDeviceImpl(
 
 	override val uuids: List<UUID>? get() = device.uuids?.map { it.uuid }
 
-	override val deviceClass: Int
-		get() = device.bluetoothClass.deviceClass
+	override val deviceClass: Int?
+		get() = device.bluetoothClass?.deviceClass
 
-	override val majorDeviceClass: Int
-		get() = device.bluetoothClass.majorDeviceClass
+	override val majorDeviceClass: Int?
+		get() = device.bluetoothClass?.majorDeviceClass
 
 	override val addressType: Int
 		get() = if (Build.VERSION.SDK_INT >= 35) {
