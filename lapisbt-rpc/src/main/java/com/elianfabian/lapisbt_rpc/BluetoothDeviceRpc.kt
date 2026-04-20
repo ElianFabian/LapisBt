@@ -18,7 +18,7 @@ import com.elianfabian.lapisbt_rpc.serializer.CancellationSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
-import com.elianfabian.lapisbt_rpc.util.asEnumeration
+import com.elianfabian.lapisbt_rpc.util.CompressionUtil
 import com.elianfabian.lapisbt_rpc.util.getRawClass
 import com.elianfabian.lapisbt_rpc.util.getSuspendReturnType
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
@@ -32,7 +32,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -41,7 +40,6 @@ import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.OutputStream
-import java.io.SequenceInputStream
 import java.lang.reflect.Method
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -342,6 +340,8 @@ internal class BluetoothDeviceRpc(
 				dataStream.writeLong(packet.packetId.leastSignificantBits)
 				dataStream.writeByte(packet.type.toInt())
 				dataStream.writeInt(packet.length)
+				dataStream.writeBoolean(packet.compressed)
+				dataStream.writeInt(packet.originalSize)
 				dataStream.write(packet.payload)
 			}
 			is BluetoothPacket.Fragment -> {
@@ -366,30 +366,42 @@ internal class BluetoothDeviceRpc(
 		val indexBytesSize = Int.SIZE_BYTES * 1
 		val typeBytesSize = Byte.SIZE_BYTES * 1
 		val lengthBytesSize = Int.SIZE_BYTES * 1
+		val compressedBytesSize = Byte.SIZE_BYTES * 1
+		val originalSizeBytesSize = Int.SIZE_BYTES * 1
 
-		val firstFragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize
-		val remainingPayload = payload.size - firstFragmentPayloadSize
+		val compressed = CompressionUtil.shouldCompress(payload)
+		val actualPayload = if (compressed) {
+			CompressionUtil.compress(payload)!!
+		}
+		else payload
+
+		println("$$$ original: ${payload.size}, actual: ${actualPayload.size}")
+
+		val firstFragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize - compressedBytesSize - originalSizeBytesSize
+		val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
 		val fragmentPayloadSize = BLUETOOTH_PACKET_LENGTH - uuidBytesSize - indexBytesSize
-		val numberOfFragments = if (remainingPayload <= 0) {
+		val numberOfFragments = if (remainingPayloadSize <= 0) {
 			0
 		}
-		else (remainingPayload + fragmentPayloadSize - 1) / fragmentPayloadSize
+		else (remainingPayloadSize + fragmentPayloadSize - 1) / fragmentPayloadSize
 
 		val firstFragment = BluetoothPacket.FirstFragment(
 			packetId = packetId,
 			type = type,
 			length = numberOfFragments,
-			payload = payload.sliceArray(0 until minOf(payload.size, firstFragmentPayloadSize)).padded(firstFragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $firstFragmentPayloadSize, full size: ${payload.size}") },
+			compressed = compressed,
+			originalSize = payload.size,
+			payload = actualPayload.sliceArray(0 until minOf(actualPayload.size, firstFragmentPayloadSize)).padded(firstFragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $firstFragmentPayloadSize, full size: ${actualPayload.size}") },
 		)
 		yield(firstFragment)
 
 		for (index in 0 until numberOfFragments) {
 			val start = firstFragmentPayloadSize + index * fragmentPayloadSize
-			val end = minOf(start + fragmentPayloadSize, payload.size)
+			val end = minOf(start + fragmentPayloadSize, actualPayload.size)
 			val fragment = BluetoothPacket.Fragment(
 				packetId = packetId,
 				index = index,
-				payload = payload.sliceArray(start until end).padded(fragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $fragmentPayloadSize") },
+				payload = actualPayload.sliceArray(start until end).padded(fragmentPayloadSize).also { println("$$$ payload size: ${it.size}, target: $fragmentPayloadSize") },
 			)
 			yield(fragment)
 		}
@@ -399,15 +411,21 @@ internal class BluetoothDeviceRpc(
 		val uuidBytesSize = Long.SIZE_BYTES * 2
 		val typeBytesSize = Byte.SIZE_BYTES * 1
 		val lengthBytesSize = Int.SIZE_BYTES * 1
+		val compressedBytesSize = Byte.SIZE_BYTES * 1
+		val originalSizeBytesSize = Int.SIZE_BYTES * 1
 
 		val type = stream.readByte()
 		val length = stream.readInt()
-		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize)
+		val compressed = stream.readBoolean()
+		val originalSize = stream.readInt()
+		val payload = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH - uuidBytesSize - typeBytesSize - lengthBytesSize - compressedBytesSize - originalSizeBytesSize)
 
 		return BluetoothPacket.FirstFragment(
 			packetId = id,
 			type = type,
 			length = length,
+			compressed = compressed,
+			originalSize = originalSize,
 			payload = payload,
 		)
 	}
@@ -432,14 +450,13 @@ internal class BluetoothDeviceRpc(
 				while (true) {
 					val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 
-					println("$$$$ Received raw data with size ${bytes.size}")
-
 					val dataStream = DataInputStream(ByteArrayInputStream(bytes))
 
 					val mostSignificantBits = dataStream.readLong()
 					val leastSignificantBits = dataStream.readLong()
 					val id = UUID(mostSignificantBits, leastSignificantBits)
 
+					println("$$$$ Received raw data with size ${bytes.size} = $id")
 					val packets = _remotePacketsById.getOrPut(id) {
 						mutableListOf()
 					}
@@ -478,7 +495,7 @@ internal class BluetoothDeviceRpc(
 							val completePacket = CompleteBluetoothPacket(
 								packetId = packet.packetId,
 								type = CompleteBluetoothPacket.Type.fromByte(packet.type),
-								payloadStream = ByteArrayInputStream(packet.payload),
+								payloadStream = ByteArrayInputStream(if (packet.compressed) CompressionUtil.decompress(packet.payload, packet.originalSize)!! else packet.payload),
 							)
 							_remoteCompletePacketChannel.send(completePacket)
 							_remotePacketsById.remove(packet.packetId)
@@ -496,24 +513,16 @@ internal class BluetoothDeviceRpc(
 
 						// Maybe this should be '>='?
 						if (packet.index == firstPacket.length - 1) {
-//							val completePacket = CompleteBluetoothPacket(
-//								id = packet.id,
-//								type = firstPacket.type,
-//								payloadStream = packets
-//									.sortedBy { it.index }
-//									.flatMap { it.payload.toList() }
-//									.toByteArray(),
-//							)
-							// I think this should be more efficient
+							val fullPayload = packets.flatMap { it.payload.toList() }.toByteArray()
+							val actualPayload = if (firstPacket.compressed) {
+								CompressionUtil.decompress(fullPayload, firstPacket.originalSize) ?: error("Failed to decompress payload for packet with id ${packet.packetId}")
+							}
+							else fullPayload
+
 							val completePacket = CompleteBluetoothPacket(
 								packetId = packet.packetId,
 								type = CompleteBluetoothPacket.Type.fromByte(firstPacket.type),
-								payloadStream = SequenceInputStream(
-									packets.asSequence()
-										.map { ByteArrayInputStream(it.payload) }
-										.iterator()
-										.asEnumeration()
-								)
+								payloadStream = ByteArrayInputStream(actualPayload),
 							)
 							_remoteCompletePacketChannel.send(completePacket)
 							_remotePacketsById.remove(packet.packetId)

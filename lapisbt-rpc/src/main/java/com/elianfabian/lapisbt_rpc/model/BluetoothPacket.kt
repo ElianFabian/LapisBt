@@ -12,9 +12,10 @@ internal sealed interface BluetoothPacket {
 		override val packetId: UUID,
 		val type: Byte,
 		val length: Int,
+		val compressed: Boolean,
+		val originalSize: Int,
 		override val payload: ByteArray,
 	) : BluetoothPacket {
-
 		override fun equals(other: Any?): Boolean {
 			if (this === other) return true
 			if (javaClass != other?.javaClass) return false
@@ -23,6 +24,8 @@ internal sealed interface BluetoothPacket {
 
 			if (type != other.type) return false
 			if (length != other.length) return false
+			if (compressed != other.compressed) return false
+			if (originalSize != other.originalSize) return false
 			if (packetId != other.packetId) return false
 			if (!payload.contentEquals(other.payload)) return false
 
@@ -32,10 +35,13 @@ internal sealed interface BluetoothPacket {
 		override fun hashCode(): Int {
 			var result = type.toInt()
 			result = 31 * result + length
+			result = 31 * result + compressed.hashCode()
+			result = 31 * result + originalSize
 			result = 31 * result + packetId.hashCode()
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}
+
 	}
 
 	data class Fragment(
