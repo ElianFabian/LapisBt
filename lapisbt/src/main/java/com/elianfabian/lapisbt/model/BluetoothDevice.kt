@@ -34,13 +34,13 @@ public data class BluetoothDevice(
 		public data object Random : AddressType
 		public data object Anonymous : AddressType
 		public data object Unknown : AddressType
-		public data class UnknownValue(val value: Int) : AddressType
+		public data class UnknownValue(val value: Int?) : AddressType
 	}
 
 	public sealed interface DeviceClass {
 
 		public data object Uncategorized : DeviceClass
-		public data class UnknownValue(val value: Int) : DeviceClass
+		public data class UnknownValue(val value: Int?) : DeviceClass
 
 		public sealed interface Computer : DeviceClass {
 			public data object Uncategorized : Computer
@@ -50,7 +50,7 @@ public data class BluetoothDevice(
 			public data object HandheldPcPda : Computer
 			public data object PalmSizePcPda : Computer
 			public data object Wearable : Computer
-			public data class UnknownValue(val value: Int) : Computer
+			public data class UnknownValue(val value: Int?) : Computer
 		}
 
 		public sealed interface Phone : DeviceClass {
@@ -60,7 +60,7 @@ public data class BluetoothDevice(
 			public data object Smart : Phone
 			public data object ModemOrGateway : Phone
 			public data object Isdn : Phone
-			public data class UnknownValue(val value: Int) : Phone
+			public data class UnknownValue(val value: Int?) : Phone
 		}
 
 		public sealed interface AudioVideo : DeviceClass {
@@ -81,7 +81,7 @@ public data class BluetoothDevice(
 			public data object VideoDisplayAndLoudspeaker : AudioVideo
 			public data object VideoConferencing : AudioVideo
 			public data object VideoGamingToy : AudioVideo
-			public data class UnknownValue(val value: Int) : AudioVideo
+			public data class UnknownValue(val value: Int?) : AudioVideo
 		}
 
 		public sealed interface Peripheral : DeviceClass {
@@ -100,7 +100,7 @@ public data class BluetoothDevice(
 			public data object HandheldScanner : Peripheral
 			public data object HandheldGesturalInput : Peripheral
 
-			public data class UnknownValue(val value: Int) : Peripheral
+			public data class UnknownValue(val value: Int?) : Peripheral
 		}
 
 		public sealed interface Imaging : DeviceClass {
@@ -108,7 +108,7 @@ public data class BluetoothDevice(
 			public data object Camera : Imaging
 			public data object Scanner : Imaging
 			public data object Printer : Imaging
-			public data class UnknownValue(val value: Int) : Imaging
+			public data class UnknownValue(val value: Int?) : Imaging
 		}
 
 		public sealed interface Wearable : DeviceClass {
@@ -119,7 +119,7 @@ public data class BluetoothDevice(
 			public data object Helmet : Wearable
 			public data object Glasses : Wearable
 			public data object Pin : Wearable
-			public data class UnknownValue(val value: Int) : Wearable
+			public data class UnknownValue(val value: Int?) : Wearable
 		}
 
 		public sealed interface Toy : DeviceClass {
@@ -129,7 +129,7 @@ public data class BluetoothDevice(
 			public data object DollActionFigure : Toy
 			public data object Controller : Toy
 			public data object Game : Toy
-			public data class UnknownValue(val value: Int) : Toy
+			public data class UnknownValue(val value: Int?) : Toy
 		}
 
 		public sealed interface Health : DeviceClass {
@@ -151,7 +151,7 @@ public data class BluetoothDevice(
 			public data object GenericHealthManager : Health
 			public data object PersonaMobilityDevice : Health
 
-			public data class UnknownValue(val value: Int) : Health
+			public data class UnknownValue(val value: Int?) : Health
 		}
 	}
 
@@ -167,7 +167,7 @@ public data class BluetoothDevice(
 		public data object Toy : MajorDeviceClass
 		public data object Health : MajorDeviceClass
 		public data object Uncategorized : MajorDeviceClass
-		public data class UnknownValue(val value: Int) : MajorDeviceClass
+		public data class UnknownValue(val value: Int?) : MajorDeviceClass
 	}
 
 	public sealed interface Type {
@@ -175,7 +175,7 @@ public data class BluetoothDevice(
 		public data object Le : Type
 		public data object Dual : Type
 		public data object Unknown : Type
-		public data class UnknownValue(val value: Int) : Type
+		public data class UnknownValue(val value: Int?) : Type
 	}
 
 

@@ -741,7 +741,7 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.deviceDisconnectedFlow.collect { disconnectedDevice ->
-				println("$$$ disconnectedDevice: $disconnectedDevice | $_skipDisconnectionEventForDevices")
+				println("$$$ disconnectedDevice(${_clientSocketByAddress[disconnectedDevice.address]?.isConnected}): $disconnectedDevice | $_skipDisconnectionEventForDevices")
 
 				if (disconnectedDevice.address in _skipDisconnectionEventForDevices) {
 					_skipDisconnectionEventForDevices.remove(disconnectedDevice.address)
@@ -755,6 +755,7 @@ internal class LapisBtImpl(
 				if (disconnectedDevice.address !in _clientSocketByAddress) {
 					return@collect
 				}
+
 
 				_events.emit(
 					LapisBt.Event.OnDeviceDisconnected(
@@ -1114,7 +1115,9 @@ internal class LapisBtImpl(
 
 
 		println("$$$ start connectToDeviceInternal")
+		_skipDisconnectionEventForDevices.add(deviceAddress)
 		val isConnectionSuccessFull = clientSocket.tryConnect()
+		_skipDisconnectionEventForDevices.remove(deviceAddress)
 		println("$$$ connectToDeviceInternal.isConnectionSuccessFull: $isConnectionSuccessFull")
 
 		if (!isConnectionSuccessFull) {

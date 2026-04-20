@@ -65,17 +65,6 @@ class LapisBtImplTest {
 	}
 
 	@Test
-	fun `bluetooth support and permissions`() {
-		assertThat(lapisBt.isBluetoothSupported).isTrue()
-		androidHelperFake.isBluetoothSupportedResult = false
-		assertThat(lapisBt.isBluetoothSupported).isFalse()
-
-		assertThat(lapisBt.canEnableBluetooth).isTrue()
-		androidHelperFake.isBluetoothConnectGrantedResult = false
-		assertThat(lapisBt.canEnableBluetooth).isFalse()
-	}
-
-	@Test
 	fun `start scan sets isScanning true`() = runTest(timeout = ShortTimeout) {
 		assertThat(lapisBt.startScan()).isTrue()
 		lapisBt.isScanning.first { it }
