@@ -29,7 +29,7 @@ flowCombineTuple = "1.2.0"
 ### Testing libraries
 
 truth = "1.4.5"
-kotlinCoroutinesTest = "1.10.2"
+kotlinCoroutines = "1.10.2"
 
 ###
 
@@ -75,10 +75,11 @@ simpleStackCompose = { group = "com.github.Zhuinden", name = "simple-stack-compo
 flowCombineTuple = { group = "com.github.Zhuinden", name = "flow-combinetuple-kt", version.ref = "flowCombineTuple" }
 
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
-kotlinxCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinCoroutinesTest" }
+kotlinxCoroutinesTest = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinCoroutines" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinCoroutines" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -50,6 +50,7 @@ dependencies {
 	implementation(project(":lapisbt"))
 	implementation(project(":lapisbt-rpc"))
 
+	implementation(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.simpleStack)
 	implementation(libs.simpleStackExtensions)
 	implementation(libs.simpleStackCompose)
