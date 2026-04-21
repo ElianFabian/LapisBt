@@ -23,8 +23,14 @@ public interface LapisBtRpc {
 
 	public companion object {
 
-		public fun newInstance(lapisBt: LapisBt): LapisBtRpc {
-			return LapisBtRpcImpl(lapisBt)
+		public fun newInstance(
+			lapisBt: LapisBt,
+			serializationStrategy: LapisSerializationStrategy? = null
+		): LapisBtRpc {
+			return LapisBtRpcImpl(
+				lapisBt = lapisBt,
+				serializationStrategy = serializationStrategy?.withDefaultFallback() ?: DefaultSerializationStrategy
+			)
 		}
 	}
 }

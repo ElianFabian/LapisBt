@@ -10,6 +10,7 @@ import kotlin.reflect.KClass
 
 internal class LapisBtRpcImpl(
 	private val lapisBt: LapisBt,
+	private val serializationStrategy: LapisSerializationStrategy,
 ) : LapisBtRpc {
 
 	private val _bluetoothClientApisByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
@@ -41,6 +42,7 @@ internal class LapisBtRpcImpl(
 				deviceAddress = deviceAddress,
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
+				serializationStrategy = serializationStrategy,
 			)
 		}
 
@@ -119,6 +121,7 @@ internal class LapisBtRpcImpl(
 					deviceAddress = deviceAddress,
 					lapisBt = lapisBt,
 					lapisRpc = this@LapisBtRpcImpl,
+					serializationStrategy = serializationStrategy,
 				)
 			}
 
@@ -136,6 +139,7 @@ internal class LapisBtRpcImpl(
 				deviceAddress = deviceAddress,
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
+				serializationStrategy = serializationStrategy,
 			)
 		}
 	}

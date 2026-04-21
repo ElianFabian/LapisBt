@@ -5,16 +5,29 @@ import kotlin.reflect.KClass
 // With this strategy, custom serializers can be provided for specific types.
 // For example, if we want to implement JSON serialization, we can create a strategy that returns JSON serializers for certain classes
 // that have specific annotations or implement specific interfaces.
-internal interface SerializationStrategy {
+public interface LapisSerializationStrategy {
 
 	/**
 	 * Returns the serializer for the given class, or null to use the default serialization.
 	 */
-	fun serializerForClass(type: KClass<*>): LapisSerializer<*>?
+	public fun serializerForClass(type: KClass<*>): LapisSerializer<*>?
 }
 
-// We should allow users to provide their own serialization strategy, but for development purposes, we can use this default strategy that provides serializers for the most common types.
-internal object DefaultSerializationStrategy : SerializationStrategy {
+
+internal fun LapisSerializationStrategy.withDefaultFallback(): LapisSerializationStrategy {
+	val original = this
+	return object : LapisSerializationStrategy {
+		override fun serializerForClass(type: KClass<*>): LapisSerializer<*>? {
+			if (original != DefaultSerializationStrategy) {
+				return original.serializerForClass(type) ?: DefaultSerializationStrategy.serializerForClass(type)
+			}
+			return original.serializerForClass(type)
+		}
+	}
+}
+
+
+internal object DefaultSerializationStrategy : LapisSerializationStrategy {
 	override fun serializerForClass(type: KClass<*>): LapisSerializer<*>? {
 		return when (type) {
 			Unit::class -> UnitSerializer

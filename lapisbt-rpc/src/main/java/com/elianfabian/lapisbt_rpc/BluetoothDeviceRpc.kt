@@ -62,6 +62,7 @@ internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
 	private val lapisRpc: LapisBtRpc,
+	private val serializationStrategy: LapisSerializationStrategy,
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 	private val _remotePacketsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
@@ -82,6 +83,7 @@ internal class BluetoothDeviceRpc(
 							return@collect
 						}
 
+						_scope.cancel()
 						_pendingMethodByRequestId.clear()
 						_pendingPacketToSendChannel.close()
 
@@ -190,7 +192,7 @@ internal class BluetoothDeviceRpc(
 									val byteArrayOutputStream = ByteArrayOutputStream()
 
 									@Suppress("UNCHECKED_CAST")
-									val serializer = DefaultSerializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
+									val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
 									serializer.serialize(byteArrayOutputStream, value)
 									byteArrayOutputStream.toByteArray()
 								},
@@ -591,7 +593,7 @@ internal class BluetoothDeviceRpc(
 			}
 
 			val valueType = method.parameterTypes[index]
-			val serializer = DefaultSerializationStrategy.serializerForClass(valueType.kotlin)
+			val serializer = serializationStrategy.serializerForClass(valueType.kotlin)
 			val valueStream = ByteArrayInputStream(valueBytes)
 
 			serializer?.deserialize(valueStream)
@@ -645,7 +647,7 @@ internal class BluetoothDeviceRpc(
 		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $args, returned result: $result")
 
 		@Suppress("UNCHECKED_CAST")
-		val serializer = DefaultSerializationStrategy.serializerForClass(if (result == null) Nothing::class else result::class) as? LapisSerializer<Any?> ?: error("No serializer registered for return type: ${result?.let { it::class.qualifiedName } ?: "null"}")
+		val serializer = serializationStrategy.serializerForClass(if (result == null) Nothing::class else result::class) as? LapisSerializer<Any?> ?: error("No serializer registered for return type: ${result?.let { it::class.qualifiedName } ?: "null"}")
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		serializer.serialize(byteArrayOutputStream, result)
 		val serializedResult = byteArrayOutputStream.toByteArray()
@@ -664,7 +666,7 @@ internal class BluetoothDeviceRpc(
 
 		val method = _pendingMethodByRequestId.remove(response.requestId) ?: error("No pending method found for response id: ${response.requestId}")
 		println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
-		val serializer = DefaultSerializationStrategy.serializerForClass(method.getSuspendReturnType().kotlin) ?: error("No serializer found for return type: ${method.returnType}")
+		val serializer = serializationStrategy.serializerForClass(method.getSuspendReturnType().kotlin) ?: error("No serializer found for return type: ${method.returnType}")
 
 		val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.data))
 
