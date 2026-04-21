@@ -36,6 +36,7 @@ android {
 
 dependencies {
 
+	implementation(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.kotlinReflect)
 	implementation(libs.androidx.coreKtx)
 	//implementation(libs.androidx.appcompat)
