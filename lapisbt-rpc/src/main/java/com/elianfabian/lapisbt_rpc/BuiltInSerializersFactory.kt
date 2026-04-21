@@ -388,12 +388,12 @@ internal object UByteSerializer : LapisSerializer<UByte> {
 internal object UByteArraySerializer : LapisSerializer<UByteArray> {
 
 	override fun serialize(stream: OutputStream, data: UByteArray) {
-		ByteArraySerializer.serialize(stream, data.toByteArray())
+		ByteArraySerializer.serialize(stream, data.asByteArray())
 	}
 
 	override fun deserialize(stream: InputStream): UByteArray {
 		val byteArray = ByteArraySerializer.deserialize(stream)
-		return UByteArray(byteArray.size) { index -> byteArray[index].toUByte() }
+		return byteArray.asUByteArray()
 	}
 }
 
@@ -414,15 +414,17 @@ internal object UShortSerializer : LapisSerializer<UShort> {
 internal object UShortArraySerializer : LapisSerializer<UShortArray> {
 
 	override fun serialize(stream: OutputStream, data: UShortArray) {
-		ShortArraySerializer.serialize(
-			stream,
-			ShortArray(data.size) { index -> data[index].toShort() },
-		)
+		val dataStream = DataOutputStream(stream)
+		dataStream.writeInt(data.size)
+		for (value in data) {
+			dataStream.writeShort(value.toInt())
+		}
 	}
 
 	override fun deserialize(stream: InputStream): UShortArray {
-		val shortArray = ShortArraySerializer.deserialize(stream)
-		return UShortArray(shortArray.size) { index -> shortArray[index].toUShort() }
+		val dataStream = DataInputStream(stream)
+		val size = dataStream.readInt()
+		return UShortArray(size) { dataStream.readShort().toUShort() }
 	}
 }
 
@@ -441,17 +443,18 @@ internal object UIntSerializer : LapisSerializer<UInt> {
 
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object UIntArraySerializer : LapisSerializer<UIntArray> {
-
 	override fun serialize(stream: OutputStream, data: UIntArray) {
-		IntArraySerializer.serialize(
-			stream,
-			IntArray(data.size) { index -> data[index].toInt() },
-		)
+		val dataStream = DataOutputStream(stream)
+		dataStream.writeInt(data.size)
+		for (value in data) {
+			dataStream.writeInt(value.toInt())
+		}
 	}
 
 	override fun deserialize(stream: InputStream): UIntArray {
-		val intArray = IntArraySerializer.deserialize(stream)
-		return UIntArray(intArray.size) { index -> intArray[index].toUInt() }
+		val dataStream = DataInputStream(stream)
+		val size = dataStream.readInt()
+		return UIntArray(size) { dataStream.readInt().toUInt() }
 	}
 }
 
@@ -472,14 +475,16 @@ internal object ULongSerializer : LapisSerializer<ULong> {
 internal object ULongArraySerializer : LapisSerializer<ULongArray> {
 
 	override fun serialize(stream: OutputStream, data: ULongArray) {
-		LongArraySerializer.serialize(
-			stream,
-			LongArray(data.size) { index -> data[index].toLong() },
-		)
+		val dataStream = DataOutputStream(stream)
+		dataStream.writeInt(data.size)
+		for (value in data) {
+			dataStream.writeLong(value.toLong())
+		}
 	}
 
 	override fun deserialize(stream: InputStream): ULongArray {
-		val longArray = LongArraySerializer.deserialize(stream)
-		return ULongArray(longArray.size) { index -> longArray[index].toULong() }
+		val dataStream = DataInputStream(stream)
+		val size = dataStream.readInt()
+		return ULongArray(size) { dataStream.readLong().toULong() }
 	}
 }
