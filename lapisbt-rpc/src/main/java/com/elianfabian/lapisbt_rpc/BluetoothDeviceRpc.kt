@@ -154,10 +154,6 @@ internal class BluetoothDeviceRpc(
 
 			val argumentsByName = parametersNames.zip(valueArgs).toMap()
 
-			val requestId = UUID.randomUUID()
-			_pendingContinuationsByRequestId[requestId] = continuation
-			_pendingMethodByRequestId[requestId] = method
-
 			val rpcBlock = suspend {
 				suspendCancellableCoroutine { cancellableContinuation ->
 					val requestId = UUID.randomUUID()
