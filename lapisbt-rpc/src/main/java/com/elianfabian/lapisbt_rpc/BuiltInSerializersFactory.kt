@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream

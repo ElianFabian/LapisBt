@@ -8,9 +8,13 @@ import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
+// TODO: we should add an interface to allow servers listen for register/unregister events
 internal class LapisBtRpcImpl(
 	private val lapisBt: LapisBt,
 	private val serializationStrategy: LapisSerializationStrategy,
+	private val interceptor: LapisInterceptor,
+	private val metadataProvider: LapisMetadataProvider<Any?>,
+	private val createPacketProcessor: (deviceAddress: String) -> LapisPacketProcessor,
 ) : LapisBtRpc {
 
 	private val _bluetoothClientApisByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
@@ -43,6 +47,9 @@ internal class LapisBtRpcImpl(
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
 				serializationStrategy = serializationStrategy,
+				interceptor = interceptor,
+				metadataProvider = metadataProvider,
+				packetProcessor = createPacketProcessor(deviceAddress),
 			)
 		}
 
@@ -109,29 +116,14 @@ internal class LapisBtRpcImpl(
 			throw IllegalArgumentException("API interface ${apiInterface.qualifiedName} must be annotated with @${LapisRpc::class.simpleName}")
 		}
 
-		val existingServerApiByClass = _bluetoothServerApiByAddress[deviceAddress]
-		if (existingServerApiByClass != null) {
-			val serverApi = existingServerApiByClass[apiInterface]
-			if (serverApi != null) {
-				throw IllegalStateException("Server $serverApi for address $deviceAddress and interface $apiInterface already registered")
-			}
-
-			_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
-				BluetoothDeviceRpc(
-					deviceAddress = deviceAddress,
-					lapisBt = lapisBt,
-					lapisRpc = this@LapisBtRpcImpl,
-					serializationStrategy = serializationStrategy,
-				)
-			}
-
-			existingServerApiByClass[apiInterface] = server
-			return
-		}
-
 		val serverApiByClass = _bluetoothServerApiByAddress.getOrPut(deviceAddress) {
 			ConcurrentHashMap<KClass<*>, Any>()
 		}
+		val existingServerApi = serverApiByClass[apiInterface]
+		if (existingServerApi != null) {
+			throw IllegalStateException("Server $existingServerApi for address $deviceAddress and interface $apiInterface already registered")
+		}
+
 		serverApiByClass[apiInterface] = server
 
 		_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
@@ -140,6 +132,9 @@ internal class LapisBtRpcImpl(
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
 				serializationStrategy = serializationStrategy,
+				interceptor = interceptor,
+				metadataProvider = metadataProvider,
+				packetProcessor = createPacketProcessor(deviceAddress),
 			)
 		}
 	}

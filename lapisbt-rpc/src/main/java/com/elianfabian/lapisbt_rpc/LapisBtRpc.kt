@@ -25,11 +25,17 @@ public interface LapisBtRpc {
 
 		public fun newInstance(
 			lapisBt: LapisBt,
-			serializationStrategy: LapisSerializationStrategy? = null
+			serializationStrategy: LapisSerializationStrategy? = null,
+			interceptor: LapisInterceptor? = null,
+			metadataProvider: LapisMetadataProvider<Any?>? = null,
+			createLapisPacketProcessor: ((deviceAddress: String) -> LapisPacketProcessor)? = null,
 		): LapisBtRpc {
 			return LapisBtRpcImpl(
 				lapisBt = lapisBt,
-				serializationStrategy = serializationStrategy?.withDefaultFallback() ?: DefaultSerializationStrategy
+				serializationStrategy = serializationStrategy?.withDefaultFallback() ?: DefaultSerializationStrategy,
+				interceptor = interceptor ?: NoOpLapisInterceptor,
+				metadataProvider = metadataProvider ?: NoOpLapisMetadataProvider,
+				createPacketProcessor = createLapisPacketProcessor ?: { DefaultLapisPacketProcessor() },
 			)
 		}
 	}

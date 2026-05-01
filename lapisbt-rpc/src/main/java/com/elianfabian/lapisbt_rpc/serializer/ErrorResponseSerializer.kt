@@ -1,8 +1,6 @@
 package com.elianfabian.lapisbt_rpc.serializer
 
-import com.elianfabian.lapisbt_rpc.LapisSerializer
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
-import com.elianfabian.lapisbt_rpc.model.LapisResponse
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream

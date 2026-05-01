@@ -1,25 +1,24 @@
 package com.elianfabian.lapisbt_rpc.serializer
 
-import com.elianfabian.lapisbt_rpc.LapisSerializer
-import com.elianfabian.lapisbt_rpc.model.LapisResponse
+import com.elianfabian.lapisbt_rpc.model.RawLapisResponse
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
-internal object ResponseSerializer : LapisSerializer<LapisResponse> {
+internal object ResponseSerializer : LapisSerializer<RawLapisResponse> {
 
-	override fun serialize(stream: OutputStream, data: LapisResponse) {
+	override fun serialize(stream: OutputStream, data: RawLapisResponse) {
 		val dataStream = DataOutputStream(stream)
 
 		dataStream.writeLong(data.requestId.mostSignificantBits)
 		dataStream.writeLong(data.requestId.leastSignificantBits)
-		dataStream.writeInt(data.data.size)
-		dataStream.write(data.data)
+		dataStream.writeInt(data.rawData.size)
+		dataStream.write(data.rawData)
 	}
 
-	override fun deserialize(stream: InputStream): LapisResponse {
+	override fun deserialize(stream: InputStream): RawLapisResponse {
 		val dataStream = DataInputStream(stream)
 
 		val mostSigBits = dataStream.readLong()
@@ -30,9 +29,9 @@ internal object ResponseSerializer : LapisSerializer<LapisResponse> {
 		val result = ByteArray(resultSize)
 		dataStream.readFully(result)
 
-		return LapisResponse(
+		return RawLapisResponse(
 			requestId = requestId,
-			data = result,
+			rawData = result,
 		)
 	}
 }

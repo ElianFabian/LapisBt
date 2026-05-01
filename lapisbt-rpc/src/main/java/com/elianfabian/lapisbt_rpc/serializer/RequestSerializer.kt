@@ -1,32 +1,34 @@
 package com.elianfabian.lapisbt_rpc.serializer
 
-import com.elianfabian.lapisbt_rpc.LapisSerializer
-import com.elianfabian.lapisbt_rpc.model.LapisRequest
+import com.elianfabian.lapisbt_rpc.model.RawLapisRequest
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
-internal object RequestSerializer : LapisSerializer<LapisRequest> {
+internal object RequestSerializer : LapisSerializer<RawLapisRequest> {
 
-	override fun serialize(stream: OutputStream, data: LapisRequest) {
+	override fun serialize(stream: OutputStream, data: RawLapisRequest) {
 		val dataStream = DataOutputStream(stream)
 
 		dataStream.writeLong(data.requestId.mostSignificantBits)
 		dataStream.writeLong(data.requestId.leastSignificantBits)
 		dataStream.writeUTF(data.apiName)
 		dataStream.writeUTF(data.methodName)
-		dataStream.writeInt(data.arguments.size)
+		dataStream.writeInt(data.rawArguments.size)
 
-		for ((key, value) in data.arguments) {
+		for ((key, value) in data.rawArguments) {
 			dataStream.writeUTF(key)
 			dataStream.writeInt(value.size)
 			dataStream.write(value)
 		}
+
+		dataStream.writeInt(data.rawMetadata.size)
+		dataStream.write(data.rawMetadata)
 	}
 
-	override fun deserialize(stream: InputStream): LapisRequest {
+	override fun deserialize(stream: InputStream): RawLapisRequest {
 		val dataStream = DataInputStream(stream)
 
 		val mostSigBits = dataStream.readLong()
@@ -35,8 +37,8 @@ internal object RequestSerializer : LapisSerializer<LapisRequest> {
 
 		val apiName = dataStream.readUTF()
 		val methodName = dataStream.readUTF()
-		val argumentsSize = dataStream.readInt()
 
+		val argumentsSize = dataStream.readInt()
 		val arguments = mutableMapOf<String, ByteArray>()
 		repeat(argumentsSize) {
 			val key = dataStream.readUTF()
@@ -46,11 +48,16 @@ internal object RequestSerializer : LapisSerializer<LapisRequest> {
 			arguments[key] = value
 		}
 
-		return LapisRequest(
+		val metadataSize = dataStream.readInt()
+		val metadata = ByteArray(metadataSize)
+		dataStream.readFully(metadata)
+
+		return RawLapisRequest(
 			requestId = requestId,
 			apiName = apiName,
 			methodName = methodName,
-			arguments = arguments,
+			rawArguments = arguments,
+			rawMetadata = metadata,
 		)
 	}
 }

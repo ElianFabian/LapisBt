@@ -1,6 +1,5 @@
 package com.elianfabian.lapisbt_rpc.serializer
 
-import com.elianfabian.lapisbt_rpc.LapisSerializer
 import com.elianfabian.lapisbt_rpc.model.LapisCancellation
 import java.io.DataInputStream
 import java.io.DataOutputStream

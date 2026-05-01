@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import kotlin.reflect.KClass
 
 // With this strategy, custom serializers can be provided for specific types.

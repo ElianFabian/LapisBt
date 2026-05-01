@@ -2,25 +2,7 @@ package com.elianfabian.lapisbt_rpc.model
 
 import java.util.UUID
 
-internal data class LapisResponse(
+public data class LapisResponse(
 	val requestId: UUID,
-	val data: ByteArray,
-) {
-	override fun equals(other: Any?): Boolean {
-		if (this === other) return true
-		if (javaClass != other?.javaClass) return false
-
-		other as LapisResponse
-
-		if (requestId != other.requestId) return false
-		if (!data.contentEquals(other.data)) return false
-
-		return true
-	}
-
-	override fun hashCode(): Int {
-		var result = requestId.hashCode()
-		result = 31 * result + data.contentHashCode()
-		return result
-	}
-}
+	val data: Any?,
+)

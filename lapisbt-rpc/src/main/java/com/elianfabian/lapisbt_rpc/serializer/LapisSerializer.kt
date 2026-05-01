@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt_rpc
+package com.elianfabian.lapisbt_rpc.serializer
 
 import java.io.InputStream
 import java.io.OutputStream
