@@ -563,6 +563,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 
 	override fun onServiceUnregistered() {
 		lapisBt.dispose()
+		lapisBtRpc.dispose()
 	}
 
 

@@ -21,6 +21,9 @@ public interface LapisBtRpc {
 
 	public fun <T : Any> unregisterBluetoothServerApisByAddress(deviceAddress: String)
 
+	public fun dispose()
+
+
 	public companion object {
 
 		public fun newInstance(
@@ -38,6 +41,12 @@ public interface LapisBtRpc {
 				createPacketProcessor = createLapisPacketProcessor ?: { DefaultLapisPacketProcessor() },
 			)
 		}
+	}
+
+
+	public interface Registered {
+		public fun onLapisServiceRegistered(deviceAddress: String)
+		public fun onLapisServiceUnregistered(deviceAddress: String)
 	}
 }
 
