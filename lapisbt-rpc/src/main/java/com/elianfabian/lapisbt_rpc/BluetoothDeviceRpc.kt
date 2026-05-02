@@ -29,7 +29,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -320,7 +319,6 @@ internal class BluetoothDeviceRpc(
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
 
 		ErrorResponseSerializer.serialize(payloadStream, errorResponse)
-
 
 		packetProcessor.sendPacketData(
 			type = CompleteBluetoothPacket.Type.ErrorResponse.byteValue,
