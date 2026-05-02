@@ -8,7 +8,6 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.RemoteException
-import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.LapisCancellation
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
@@ -63,7 +62,6 @@ internal class BluetoothDeviceRpc(
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 	private val _pendingContinuationsByRequestId = ConcurrentHashMap<UUID, Continuation<Any?>>()
-	private val _pendingPacketToSendChannel = Channel<BluetoothPacket>(capacity = 1)
 	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
 
@@ -261,7 +259,6 @@ internal class BluetoothDeviceRpc(
 		_scope.cancel()
 
 		_pendingMethodByRequestId.clear()
-		_pendingPacketToSendChannel.close()
 
 		val message = if (disconnected) {
 			"BluetoothDeviceRpc for '$deviceAddress' is being disposed because the device got disconnected"
