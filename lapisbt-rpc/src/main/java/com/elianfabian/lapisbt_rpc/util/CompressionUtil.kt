@@ -9,38 +9,50 @@ import java.util.zip.Inflater
  * Source: https://github.com/permissionlesstech/bitchat-android/blob/main/app/src/main/java/com/bitchat/android/protocol/CompressionUtil.kt
  */
 internal object CompressionUtil {
+
 	private const val COMPRESSION_THRESHOLD = 100
 
-	/**
-	 * Helper to check if compression is worth it - exact same logic as iOS
-	 */
+
 	fun shouldCompress(data: ByteArray): Boolean {
+
 		// Don't compress if:
 		// 1. Data is too small
 		// 2. Data appears to be already compressed (high entropy)
-		if (data.size < COMPRESSION_THRESHOLD) return false
-
-		// Simple entropy check - count unique bytes (exact same as iOS)
-		val byteFrequency = mutableMapOf<Byte, Int>()
-		for (byte in data) {
-			byteFrequency[byte] = (byteFrequency[byte] ?: 0) + 1
+		if (data.size < COMPRESSION_THRESHOLD) {
+			return false
 		}
 
+		val present = BooleanArray(256)
+		var uniqueCount = 0
+		val maxPossibleUnique = minOf(data.size, 256)
+
 		// If we have very high byte diversity, data is likely already compressed
-		val uniqueByteRatio = byteFrequency.size.toDouble() / minOf(data.size, 256).toDouble()
-		return uniqueByteRatio < 0.9 // Compress if less than 90% unique bytes
+		val thresholdLimit = maxPossibleUnique * 0.9
+
+		// Simple entropy check - count unique bytes
+		for (b in data) {
+			val idx = b.toInt() and 0xFF
+			if (!present[idx]) {
+				present[idx] = true
+				uniqueCount++
+
+				if (uniqueCount >= thresholdLimit)
+					return false
+			}
+		}
+
+		return true
 	}
 
 	/**
-	 * Compress data using deflate algorithm - exact same as iOS
-	 * iOS COMPRESSION_ZLIB actually produces raw deflate data (no zlib headers)
+	 * Compress data using deflate algorithm
 	 */
 	fun compress(data: ByteArray): ByteArray? {
 		// Skip compression for small data
 		if (data.size < COMPRESSION_THRESHOLD) return null
 
 		try {
-			// Use raw deflate format (no headers) to match iOS COMPRESSION_ZLIB behavior
+			// Use raw deflate format (no headers)
 			val deflater = Deflater(Deflater.DEFAULT_COMPRESSION, true) // true = raw deflate, no headers
 			deflater.setInput(data)
 			deflater.finish()
@@ -56,7 +68,7 @@ internal object CompressionUtil {
 
 			val compressedData = outputStream.toByteArray()
 
-			// Only return if compression was beneficial (same logic as iOS)
+			// Only return if compression was beneficial
 			return if (compressedData.size > 0 && compressedData.size < data.size) {
 				compressedData
 			}
@@ -70,11 +82,9 @@ internal object CompressionUtil {
 	}
 
 	/**
-	 * Decompress deflate compressed data - exact same as iOS
-	 * iOS COMPRESSION_ZLIB produces raw deflate data (no headers)
+	 * Decompress deflate compressed data
 	 */
 	fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
-		// iOS COMPRESSION_ZLIB produces raw deflate format (no headers)
 		try {
 			val inflater = Inflater(true) // true = raw deflate, no headers
 			inflater.setInput(compressedData)
@@ -83,7 +93,7 @@ internal object CompressionUtil {
 			val actualSize = inflater.inflate(decompressedBuffer)
 			inflater.end()
 
-			// Verify decompressed size matches expected (same validation as iOS)
+			// Verify decompressed size matches expected
 			return if (actualSize == originalSize) {
 				decompressedBuffer
 			}
@@ -130,7 +140,7 @@ internal object CompressionUtil {
 	 */
 	fun testCompression(): Boolean {
 		try {
-			// Create test data that should compress well (repeating pattern like iOS would use)
+			// Create test data that should compress well
 			val testMessage = "This is a test message that should compress well. ".repeat(10)
 			val originalData = testMessage.toByteArray()
 
