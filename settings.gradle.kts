@@ -24,3 +24,4 @@ rootProject.name = "LapisBt"
 include(":app")
 include(":lapisbt")
 include(":bluetooth-testing")
+include(":lapisbt-rpc")

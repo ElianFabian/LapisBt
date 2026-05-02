@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -363,6 +364,7 @@ internal class LapisBtImpl(
 
 	// NOTES: when 2 devices are connected and we try to pair them the connection is closed
 	override fun pairDevice(deviceAddress: String): Boolean {
+		println("$$$$ LapisBtImpl.pairDevice: $deviceAddress")
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 
 		if (device.createBond()) {
@@ -391,6 +393,7 @@ internal class LapisBtImpl(
 		return false
 	}
 
+	// It seems that unpairing a device will force the disconnection
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
@@ -1065,6 +1068,8 @@ internal class LapisBtImpl(
 	}
 
 	// Both server and the device who connects have to do it insecurely to avoid the need of linking.
+	// It seems that when we connect to a device, for both the bond state changes to bonding and then none,
+	// which seems very weird.
 	private suspend fun connectToDeviceInternal(
 		deviceAddress: String,
 		serviceUuid: UUID,
@@ -1220,6 +1225,7 @@ internal class LapisBtImpl(
 					ensureActive()
 
 					try {
+						println("$$$ connect 2")
 						connect()
 						return@withContext true
 					}
@@ -1241,7 +1247,7 @@ internal class LapisBtImpl(
 	}
 
 	private fun requireValidAddress(deviceAddress: String) {
-		require(checkBluetoothAddress(deviceAddress)) {
+		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
 			"The device address '$deviceAddress' is invalid"
 		}
 	}

@@ -1,0 +1,21 @@
+package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data
+
+import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
+import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
+import com.elianfabian.lapisbt_rpc.annotation.LapisParam
+
+@LapisRpc(name = "SimpleBluetoothRpc")
+interface SimpleBluetoothRpc {
+
+	@LapisMethod(name = "showToast")
+	suspend fun showToast(
+		@LapisParam(name = "message1")
+		message: String,
+	)
+
+	@LapisMethod(name = "getMyOwnAddress")
+	suspend fun getMyOwnAddress(): String
+
+	 @LapisMethod(name = "openAppSettings")
+	 suspend fun openAppSettings()
+}

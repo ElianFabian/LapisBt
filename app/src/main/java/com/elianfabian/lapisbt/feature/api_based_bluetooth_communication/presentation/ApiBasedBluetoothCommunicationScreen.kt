@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation
+package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presentation
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -27,10 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
@@ -47,11 +45,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,15 +63,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlin.random.Random
 
 @Composable
-fun ManualBluetoothCommunicationScreen(
-	state: ManualBluetoothCommunicationState,
-	onAction: (action: ManualBluetoothCommunicationAction) -> Unit,
+fun ApiBasedBluetoothCommunicationScreen(
+	state: ApiBasedBluetoothCommunicationState,
+	onAction: (action: ApiBasedBluetoothCommunicationAction) -> Unit,
 ) {
 	if (state.permissionDialog != null) {
 		val dialogState = state.permissionDialog
@@ -174,13 +171,13 @@ fun ManualBluetoothCommunicationScreen(
 								.padding(8.dp)
 						) {
 							when (state.selectedDevice) {
-								is ManualBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
 									Text(
 										text = "All devices",
 										fontWeight = FontWeight.Bold,
 									)
 								}
-								is ManualBluetoothCommunicationState.SelectedDevice.Device -> {
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
 									val device = state.selectedDevice.device
 
 									Text(text = device.name ?: "(No name)")
@@ -188,7 +185,7 @@ fun ManualBluetoothCommunicationScreen(
 									Text(text = device.address)
 								}
 
-								is ManualBluetoothCommunicationState.SelectedDevice.None -> {
+								is ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
 									Text(text = "No selected device")
 								}
 							}
@@ -208,7 +205,7 @@ fun ManualBluetoothCommunicationScreen(
 								Text(text = device.name ?: device.address)
 							},
 							onClick = {
-								onAction(ManualBluetoothCommunicationAction.SelectTargetDeviceToMessage(device))
+								onAction(ApiBasedBluetoothCommunicationAction.SelectTargetDeviceToMessage(device))
 								isDeviceSelectorExpanded = false
 							},
 						)
@@ -223,7 +220,7 @@ fun ManualBluetoothCommunicationScreen(
 								)
 							},
 							onClick = {
-								onAction(ManualBluetoothCommunicationAction.SelectAllDevicesToMessage)
+								onAction(ApiBasedBluetoothCommunicationAction.SelectAllDevicesToMessage)
 								isDeviceSelectorExpanded = false
 							},
 						)
@@ -231,42 +228,42 @@ fun ManualBluetoothCommunicationScreen(
 				}
 
 				Spacer(Modifier.height(8.dp))
-				Row(
-					verticalAlignment = Alignment.Top,
-					modifier = Modifier.fillMaxWidth()
-				) {
-					TextField(
-						value = state.enteredMessage,
-						onValueChange = { value ->
-							onAction(ManualBluetoothCommunicationAction.EnterMessage(value))
-						},
-						placeholder = {
-							Text(
-								text = if (state.isBluetoothOn) {
-									"Message to send"
-								}
-								else "Bluetooth is off"
-							)
-						},
-						enabled = state.isBluetoothOn,
-						modifier = Modifier
-							.weight(1f)
-					)
-					IconButton(
-						onClick = {
-							onAction(ManualBluetoothCommunicationAction.SendMessage)
-							haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-						},
-						enabled = state.isBluetoothOn,
-						modifier = Modifier
-							.size(56.dp)
-					) {
-						Icon(
-							imageVector = Icons.AutoMirrored.Filled.Send,
-							contentDescription = null,
-						)
-					}
-				}
+//				Row(
+//					verticalAlignment = Alignment.Top,
+//					modifier = Modifier.fillMaxWidth()
+//				) {
+//					TextField(
+//						value = state.enteredMessage,
+//						onValueChange = { value ->
+//							onAction(ApiBasedBluetoothCommunicationAction.EnterMessage(value))
+//						},
+//						placeholder = {
+//							Text(
+//								text = if (state.isBluetoothOn) {
+//									"Message to send"
+//								}
+//								else "Bluetooth is off"
+//							)
+//						},
+//						enabled = state.isBluetoothOn,
+//						modifier = Modifier
+//							.weight(1f)
+//					)
+//					IconButton(
+//						onClick = {
+//							onAction(ApiBasedBluetoothCommunicationAction.SendMessage)
+//							haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+//						},
+//						enabled = state.isBluetoothOn,
+//						modifier = Modifier
+//							.size(56.dp)
+//					) {
+//						Icon(
+//							imageVector = Icons.AutoMirrored.Filled.Send,
+//							contentDescription = null,
+//						)
+//					}
+//				}
 				Spacer(Modifier.height(6.dp))
 				Row(
 					horizontalArrangement = Arrangement.SpaceAround,
@@ -280,10 +277,10 @@ fun ManualBluetoothCommunicationScreen(
 					Button(
 						onClick = {
 							if (state.isScanning) {
-								onAction(ManualBluetoothCommunicationAction.StopScan)
+								onAction(ApiBasedBluetoothCommunicationAction.StopScan)
 							}
 							else {
-								onAction(ManualBluetoothCommunicationAction.StartScan)
+								onAction(ApiBasedBluetoothCommunicationAction.StartScan)
 							}
 							haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 						}
@@ -310,10 +307,10 @@ fun ManualBluetoothCommunicationScreen(
 						Button(
 							onClick = {
 								if (state.isWaitingForConnection) {
-									onAction(ManualBluetoothCommunicationAction.StopServer)
+									onAction(ApiBasedBluetoothCommunicationAction.StopServer)
 								}
 								else {
-									onAction(ManualBluetoothCommunicationAction.StartServer)
+									onAction(ApiBasedBluetoothCommunicationAction.StartServer)
 								}
 								haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 							},
@@ -344,7 +341,7 @@ fun ManualBluetoothCommunicationScreen(
 									}
 									else HapticFeedbackType.ToggleOff
 								)
-								onAction(ManualBluetoothCommunicationAction.CheckUseSecureConnection(checked))
+								onAction(ApiBasedBluetoothCommunicationAction.CheckUseSecureConnection(checked))
 							},
 						)
 					}
@@ -356,23 +353,13 @@ fun ManualBluetoothCommunicationScreen(
 
 @Composable
 private fun BluetoothDeviceList(
-	state: ManualBluetoothCommunicationState,
-	onAction: (action: ManualBluetoothCommunicationAction) -> Unit,
+	state: ApiBasedBluetoothCommunicationState,
+	onAction: (action: ApiBasedBluetoothCommunicationAction) -> Unit,
 	modifier: Modifier = Modifier,
 ) {
-	val lazyListState = rememberLazyListState()
-
-	LaunchedEffect(state.messages) {
-		if (lazyListState.layoutInfo.totalItemsCount == 0) {
-			return@LaunchedEffect
-		}
-		lazyListState.scrollToItem(lazyListState.layoutInfo.totalItemsCount)
-	}
-
 	val haptics = LocalHapticFeedback.current
 
 	LazyColumn(
-		state = lazyListState,
 		verticalArrangement = Arrangement.spacedBy(3.dp),
 		contentPadding = PaddingValues(bottom = 15.dp),
 		modifier = modifier
@@ -389,14 +376,14 @@ private fun BluetoothDeviceList(
 							TextField(
 								value = state.enteredBluetoothDeviceName,
 								onValueChange = { value ->
-									onAction(ManualBluetoothCommunicationAction.EnterBluetoothDeviceName(value))
+									onAction(ApiBasedBluetoothCommunicationAction.EnterBluetoothDeviceName(value))
 								},
 								modifier = Modifier.weight(1F)
 							)
 							Spacer(Modifier.width(6.dp))
 							IconButton(
 								onClick = {
-									onAction(ManualBluetoothCommunicationAction.SaveBluetoothDeviceName)
+									onAction(ApiBasedBluetoothCommunicationAction.SaveBluetoothDeviceName)
 									haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 								},
 							) {
@@ -427,7 +414,7 @@ private fun BluetoothDeviceList(
 								Spacer(Modifier.width(4.dp))
 								IconButton(
 									onClick = {
-										onAction(ManualBluetoothCommunicationAction.EditBluetoothDeviceName)
+										onAction(ApiBasedBluetoothCommunicationAction.EditBluetoothDeviceName)
 										haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 									},
 								) {
@@ -447,7 +434,7 @@ private fun BluetoothDeviceList(
 				Spacer(Modifier.height(8.dp))
 				Button(
 					onClick = {
-						onAction(ManualBluetoothCommunicationAction.MakeDeviceDiscoverable)
+						onAction(ApiBasedBluetoothCommunicationAction.MakeDeviceDiscoverable)
 						haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 					}
 				) {
@@ -456,7 +443,7 @@ private fun BluetoothDeviceList(
 				Spacer(modifier = Modifier.height(6.dp))
 				Button(
 					onClick = {
-						onAction(ManualBluetoothCommunicationAction.OpenBluetoothSettings)
+						onAction(ApiBasedBluetoothCommunicationAction.OpenBluetoothSettings)
 						haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 					}
 				) {
@@ -465,7 +452,7 @@ private fun BluetoothDeviceList(
 				Spacer(modifier = Modifier.height(6.dp))
 				Button(
 					onClick = {
-						onAction(ManualBluetoothCommunicationAction.OpenDeviceInfoSettings)
+						onAction(ApiBasedBluetoothCommunicationAction.OpenDeviceInfoSettings)
 						haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 					}
 				) {
@@ -483,7 +470,7 @@ private fun BluetoothDeviceList(
 				) {
 					Button(
 						onClick = {
-							onAction(ManualBluetoothCommunicationAction.EnableBluetooth)
+							onAction(ApiBasedBluetoothCommunicationAction.EnableBluetooth)
 							haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
 						},
 					) {
@@ -502,6 +489,63 @@ private fun BluetoothDeviceList(
 			}
 		}
 		else {
+			item {
+				Text(
+					text = "Remote actions",
+					fontWeight = FontWeight.Bold,
+					fontSize = 24.sp,
+				)
+				Column(
+					horizontalAlignment = Alignment.CenterHorizontally,
+				) {
+					Column(
+						horizontalAlignment = AbsoluteAlignment.Right,
+					) {
+						// TODO: I'm lazy, maybe we'll add this in the ViewModel
+						var text by remember { mutableStateOf("") }
+						TextField(
+							value = text,
+							onValueChange = { text = it },
+							label = { Text("Message") },
+							maxLines = 2,
+							modifier = Modifier.fillMaxWidth()
+						)
+
+						Spacer(modifier = Modifier.height(4.dp))
+
+						Button(
+							onClick = {
+								onAction(ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely(text))
+							}
+						) {
+							Text("Show toast")
+						}
+					}
+
+					Spacer(Modifier.height(16.dp))
+
+					Button(
+						onClick = {
+							onAction(ApiBasedBluetoothCommunicationAction.ClickGetMyOwnAddress)
+						}
+					) {
+						Text("Get my own address")
+					}
+
+					Spacer(Modifier.height(16.dp))
+
+					Button(
+						onClick = {
+							onAction(ApiBasedBluetoothCommunicationAction.ClickOpenAppSettingsRemotely)
+						}
+					) {
+						Text("Open app settings")
+					}
+				}
+			}
+			item {
+				Spacer(Modifier.height(16.dp))
+			}
 			item {
 				Text(
 					text = "Paired devices",
@@ -525,16 +569,16 @@ private fun BluetoothDeviceList(
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
-							onAction(ManualBluetoothCommunicationAction.ClickPairedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.ClickPairedDevice(device))
 						},
 						onLongClick = {
-							onAction(ManualBluetoothCommunicationAction.LongClickPairedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.LongClickPairedDevice(device))
 						},
 						onPair = {
-							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device))
 						},
 						onUnpair = {
-							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device))
 						},
 						modifier = Modifier
 							.fillMaxWidth()
@@ -568,25 +612,22 @@ private fun BluetoothDeviceList(
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
-							onAction(ManualBluetoothCommunicationAction.ClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.ClickScannedDevice(device))
 						},
 						onLongClick = {
-							onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(device))
 						},
 						onPair = {
-							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device))
 						},
 						onUnpair = {
-							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device))
 						},
 						modifier = Modifier
 							.fillMaxWidth()
 							.padding(vertical = 6.dp)
 					)
 				}
-			}
-			item {
-				Spacer(Modifier.height(16.dp))
 			}
 			item {
 				Text(
@@ -611,48 +652,20 @@ private fun BluetoothDeviceList(
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
-							onAction(ManualBluetoothCommunicationAction.ClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.ClickPairedDevice(device))
 						},
 						onLongClick = {
-							onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.LongClickPairedDevice(device))
 						},
 						onPair = {
-							onAction(ManualBluetoothCommunicationAction.PairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device))
 						},
 						onUnpair = {
-							onAction(ManualBluetoothCommunicationAction.UnpairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device))
 						},
 						modifier = Modifier
 							.fillMaxWidth()
 							.padding(vertical = 6.dp)
-					)
-				}
-			}
-			item {
-				Spacer(Modifier.height(16.dp))
-				Text(
-					text = "Messages",
-					fontWeight = FontWeight.Bold,
-					fontSize = 24.sp,
-				)
-			}
-			if (state.messages.isEmpty()) {
-				item {
-					Text(
-						text = "No messages",
-					)
-				}
-			}
-			else {
-				items(state.messages) { message ->
-					Message(
-						senderName = message.senderName,
-						isFromLocalUser = message.senderAddress == state.currentDeviceAddress,
-						content = message.content,
-						senderAddress = message.senderAddress,
-						onClick = {
-							onAction(ManualBluetoothCommunicationAction.ClickMessage(message))
-						},
 					)
 				}
 			}
@@ -754,74 +767,6 @@ private fun BluetoothDeviceItem(
 	}
 }
 
-@Composable
-private fun Message(
-	senderName: String?,
-	senderAddress: String,
-	isFromLocalUser: Boolean,
-	content: String,
-	onClick: () -> Unit,
-	modifier: Modifier = Modifier,
-	isLoading: Boolean = false,
-	progress: Float = 0F,
-) {
-	val backgroundColor = if (isFromLocalUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-	val textColor = if (isFromLocalUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-
-	Row(
-		horizontalArrangement = if (isFromLocalUser) Arrangement.End else Arrangement.Start,
-		modifier = modifier
-			.fillMaxWidth()
-			.clickable {
-				onClick()
-			}
-	) {
-		Column(
-			modifier = Modifier
-				.background(backgroundColor, shape = RoundedCornerShape(12.dp))
-				.padding(12.dp)
-				.widthIn(max = 280.dp)
-		) {
-			if (senderAddress.isNotBlank() && !isFromLocalUser) {
-				Text(
-					text = if (senderName != null) {
-						"$senderName · $senderAddress"
-					}
-					else senderAddress,
-					style = MaterialTheme.typography.labelMedium,
-					color = textColor.copy(alpha = 0.7f),
-					maxLines = 1,
-					overflow = TextOverflow.Ellipsis
-				)
-				Spacer(modifier = Modifier.height(4.dp))
-			}
-			if (isLoading) {
-				val animatedProgress by animateFloatAsState(
-					targetValue = progress.coerceIn(0F, 1F),
-					animationSpec = tween(
-						durationMillis = 35,
-						easing = FastOutSlowInEasing
-					),
-					label = "AnimatedProgress",
-				)
-
-				LinearProgressIndicator(
-					progress = { animatedProgress },
-					drawStopIndicator = {},
-					modifier = Modifier.fillMaxWidth()
-				)
-			}
-			else {
-				Text(
-					text = content,
-					style = MaterialTheme.typography.bodyMedium,
-					color = textColor
-				)
-			}
-		}
-	}
-}
-
 @Preview(
 	showBackground = true,
 //	widthDp = 392,
@@ -842,8 +787,8 @@ private fun Preview() = BasePreview {
 			name = name,
 			alias = name,
 			type = BluetoothDevice.Type.Unknown,
-			deviceClass = BluetoothDevice.DeviceClass.Phone.Smart,
 			majorDeviceClass = BluetoothDevice.MajorDeviceClass.Phone,
+			deviceClass = BluetoothDevice.DeviceClass.Phone.Smart,
 			uuids = emptyList(),
 			addressType = BluetoothDevice.AddressType.Unknown,
 			address = "123:45:67:89:AB:$name",
@@ -856,51 +801,28 @@ private fun Preview() = BasePreview {
 		)
 	}
 
-	ManualBluetoothCommunicationScreen(
-		state = ManualBluetoothCommunicationState(
+	ApiBasedBluetoothCommunicationScreen(
+		state = ApiBasedBluetoothCommunicationState(
 			bluetoothDeviceName = "Bluetooth Device",
 			pairedDevices = devices.filter { it.pairingState.isPaired },
 			scannedDevices = devices.filter { !it.pairingState.isPaired },
 			isBluetoothSupported = true,
 			isScanning = true,
-			isBluetoothOn = false,
+			isBluetoothOn = true,
 			useSecureConnection = false,
-//			permissionDialog = _root_ide_package_.com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationState.PermissionDialogState(
+//			permissionDialog = _root_ide_package_.com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ApiBasedBluetoothCommunicationState.PermissionDialogState(
 //				title = "Permission Denied",
 //				message = "Please, enable Bluetooth permissions in settings.",
 //				actionName = "Settings",
 //				onAction = {},
 //				onDismissRequest = {},
 //			),
-			messages = listOf(
-				"Hey",
-				"Hello",
-				"How are you?",
-//				"Good",
-//				"How about you?",
-//				"Fine, thanks",
-//				"See you later",
-//				"Bye",
-//				"Take care",
-//				"See you soon",
-//				"Have a nice day",
-//				"Goodbye",
-//				"See you next time",
-			).mapIndexed { index, s ->
-				BluetoothMessage(
-					content = s,
-					senderName = null,
-					senderAddress = "XX:60:E2:XX:98:XX",
-					isRead = true,
-				)
-			},
 			currentDeviceAddress = "XX:60:E2:XX:98:XX",
 			enteredBluetoothDeviceName = null,
 			isWaitingForConnection = false,
 			connectedDevices = emptyList(),
-			selectedDevice = ManualBluetoothCommunicationState.SelectedDevice.None,
+			selectedDevice = ApiBasedBluetoothCommunicationState.SelectedDevice.None,
 			permissionDialog = null,
-			enteredMessage = "",
 		),
 		onAction = {},
 	)
