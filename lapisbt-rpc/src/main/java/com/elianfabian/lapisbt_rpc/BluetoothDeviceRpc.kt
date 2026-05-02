@@ -287,7 +287,6 @@ internal class BluetoothDeviceRpc(
 		_requestSerializer.serialize(payloadStream, request)
 
 		packetProcessor.sendPacketData(
-			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.Type.Request.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		)
@@ -305,7 +304,6 @@ internal class BluetoothDeviceRpc(
 		_responseSerializer.serialize(payloadStream, response)
 
 		packetProcessor.sendPacketData(
-			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.Type.Response.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		)
@@ -325,7 +323,6 @@ internal class BluetoothDeviceRpc(
 
 
 		packetProcessor.sendPacketData(
-			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.Type.ErrorResponse.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		)
@@ -344,7 +341,6 @@ internal class BluetoothDeviceRpc(
 		CancellationSerializer.serialize(payloadStream, cancellation)
 
 		packetProcessor.sendPacketData(
-			packetId = UUID.randomUUID(),
 			type = CompleteBluetoothPacket.Type.Cancellation.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
 		)

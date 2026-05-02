@@ -31,7 +31,6 @@ public interface LapisPacketProcessor {
 	public suspend fun receiveData(stream: InputStream)
 
 	public suspend fun sendPacketData(
-		packetId: UUID,
 		type: Byte,
 		payload: ByteArray,
 	)
@@ -105,7 +104,6 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	}
 
 	override suspend fun sendPacketData(
-		packetId: UUID,
 		type: Byte,
 		payload: ByteArray,
 	) {
@@ -127,6 +125,8 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				0
 			}
 			else (remainingPayloadSize + fragmentPayloadSize - 1) / fragmentPayloadSize
+
+			val packetId = UUID.randomUUID()
 
 			val firstFragment = BluetoothPacket.FirstFragment(
 				packetId = packetId,
