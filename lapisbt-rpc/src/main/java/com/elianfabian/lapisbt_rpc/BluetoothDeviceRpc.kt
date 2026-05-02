@@ -127,7 +127,7 @@ internal class BluetoothDeviceRpc(
 			return when (method.name) {
 				"toString" -> "${apiInterface::class.simpleName}+Proxy@${System.identityHashCode(proxy)}#$deviceAddress"
 				"hashCode" -> System.identityHashCode(proxy)
-				"equals" -> proxy == args?.get(0)
+				"equals" -> proxy === args?.get(0)
 				else -> method.invoke(this, *args.orEmpty())
 			}
 		}
