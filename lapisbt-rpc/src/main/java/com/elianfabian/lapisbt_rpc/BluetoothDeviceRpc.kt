@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt_rpc
 import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt_rpc.annotation.LapisMetadata
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
@@ -226,7 +227,9 @@ internal class BluetoothDeviceRpc(
 
 							sendRequest(
 								request = rawRequest,
-								methodMetadata = methodAnnotation.metadata,
+								methodMetadataAnnotations = method.annotations.filter {
+									it.javaClass.getAnnotation(LapisMetadata::class.java) != null
+								},
 							)
 						}
 						catch (e: Exception) {
@@ -280,7 +283,7 @@ internal class BluetoothDeviceRpc(
 
 	private suspend fun sendRequest(
 		request: RawLapisRequest,
-		methodMetadata: Array<LapisMethod.Metadata>,
+		methodMetadataAnnotations: List<Annotation>,
 	) = withContext(Dispatchers.IO) {
 		println("$$$$ Sending request with id ${request.requestId}, service: ${request.serviceName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
 
@@ -292,7 +295,7 @@ internal class BluetoothDeviceRpc(
 		packetProcessor.sendPacketData(
 			type = CompleteBluetoothPacket.Type.Request.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadata.associate { it.key to it.value },
+			methodMetadataAnnotations,
 		)
 
 		println("$$$$ Finished sending request with id ${request.requestId}")
@@ -300,7 +303,7 @@ internal class BluetoothDeviceRpc(
 
 	private suspend fun sendResponse(
 		response: RawLapisResponse,
-		methodMetadata: Array<LapisMethod.Metadata>,
+		methodMetadataAnnotations: List<Annotation>,
 	) = withContext(Dispatchers.IO) {
 		println("$$$$ Sending response for request id ${response.requestId}, data: ${response.rawData}")
 		val byteArrayOutputStream = ByteArrayOutputStream()
@@ -311,7 +314,7 @@ internal class BluetoothDeviceRpc(
 		packetProcessor.sendPacketData(
 			type = CompleteBluetoothPacket.Type.Response.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadata = methodMetadata.associate { it.key to it.value },
+			methodMetadataAnnotations = methodMetadataAnnotations,
 		)
 
 		println("$$$$ Finished sending response with id ${response.requestId}")
@@ -330,7 +333,7 @@ internal class BluetoothDeviceRpc(
 		packetProcessor.sendPacketData(
 			type = CompleteBluetoothPacket.Type.ErrorResponse.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadata = emptyMap(),
+			methodMetadataAnnotations = emptyList(),
 		)
 
 		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
@@ -349,7 +352,7 @@ internal class BluetoothDeviceRpc(
 		packetProcessor.sendPacketData(
 			type = CompleteBluetoothPacket.Type.Cancellation.byteValue,
 			payload = byteArrayOutputStream.toByteArray(),
-			emptyMap(),
+			methodMetadataAnnotations = emptyList(),
 		)
 
 		println("$$$$ Finished sending cancellation with id ${cancellation.requestId}")
@@ -385,8 +388,6 @@ internal class BluetoothDeviceRpc(
 				message = "No method found with name ${rawRequest.methodName} in service ${rawRequest.serviceName}",
 			)
 		)
-
-		val methodAnnotation = method.getAnnotation(LapisMethod::class.java)!!
 
 		// TODO: at the moment all functions are suspended, but later we'll support non-suspended functions too, so we'll have to check if the method is suspended or not and call it accordingly
 		if (!method.isSuspend()) {
@@ -506,9 +507,13 @@ internal class BluetoothDeviceRpc(
 
 		interceptor.interceptOutgoingResponse(deviceAddress = deviceAddress, response = response)
 
+		val methodMetadataAnnotations = method.annotations.filter {
+			it.javaClass.getAnnotation(LapisMetadata::class.java) != null
+		}.toList()
+
 		sendResponse(
 			response = rawResponse,
-			methodMetadata = methodAnnotation.metadata,
+			methodMetadataAnnotations = methodMetadataAnnotations,
 		)
 	}
 
