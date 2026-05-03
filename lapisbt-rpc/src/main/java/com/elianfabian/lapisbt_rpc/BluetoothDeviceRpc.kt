@@ -191,7 +191,7 @@ internal class BluetoothDeviceRpc(
 						try {
 							val metadata = metadataProvider.createMetadataForOutgoingRequest(
 								deviceAddress = deviceAddress,
-								requestId = requestId.toString(),
+								requestId = requestId,
 								serviceName = serviceName,
 								methodName = methodName,
 								arguments = argumentsByName,
