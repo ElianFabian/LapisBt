@@ -5,7 +5,7 @@ public interface LapisMetadataProvider<out T> {
 	public suspend fun createMetadataForOutgoingRequest(
 		deviceAddress: String,
 		requestId: String,
-		apiName: String,
+		serviceName: String,
 		methodName: String,
 		arguments: Map<String, Any?>,
 	): T
@@ -21,7 +21,7 @@ internal object NoOpLapisMetadataProvider : LapisMetadataProvider<Nothing?> {
 	override suspend fun createMetadataForOutgoingRequest(
 		deviceAddress: String,
 		requestId: String,
-		apiName: String,
+		serviceName: String,
 		methodName: String,
 		arguments: Map<String, Any?>,
 	): Nothing? {

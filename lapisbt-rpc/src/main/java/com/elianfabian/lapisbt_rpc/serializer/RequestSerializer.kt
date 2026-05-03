@@ -14,7 +14,7 @@ internal object RequestSerializer : LapisSerializer<RawLapisRequest> {
 
 		dataStream.writeLong(data.requestId.mostSignificantBits)
 		dataStream.writeLong(data.requestId.leastSignificantBits)
-		dataStream.writeUTF(data.apiName)
+		dataStream.writeUTF(data.serviceName)
 		dataStream.writeUTF(data.methodName)
 		dataStream.writeInt(data.rawArguments.size)
 
@@ -54,7 +54,7 @@ internal object RequestSerializer : LapisSerializer<RawLapisRequest> {
 
 		return RawLapisRequest(
 			requestId = requestId,
-			apiName = apiName,
+			serviceName = apiName,
 			methodName = methodName,
 			rawArguments = arguments,
 			rawMetadata = metadata,

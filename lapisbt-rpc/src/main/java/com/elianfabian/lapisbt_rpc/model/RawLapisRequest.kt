@@ -4,7 +4,7 @@ import java.util.UUID
 
 internal data class RawLapisRequest(
 	val requestId: UUID,
-	val apiName: String,
+	val serviceName: String,
 	val methodName: String,
 	val rawArguments: Map<String, ByteArray>,
 	val rawMetadata: ByteArray,
@@ -16,7 +16,7 @@ internal data class RawLapisRequest(
 		other as RawLapisRequest
 
 		if (requestId != other.requestId) return false
-		if (apiName != other.apiName) return false
+		if (serviceName != other.serviceName) return false
 		if (methodName != other.methodName) return false
 		if (rawArguments.size != other.rawArguments.size) return false
 
@@ -30,7 +30,7 @@ internal data class RawLapisRequest(
 
 	override fun hashCode(): Int {
 		var result = requestId.hashCode()
-		result = 31 * result + apiName.hashCode()
+		result = 31 * result + serviceName.hashCode()
 		result = 31 * result + methodName.hashCode()
 		result = 31 * result + rawArguments.entries.sumOf { (key, value) -> key.hashCode() + value.contentHashCode() }
 		result = 31 * result + rawMetadata.contentHashCode()

@@ -119,13 +119,13 @@ internal class BluetoothDeviceRpc(
 
 	fun functionCall(
 		proxy: Any,
-		apiInterface: Class<*>,
+		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
 	): Any {
 		if (method.declaringClass == Any::class.java) {
 			return when (method.name) {
-				"toString" -> "${apiInterface::class.simpleName}+Proxy[$deviceAddress]@${System.identityHashCode(proxy)}"
+				"toString" -> "${serviceInterface::class.simpleName}+Proxy[$deviceAddress]@${System.identityHashCode(proxy)}"
 				"hashCode" -> System.identityHashCode(proxy)
 				"equals" -> proxy === args?.get(0)
 				else -> method.invoke(this, *args.orEmpty())
@@ -149,8 +149,8 @@ internal class BluetoothDeviceRpc(
 		@Suppress("UNCHECKED_CAST")
 		val continuation = args.orEmpty().last() as Continuation<Any?>
 		return try {
-			val apiAnnotation = apiInterface.getAnnotation(LapisRpc::class.java) ?: error("API interface ${apiInterface.name} is missing ${LapisRpc::class.simpleName} annotation")
-			val apiName = apiAnnotation.name
+			val serviceAnnotation = serviceInterface.getAnnotation(LapisRpc::class.java) ?: error("Service interface ${serviceInterface.name} is missing ${LapisRpc::class.simpleName} annotation")
+			val serviceName = serviceAnnotation.name
 
 			val methodAnnotation = method.getAnnotation(LapisMethod::class.java) ?: error("Method ${method.name} is missing ${LapisMethod::class.simpleName} annotation")
 			val methodName = methodAnnotation.name
@@ -192,7 +192,7 @@ internal class BluetoothDeviceRpc(
 							val metadata = metadataProvider.createMetadataForOutgoingRequest(
 								deviceAddress = deviceAddress,
 								requestId = requestId.toString(),
-								apiName = apiName,
+								serviceName = serviceName,
 								methodName = methodName,
 								arguments = argumentsByName,
 							)
@@ -201,7 +201,7 @@ internal class BluetoothDeviceRpc(
 
 							val rawRequest = RawLapisRequest(
 								requestId = requestId,
-								apiName = apiName,
+								serviceName = serviceName,
 								methodName = methodName,
 								rawArguments = argumentsByName.mapValues { (_, value) ->
 									val byteArrayOutputStream = ByteArrayOutputStream()
@@ -216,7 +216,7 @@ internal class BluetoothDeviceRpc(
 
 							val request = LapisRequest(
 								requestId = requestId,
-								apiName = apiName,
+								serviceName = serviceName,
 								methodName = methodName,
 								arguments = argumentsByName,
 								metadata = metadata,
@@ -278,7 +278,7 @@ internal class BluetoothDeviceRpc(
 	private suspend fun sendRequest(
 		request: RawLapisRequest,
 	) = withContext(Dispatchers.IO) {
-		println("$$$$ Sending request with id ${request.requestId}, api: ${request.apiName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
+		println("$$$$ Sending request with id ${request.requestId}, service: ${request.serviceName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
 
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		val payloadStream = DataOutputStream(byteArrayOutputStream)
@@ -348,32 +348,32 @@ internal class BluetoothDeviceRpc(
 
 	private suspend fun processPacketAsRequest(completePacket: CompleteBluetoothPacket) {
 		val rawRequest = RequestSerializer.deserialize(completePacket.payloadStream)
-		println("$$$$ process deserialized request with id ${rawRequest.requestId}, api: ${rawRequest.apiName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
+		println("$$$$ process deserialized request with id ${rawRequest.requestId}, servuce: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
 
-		val serverImplementation = lapisRpc.getBluetoothServerApiByName(
+		val serverImplementation = lapisRpc.getBluetoothServerServiceByName(
 			deviceAddress = deviceAddress,
-			apiName = rawRequest.apiName,
+			serviceName = rawRequest.serviceName,
 		)
 
-		println("$$$$ Found server implementation for API ${rawRequest.apiName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
+		println("$$$$ Found server implementation for service ${rawRequest.serviceName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
 
-		val apiInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
-			inter.getAnnotation(LapisRpc::class.java)?.name == rawRequest.apiName
+		val serviceInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
+			inter.getAnnotation(LapisRpc::class.java)?.name == rawRequest.serviceName
 		} ?: return sendErrorResponse(
 			LapisErrorResponse(
 				requestId = rawRequest.requestId,
-				message = "No interface found for API: ${rawRequest.apiName}",
+				message = "No interface found for service: ${rawRequest.serviceName}",
 			)
 		)
 
-		val method = apiInterface.methods.firstOrNull { method ->
+		val method = serviceInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
 			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${rawRequest.methodName}")
 			annotation?.name == rawRequest.methodName
 		} ?: return sendErrorResponse(
 			LapisErrorResponse(
 				requestId = rawRequest.requestId,
-				message = "No method found with name ${rawRequest.methodName} in API ${rawRequest.apiName}",
+				message = "No method found with name ${rawRequest.methodName} in service ${rawRequest.serviceName}",
 			)
 		)
 
@@ -382,7 +382,7 @@ internal class BluetoothDeviceRpc(
 			sendErrorResponse(
 				LapisErrorResponse(
 					requestId = rawRequest.requestId,
-					message = "The method '${rawRequest.methodName}' in API ${rawRequest.apiName} is not marked as suspend",
+					message = "The method '${rawRequest.methodName}' in service ${rawRequest.serviceName} is not marked as suspend",
 				)
 			)
 			error("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
@@ -409,7 +409,7 @@ internal class BluetoothDeviceRpc(
 		}.toMap()
 
 		if (missingParameters.isNotEmpty()) {
-			val message = "Missing parameters from request ${rawRequest.requestId} for API server ${rawRequest.apiName}, and method ${rawRequest.methodName}: $missingParameters"
+			val message = "Missing parameters from request ${rawRequest.requestId} for service ${rawRequest.serviceName}, and method ${rawRequest.methodName}: $missingParameters"
 
 			sendErrorResponse(
 				LapisErrorResponse(
@@ -424,7 +424,7 @@ internal class BluetoothDeviceRpc(
 
 		rawRequest.rawArguments.keys.forEach { clientParameterName ->
 			if (clientParameterName !in parametersNames) {
-				Log.w(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with API name '${rawRequest.apiName}'")
+				Log.w(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with service name '${rawRequest.serviceName}'")
 			}
 		}
 
@@ -437,7 +437,7 @@ internal class BluetoothDeviceRpc(
 
 		val request = LapisRequest(
 			requestId = rawRequest.requestId,
-			apiName = rawRequest.apiName,
+			serviceName = rawRequest.serviceName,
 			methodName = rawRequest.methodName,
 			arguments = orderedArgsByName,
 			metadata = metadata,
