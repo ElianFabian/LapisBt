@@ -44,6 +44,8 @@ internal class LapisBtImpl(
 
 	private val _scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+	private var _isDisposed = false
+
 	private val _isConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
 
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
@@ -112,6 +114,8 @@ internal class LapisBtImpl(
 
 
 	override fun setBluetoothDeviceName(newName: String): Boolean {
+		checkIsNotDispose()
+
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			return false
 		}
@@ -140,6 +144,8 @@ internal class LapisBtImpl(
 	// On some devices like Xiaomi Mi MIX 2S - API 29
 	// This won't work unless the location is enabled
 	override fun startScan(): Boolean {
+		checkIsNotDispose()
+
 		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
 		}
@@ -150,6 +156,8 @@ internal class LapisBtImpl(
 	}
 
 	override fun stopScan(): Boolean {
+		checkIsNotDispose()
+
 		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
 		}
@@ -158,10 +166,14 @@ internal class LapisBtImpl(
 	}
 
 	override fun clearScannedDevices() {
+		checkIsNotDispose()
+
 		_scannedDevices.value = emptyList()
 	}
 
 	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
+		checkIsNotDispose()
+
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
 			serviceUuid = serviceUuid,
@@ -169,6 +181,8 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
+		checkIsNotDispose()
+
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
 			serviceUuid = serviceUuid,
@@ -177,6 +191,8 @@ internal class LapisBtImpl(
 	}
 
 	override fun stopBluetoothServer(serviceUuid: UUID) {
+		checkIsNotDispose()
+
 		if (serviceUuid !in _bluetoothServerSocketByServiceUuid) {
 			throw IllegalStateException("Attempted to stop a Bluetooth server that was not registered or already stopped (UUID: $serviceUuid).")
 		}
@@ -189,6 +205,8 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): LapisBt.ConnectionResult {
+		checkIsNotDispose()
+
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
@@ -196,6 +214,8 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): LapisBt.ConnectionResult {
+		checkIsNotDispose()
+
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
@@ -204,6 +224,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun disconnectFromDevice(deviceAddress: String): Boolean {
+		checkIsNotDispose()
 		requireValidAddress(deviceAddress)
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
@@ -281,6 +302,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean {
+		checkIsNotDispose()
 		requireValidAddress(deviceAddress)
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
@@ -327,10 +349,13 @@ internal class LapisBtImpl(
 	}
 
 	override fun getRemoteDevice(deviceAddress: String): BluetoothDevice {
+		checkIsNotDispose()
+
 		return getRemoteDeviceInternal(deviceAddress)
 	}
 
 	private fun getRemoteDeviceInternal(deviceAddress: String): BluetoothDevice {
+		checkIsNotDispose()
 		requireValidAddress(deviceAddress)
 
 		val pairedDevice = _pairedDevices.value.find { it.address == deviceAddress }
@@ -360,6 +385,8 @@ internal class LapisBtImpl(
 	}
 
 	override fun startDevicePairing(deviceAddress: String): Boolean {
+		checkIsNotDispose()
+
 		println("$$$$ LapisBtImpl.startDevicePairing: $deviceAddress")
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 
@@ -392,6 +419,8 @@ internal class LapisBtImpl(
 	// It seems that unpairing a device will force the disconnection
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: String): Boolean {
+		checkIsNotDispose()
+
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 
 		if (device.removeBond()) {
@@ -404,6 +433,8 @@ internal class LapisBtImpl(
 
 	@InternalBluetoothReflectionApi
 	override fun cancelPairingAttempt(deviceAddress: String): Boolean {
+		checkIsNotDispose()
+
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 
 		if (device.cancelBondProcess()) {
@@ -414,6 +445,8 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean {
+		checkIsNotDispose()
+
 		requireValidAddress(deviceAddress)
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
@@ -439,6 +472,8 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean {
+		checkIsNotDispose()
+
 		requireValidAddress(deviceAddress)
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
@@ -466,6 +501,10 @@ internal class LapisBtImpl(
 
 	// TODO: check if everything in this class was garbage-collected
 	override fun dispose() {
+		if (_isDisposed) {
+			return
+		}
+
 		_scope.cancel()
 
 		_bluetoothServerSocketByServiceUuid.forEach { (_, serverSocket) ->
@@ -1220,6 +1259,12 @@ internal class LapisBtImpl(
 	private fun requireValidAddress(deviceAddress: String) {
 		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
 			"The device address '$deviceAddress' is invalid"
+		}
+	}
+
+	private fun checkIsNotDispose() {
+		check(!_isDisposed) {
+			"Can't no longer use this ${LapisBt::class.simpleName} since it was disposed."
 		}
 	}
 

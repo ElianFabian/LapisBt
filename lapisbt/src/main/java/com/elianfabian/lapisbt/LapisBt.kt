@@ -339,6 +339,12 @@ public interface LapisBt {
 
 	public companion object {
 
+		/**
+		 * Creates a new instance of [LapisBt].
+		 *
+		 * To ensure state consistency, you should maintain a single instance of this interface
+		 * throughout your application's lifecycle.
+		 */
 		public fun newInstance(context: Context): LapisBt {
 			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
