@@ -360,7 +360,7 @@ internal class BluetoothDeviceRpc(
 
 	private suspend fun processPacketAsRequest(completePacket: CompleteBluetoothPacket) {
 		val rawRequest = RequestSerializer.deserialize(completePacket.payloadStream)
-		println("$$$$ process deserialized request with id ${rawRequest.requestId}, servuce: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
+		println("$$$$ process deserialized request with id ${rawRequest.requestId}, service: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
 
 		val serverImplementation = lapisRpc.getBluetoothServerServiceByName(
 			deviceAddress = deviceAddress,
