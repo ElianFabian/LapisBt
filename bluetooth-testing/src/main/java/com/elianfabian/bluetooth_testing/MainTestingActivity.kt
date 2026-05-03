@@ -148,7 +148,7 @@ class MainTestingActivity : AppCompatActivity() {
 				logAction(action) {
 					val address = intent.getStringExtra("address") ?: return
 
-					lapisBt.pairDevice(address)
+					lapisBt.startDevicePairing(address)
 				}
 			}
 			"unpair-device" -> {

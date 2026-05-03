@@ -18,7 +18,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,8 +66,8 @@ internal class LapisBtImpl(
 	)
 	override val bluetoothDeviceName = _bluetoothDeviceName.asStateFlow()
 
-	override val isBluetoothSupported: Boolean
-		get() = androidHelper.isBluetoothSupported()
+	override val isBluetoothClassicSupported: Boolean
+		get() = androidHelper.isBluetoothClassicSupported()
 
 	private val _bluetoothState = MutableStateFlow(
 		if (lapisAdapter.isEnabled) {
@@ -116,11 +115,9 @@ internal class LapisBtImpl(
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			return false
 		}
-//		if (!canChangeBluetoothDeviceName) {
-//			return false
-//		}
+
 		// Not all devices support changing the Bluetooth name, and there doesn't seem to be a way to check it
-		// Here's a list of devices that I tested that support it:
+		// Here's a list of devices that we tested that support it:
 		// - Google
 		// - Motorola
 		// - Sony Xperia 10 (34)
@@ -362,9 +359,8 @@ internal class LapisBtImpl(
 		)
 	}
 
-	// NOTES: when 2 devices are connected and we try to pair them the connection is closed
-	override fun pairDevice(deviceAddress: String): Boolean {
-		println("$$$$ LapisBtImpl.pairDevice: $deviceAddress")
+	override fun startDevicePairing(deviceAddress: String): Boolean {
+		println("$$$$ LapisBtImpl.startDevicePairing: $deviceAddress")
 		val device = lapisAdapter.getRemoteDevice(deviceAddress)
 
 		if (device.createBond()) {
@@ -492,8 +488,7 @@ internal class LapisBtImpl(
 		if (lapisAdapter.isEnabled) {
 			updateDevices()
 		}
-		// Using the events to update these states makes the code a little cleaner,
-		// but we'll have to see if it won't break anything
+
 		_scope.launch {
 			_events.collect { event ->
 				when (event) {
@@ -608,14 +603,7 @@ internal class LapisBtImpl(
 			}
 		}
 		_scope.launch {
-			// NOTES: it is possible that a device is paired with us but we don't have it in our pairedDevices list because we
-			// unpaired it, and when we try to pair with it it will show an error in the UI, but I'm not sure if we can
-			// reliably detect that case here
-			// It also seems that they can't connect when this happens, it doesn't seem we can detect reliably detect this
-			// If the device who has the other device unpaired tries to pair it will show a UI error, if the other device tries nothing will happen
-			// The device that has the other device paired when it scans for other devices the paired device will appear as scanned
 			bluetoothEvents.deviceBondStateChangeFlow.collect { lapisDevice ->
-
 				println("$$$ Device bond state changed: $lapisDevice")
 
 				_scannedDevices.update { devices ->
@@ -658,7 +646,11 @@ internal class LapisBtImpl(
 						else existingDevice
 					}
 
-					if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED && lapisDevice.address !in devices.map { it.address } && lapisDevice.address !in _scannedDevices.value.map { it.address }) {
+					if (
+						lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED
+						&& lapisDevice.address !in devices.map { it.address }
+						&& lapisDevice.address !in _scannedDevices.value.map { it.address }
+					) {
 						val newDevice = lapisDevice.toModel(
 							connectionState = if (_clientSocketByAddress[lapisDevice.address]?.isConnected == true) {
 								BluetoothDevice.ConnectionState.Connected
@@ -690,7 +682,7 @@ internal class LapisBtImpl(
 					}
 				}
 
-				// In some cases, while this device is actively connected (without bonding),
+				// During testing with a Realme 6 API 30 device while this device is actively connected (without bonding),
 				// a third-party device may initiate a pairing request (with the device we're connected to).
 				// Even if that request is rejected or times out,
 				// the Android Bluetooth stack can incorrectly
@@ -756,7 +748,6 @@ internal class LapisBtImpl(
 					return@collect
 				}
 
-
 				_events.emit(
 					LapisBt.Event.OnDeviceDisconnected(
 						disconnectedDevice = disconnectedDevice.toModel(
@@ -807,22 +798,6 @@ internal class LapisBtImpl(
 				val newDevice = lapisDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Disconnected,
 				)
-				//println("$$$ deviceFound = $newDevice")
-
-				if (newDevice.address in _pairedDevices.value.map { it.address }) {
-					// This probably means we had a paired device, but that device
-					// removed us from its own paired-devices list.
-					// In this case, we can remove it from our paired-devices list as well.
-					// This way we avoid connection or pairing issues.
-					// Maybe in future we consider a different approach or consider that this
-					// should be handled by the user of this library.
-					// Maybe when try to connect to a device, and it fails we could silently scan for devices,
-					// check if it appears as a scanned device and do the same, but I'm not sure if this is something
-					// we should actually do here
-
-					// For now, we'll uncomment this, I think this should be the responsibility of the user of this library.
-					//unpairDevice(newDevice.address)
-				}
 
 				_events.emit(LapisBt.Event.OnDeviceScanned(newDevice))
 
@@ -956,7 +931,6 @@ internal class LapisBtImpl(
 			) { isBluetoothOn, isBluetoothConnectPermissionGranted ->
 				if (isBluetoothOn) {
 					updateDevices()
-					//println("$$$ Bluetooth is ON, devices updated.")
 				}
 				if (isBluetoothConnectPermissionGranted) {
 					_bluetoothDeviceName.value = lapisAdapter.name
@@ -1067,9 +1041,6 @@ internal class LapisBtImpl(
 		return LapisBt.ConnectionResult.ConnectionEstablished(connectedDevice)
 	}
 
-	// Both server and the device who connects have to do it insecurely to avoid the need of linking.
-	// It seems that when we connect to a device, for both the bond state changes to bonding and then none,
-	// which seems very weird.
 	private suspend fun connectToDeviceInternal(
 		deviceAddress: String,
 		serviceUuid: UUID,

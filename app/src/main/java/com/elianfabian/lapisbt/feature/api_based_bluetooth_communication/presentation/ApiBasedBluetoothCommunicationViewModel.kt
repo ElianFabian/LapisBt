@@ -10,7 +10,6 @@ import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpc
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpcServer
-import com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationState
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.registerBluetoothServerApi
@@ -186,7 +185,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			connectedDevices = connectedDevices,
 			currentDeviceAddress = currentDeviceAddress,
 			isScanning = isScanning,
-			isBluetoothSupported = lapisBt.isBluetoothSupported,
+			isBluetoothSupported = lapisBt.isBluetoothClassicSupported,
 			isBluetoothOn = bluetoothState.isOn,
 			permissionDialog = permissionDialog,
 			bluetoothDeviceName = bluetoothName,
@@ -198,7 +197,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 		scope = _scope,
 		started = SharingStarted.WhileSubscribed(5000),
 		initialValue = ApiBasedBluetoothCommunicationState(
-			isBluetoothSupported = lapisBt.isBluetoothSupported,
+			isBluetoothSupported = lapisBt.isBluetoothClassicSupported,
 			isBluetoothOn = lapisBt.state.value.isOn,
 			useSecureConnection = _useSecureConnection.value,
 			currentDeviceAddress = null,
@@ -409,7 +408,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			}
 			is ApiBasedBluetoothCommunicationAction.PairDevice -> {
 				_scope.launch {
-					lapisBt.pairDevice(action.device.address)
+					lapisBt.startDevicePairing(action.device.address)
 				}
 			}
 			is ApiBasedBluetoothCommunicationAction.UnpairDevice -> {

@@ -10,7 +10,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -161,7 +160,7 @@ class LapisBtImplTest {
 
 		val device = lapisBt.scannedDevices.first().first()
 
-		lapisBt.pairDevice(device.address)
+		lapisBt.startDevicePairing(device.address)
 
 		lapisBt.scannedDevices.first { pairedDevices ->
 			device.address in pairedDevices.map { it.address }

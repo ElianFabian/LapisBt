@@ -10,7 +10,7 @@ internal class AndroidHelperImpl(
 	private val context: Context,
 ) : AndroidHelper {
 
-	override fun isBluetoothSupported(): Boolean {
+	override fun isBluetoothClassicSupported(): Boolean {
 		return context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
 	}
 

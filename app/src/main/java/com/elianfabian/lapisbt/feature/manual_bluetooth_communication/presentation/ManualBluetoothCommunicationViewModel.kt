@@ -267,7 +267,7 @@ class ManualBluetoothCommunicationViewModel(
 			connectedDevices = connectedDevices,
 			currentDeviceAddress = currentDeviceAddress,
 			isScanning = isScanning,
-			isBluetoothSupported = lapisBt.isBluetoothSupported,
+			isBluetoothSupported = lapisBt.isBluetoothClassicSupported,
 			isBluetoothOn = bluetoothState.isOn,
 			permissionDialog = permissionDialog,
 			bluetoothDeviceName = bluetoothName,
@@ -281,7 +281,7 @@ class ManualBluetoothCommunicationViewModel(
 		scope = _scope,
 		started = SharingStarted.WhileSubscribed(5000),
 		initialValue = ManualBluetoothCommunicationState(
-			isBluetoothSupported = lapisBt.isBluetoothSupported,
+			isBluetoothSupported = lapisBt.isBluetoothClassicSupported,
 			isBluetoothOn = lapisBt.state.value.isOn,
 			useSecureConnection = _useSecureConnection.value,
 			currentDeviceAddress = null,
@@ -510,7 +510,7 @@ class ManualBluetoothCommunicationViewModel(
 			}
 			is ManualBluetoothCommunicationAction.PairDevice -> {
 				_scope.launch {
-					lapisBt.pairDevice(action.device.address)
+					lapisBt.startDevicePairing(action.device.address)
 				}
 			}
 			is ManualBluetoothCommunicationAction.UnpairDevice -> {

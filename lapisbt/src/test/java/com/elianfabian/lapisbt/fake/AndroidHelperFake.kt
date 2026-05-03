@@ -8,7 +8,7 @@ class AndroidHelperFake(
 	var isBluetoothScanGrantedResult: Boolean,
 ) : AndroidHelper {
 
-	override fun isBluetoothSupported(): Boolean {
+	override fun isBluetoothClassicSupported(): Boolean {
 		return isBluetoothSupportedResult
 	}
 
