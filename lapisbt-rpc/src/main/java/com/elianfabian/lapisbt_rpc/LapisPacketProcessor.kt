@@ -33,6 +33,7 @@ public interface LapisPacketProcessor {
 	public suspend fun sendPacketData(
 		type: Byte,
 		payload: ByteArray,
+		methodMetadata: Map<String, String>,
 	)
 
 	public fun dispose()
@@ -106,6 +107,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	override suspend fun sendPacketData(
 		type: Byte,
 		payload: ByteArray,
+		methodMetadata: Map<String, String>,
 	) {
 		val packets = sequence {
 			val uuidBytesSize = Long.SIZE_BYTES * 2
