@@ -9,7 +9,7 @@ interface SimpleBluetoothRpc {
 
 	@LapisMethod(name = "showToast")
 	suspend fun showToast(
-		@LapisParam(name = "message1")
+		@LapisParam(name = "message")
 		message: String,
 	)
 
