@@ -9,30 +9,30 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.RemoteException
+import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
+import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
+import com.elianfabian.lapisbt_rpc.method_adapter.MethodCommunicatorImpl
+import com.elianfabian.lapisbt_rpc.method_adapter.adapter.FlowMethodAdapter
+import com.elianfabian.lapisbt_rpc.method_adapter.adapter.SuspendMethodAdapter
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
-import com.elianfabian.lapisbt_rpc.model.LapisCancellation
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
 import com.elianfabian.lapisbt_rpc.model.RawLapisRequest
-import com.elianfabian.lapisbt_rpc.model.RawLapisResponse
 import com.elianfabian.lapisbt_rpc.serializer.CancellationSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
+import com.elianfabian.lapisbt_rpc.serializer.MethodExecutionEndSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
-import com.elianfabian.lapisbt_rpc.util.getRawClass
-import com.elianfabian.lapisbt_rpc.util.getSuspendReturnType
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
-import com.elianfabian.lapisbt_rpc.util.isSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -40,13 +40,7 @@ import java.io.DataOutputStream
 import java.lang.reflect.Method
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.Continuation
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
-import kotlin.coroutines.intrinsics.intercepted
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.startCoroutine
 
 // TODO: we should find a way to encapsulate the logic for different types of functions (suspend, flow, ...)
 // TODO: add support for Result type?
@@ -61,9 +55,27 @@ internal class BluetoothDeviceRpc(
 	private val metadataProvider: LapisMetadataProvider<Any?>,
 ) {
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-	private val _pendingContinuationsByRequestId = ConcurrentHashMap<UUID, Continuation<Any?>>()
-	private val _pendingMethodByRequestId = ConcurrentHashMap<UUID, Method>()
-	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
+
+	private val _pendingClientMethodByRequestId = ConcurrentHashMap<UUID, Method>()
+	private val _pendingServerMethodByRequestId = ConcurrentHashMap<UUID, Method>()
+	private val _canSendEndByRequestId = ConcurrentHashMap<UUID, MutableStateFlow<Boolean>>()
+
+	private val _returnTypeAdapters = mutableSetOf<LapisMethodAdapter>(
+		SuspendMethodAdapter(
+			deviceAddress = deviceAddress,
+			methodCommunicator = MethodCommunicatorImpl(
+				packetProcessor = packetProcessor,
+				serializationStrategy = serializationStrategy,
+			)
+		),
+		FlowMethodAdapter(
+			deviceAddress = deviceAddress,
+			methodCommunicator = MethodCommunicatorImpl(
+				packetProcessor = packetProcessor,
+				serializationStrategy = serializationStrategy,
+			)
+		)
+	)
 
 	private val _requestSerializer = RequestSerializer
 	private val _responseSerializer = ResponseSerializer
@@ -78,7 +90,8 @@ internal class BluetoothDeviceRpc(
 							return@collect
 						}
 
-						internalDispose(disconnected = true)
+						println("$$$ device disconnected")
+						internalDispose()
 					}
 					else -> Unit
 				}
@@ -111,6 +124,9 @@ internal class BluetoothDeviceRpc(
 						CompleteBluetoothPacket.Type.Cancellation -> {
 							processPacketAsCancellation(completePacket)
 						}
+						CompleteBluetoothPacket.Type.MethodExecutionEnd -> {
+							processPacketAsMethodExecutionEnd(completePacket)
+						}
 					}
 				}
 			}
@@ -124,6 +140,7 @@ internal class BluetoothDeviceRpc(
 		method: Method,
 		args: Array<out Any?>?,
 	): Any {
+		println("$$$ functionCall: method: $method, args: ${args.contentToString()}")
 		if (method.declaringClass == Any::class.java) {
 			return when (method.name) {
 				"toString" -> "${serviceInterface::class.simpleName}+Proxy[$deviceAddress]@${System.identityHashCode(proxy)}"
@@ -139,147 +156,86 @@ internal class BluetoothDeviceRpc(
 		}
 
 		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
-		val parameterTypes = method.parameterTypes
-		val isSuspend = parameterTypes.isNotEmpty() && Continuation::class.java.isAssignableFrom(parameterTypes.last())
 
-		if (!isSuspend) {
-			// Later we'll support non-suspended functions too for Flow support
-			error("Non-suspended functions aren't yet supported")
+		val serviceAnnotation = serviceInterface.getAnnotation(LapisRpc::class.java) ?: error("Service interface ${serviceInterface.name} is missing ${LapisRpc::class.simpleName} annotation")
+		val serviceName = serviceAnnotation.name
+
+		val methodAnnotation = method.getAnnotation(LapisMethod::class.java) ?: error("Method ${method.name} is missing ${LapisMethod::class.simpleName} annotation")
+		val methodName = methodAnnotation.name
+
+		val valueArgs = args.orEmpty().dropLast(1)
+		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
+			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
+			paramAnnotation.name
 		}
 
-		@Suppress("UNCHECKED_CAST")
-		val continuation = args.orEmpty().last() as Continuation<Any?>
-		return try {
-			val serviceAnnotation = serviceInterface.getAnnotation(LapisRpc::class.java) ?: error("Service interface ${serviceInterface.name} is missing ${LapisRpc::class.simpleName} annotation")
-			val serviceName = serviceAnnotation.name
+		val argumentsByName = parametersNames.zip(valueArgs).toMap()
 
-			val methodAnnotation = method.getAnnotation(LapisMethod::class.java) ?: error("Method ${method.name} is missing ${LapisMethod::class.simpleName} annotation")
-			val methodName = methodAnnotation.name
+		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 
-			val valueArgs = args.orEmpty().dropLast(1)
-			val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
-				val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
-				paramAnnotation.name
-			}
+		val requestId = UUID.randomUUID()
 
-			val argumentsByName = parametersNames.zip(valueArgs).toMap()
+		val result = adapter.functionCall(
+			requestId = requestId,
+			method = method,
+			args = args,
+		)
 
-			val rpcBlock = suspend {
-				suspendCancellableCoroutine { cancellableContinuation ->
-					val requestId = UUID.randomUUID()
+		println("$$$ functionCall($requestId) = $requestId")
+		_scope.launch {
+			_pendingClientMethodByRequestId[requestId] = method
+			println("$$$ add pending method($requestId) = $method")
 
-					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
-					_pendingMethodByRequestId[requestId] = method
+			val metadata = metadataProvider.createMetadataForOutgoingRequest(
+				deviceAddress = deviceAddress,
+				requestId = requestId,
+				serviceName = serviceName,
+				methodName = methodName,
+				arguments = argumentsByName,
+			)
 
-					cancellableContinuation.invokeOnCancellation { cause ->
-						println("$$$ invokeOnCompletion($requestId): $cause")
-						_pendingContinuationsByRequestId.remove(requestId)
-						_pendingMethodByRequestId.remove(requestId)
+			sendRequest(
+				request = RawLapisRequest(
+					requestId = requestId,
+					serviceName = serviceName,
+					methodName = methodName,
+					rawArguments = argumentsByName.mapValues { (_, value) ->
+						val byteArrayOutputStream = ByteArrayOutputStream()
 
-						if (cause is CancellationException) {
-							_scope.launch {
-								try {
-									sendCancellation(LapisCancellation(requestId = requestId))
-								}
-								catch (e: Exception) {
-									Log.e(TAG, "Failed to send cancellation for $requestId", e)
-								}
-							}
-						}
-					}
-
-					_scope.launch {
-						try {
-							val metadata = metadataProvider.createMetadataForOutgoingRequest(
-								deviceAddress = deviceAddress,
-								requestId = requestId,
-								serviceName = serviceName,
-								methodName = methodName,
-								arguments = argumentsByName,
-							)
-
-							val serializedMetadata = metadataProvider.serializeMetadata(metadata)
-
-							val rawRequest = RawLapisRequest(
-								requestId = requestId,
-								serviceName = serviceName,
-								methodName = methodName,
-								rawArguments = argumentsByName.mapValues { (_, value) ->
-									val byteArrayOutputStream = ByteArrayOutputStream()
-
-									@Suppress("UNCHECKED_CAST")
-									val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
-									serializer.serialize(byteArrayOutputStream, value)
-									byteArrayOutputStream.toByteArray()
-								},
-								rawMetadata = serializedMetadata,
-							)
-
-							val request = LapisRequest(
-								requestId = requestId,
-								serviceName = serviceName,
-								methodName = methodName,
-								arguments = argumentsByName,
-								metadata = metadata,
-							)
-
-							interceptor.interceptOutgoingRequest(deviceAddress = deviceAddress, request = request)
-
-							sendRequest(
-								request = rawRequest,
-								methodMetadataAnnotations = method.annotations.filter {
-									it.javaClass.getAnnotation(LapisMetadata::class.java) != null
-								},
-							)
-						}
-						catch (e: Exception) {
-							if (cancellableContinuation.isActive) {
-								cancellableContinuation.resumeWithException(e)
-							}
-						}
-					}
-				}
-			}
-
-			rpcBlock.startCoroutine(continuation)
-			COROUTINE_SUSPENDED
+						@Suppress("UNCHECKED_CAST")
+						val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
+						serializer.serialize(byteArrayOutputStream, value)
+						byteArrayOutputStream.toByteArray()
+					},
+					rawMetadata = metadataProvider.serializeMetadata(metadata),
+				),
+				// TODO: we should rethink it to see if it actually makes sense
+				methodMetadataAnnotations = method.annotations.filter { it.javaClass.getAnnotation(LapisMetadata::class.java) != null },
+			)
 		}
-		catch (t: Throwable) {
-			// TODO: I'm not sure if this is the right way, maybe we should use a different dispatcher for resuming with exception?
-			Dispatchers.Default.dispatch(continuation.context) {
-				continuation.intercepted().resumeWithException(t)
-			}
-			COROUTINE_SUSPENDED
-		}
+
+		return result
 	}
 
 	fun dispose() {
+		println("$$$ dispose")
 		internalDispose()
 	}
 
 
-	private fun internalDispose(disconnected: Boolean = false) {
+	private fun internalDispose() {
+		println("$$$ internalDispose")
 		packetProcessor.dispose()
 
 		_scope.cancel()
 
-		_pendingMethodByRequestId.clear()
-
-		val message = if (disconnected) {
-			"BluetoothDeviceRpc for '$deviceAddress' is being disposed because the device got disconnected"
-		}
-		else "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
-
-		_activeServerJobs.forEach { (_, job) ->
-			job.cancel(CancellationException(message))
-		}
-		_activeServerJobs.clear()
-
-		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
-			continuation.resumeWithException(CancellationException(message))
-		}
-		_pendingContinuationsByRequestId.clear()
+		_returnTypeAdapters.forEach { it.onUnregister() }
+		_returnTypeAdapters.clear()
+		_pendingClientMethodByRequestId.clear()
+		_pendingServerMethodByRequestId.clear()
+		_canSendEndByRequestId.clear()
 	}
+
 
 	private suspend fun sendRequest(
 		request: RawLapisRequest,
@@ -301,25 +257,6 @@ internal class BluetoothDeviceRpc(
 		println("$$$$ Finished sending request with id ${request.requestId}")
 	}
 
-	private suspend fun sendResponse(
-		response: RawLapisResponse,
-		methodMetadataAnnotations: List<Annotation>,
-	) = withContext(Dispatchers.IO) {
-		println("$$$$ Sending response for request id ${response.requestId}, data: ${response.rawData}")
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		val payloadStream = DataOutputStream(byteArrayOutputStream)
-
-		_responseSerializer.serialize(payloadStream, response)
-
-		packetProcessor.sendPacketData(
-			type = CompleteBluetoothPacket.Type.Response.byteValue,
-			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadataAnnotations = methodMetadataAnnotations,
-		)
-
-		println("$$$$ Finished sending response with id ${response.requestId}")
-	}
-
 	private suspend fun sendErrorResponse(
 		errorResponse: LapisErrorResponse,
 	) = withContext(Dispatchers.IO) {
@@ -337,25 +274,6 @@ internal class BluetoothDeviceRpc(
 		)
 
 		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
-	}
-
-	private suspend fun sendCancellation(
-		cancellation: LapisCancellation,
-	) = withContext(Dispatchers.IO) {
-		println("$$$$ Sending cancellation for request id ${cancellation.requestId}")
-
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		val payloadStream = DataOutputStream(byteArrayOutputStream)
-
-		CancellationSerializer.serialize(payloadStream, cancellation)
-
-		packetProcessor.sendPacketData(
-			type = CompleteBluetoothPacket.Type.Cancellation.byteValue,
-			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadataAnnotations = emptyList(),
-		)
-
-		println("$$$$ Finished sending cancellation with id ${cancellation.requestId}")
 	}
 
 	private suspend fun processPacketAsRequest(completePacket: CompleteBluetoothPacket) {
@@ -378,6 +296,7 @@ internal class BluetoothDeviceRpc(
 			)
 		)
 
+		// TODO: we could create a map for fast method lookup
 		val method = serviceInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
 			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${rawRequest.methodName}")
@@ -389,16 +308,7 @@ internal class BluetoothDeviceRpc(
 			)
 		)
 
-		// TODO: at the moment all functions are suspended, but later we'll support non-suspended functions too, so we'll have to check if the method is suspended or not and call it accordingly
-		if (!method.isSuspend()) {
-			sendErrorResponse(
-				LapisErrorResponse(
-					requestId = rawRequest.requestId,
-					message = "The method '${rawRequest.methodName}' in service ${rawRequest.serviceName} is not marked as suspend",
-				)
-			)
-			error("Received request for non-suspended method ${method.name}, but only suspended methods are supported at the moment")
-		}
+		_pendingServerMethodByRequestId[rawRequest.requestId] = method
 
 		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
 			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
@@ -440,11 +350,6 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 
-		val currentJob = currentCoroutineContext()[Job]
-		if (currentJob != null) {
-			_activeServerJobs[rawRequest.requestId] = currentJob
-		}
-
 		val metadata = metadataProvider.deserializeMetadata(rawRequest.rawMetadata)
 
 		val request = LapisRequest(
@@ -455,14 +360,28 @@ internal class BluetoothDeviceRpc(
 			metadata = metadata,
 		)
 
-		val result = try {
+		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
+
+		try {
 			val requestInfo = LapisRequestInfo(
 				deviceAddress = deviceAddress,
 				request = request,
 			)
 			withContext(LapisRequestInfoContext(requestInfo)) {
 				interceptor.interceptIncomingRequest(deviceAddress = deviceAddress, request = request)
-				method.invokeSuspend(serverImplementation, *orderedArgsByName.values.toTypedArray())
+
+				adapter.onReceiveRequest(
+					request = request,
+					server = object : LapisServerService {
+						override fun invokeMethod(): Any? {
+							return method.invoke(serverImplementation, *orderedArgsByName.values.toTypedArray())
+						}
+
+						override suspend fun invokeSuspendMethod(): Any? {
+							return method.invokeSuspend(serverImplementation, *orderedArgsByName.values.toTypedArray())
+						}
+					}
+				)
 			}
 		}
 		catch (e: CancellationException) {
@@ -478,80 +397,67 @@ internal class BluetoothDeviceRpc(
 			return
 		}
 		finally {
-			_activeServerJobs.remove(rawRequest.requestId)
+			println("$$$ processPacketAsRequest.finally")
+			_pendingClientMethodByRequestId.remove(request.requestId)
 		}
 
-		interceptor.interceptIncomingRequestResult(
-			deviceAddress = deviceAddress,
-			request = request,
-			result = result,
-		)
-
-		println("$$$$ Method ${method.name}, with return type raw class: ${method.returnType.getRawClass()}, with generic return type raw class: ${method.genericReturnType.getRawClass()}, suspend type: ${method.getSuspendReturnType()}, with args: $orderedArgsByName, returned result: $result")
-
-		@Suppress("UNCHECKED_CAST")
-		val serializer = serializationStrategy.serializerForClass(if (result == null) Nothing::class else result::class) as? LapisSerializer<Any?> ?: error("No serializer registered for return type: ${result?.let { it::class.qualifiedName } ?: "null"}")
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		serializer.serialize(byteArrayOutputStream, result)
-		val serializedResult = byteArrayOutputStream.toByteArray()
-
-		val rawResponse = RawLapisResponse(
-			requestId = rawRequest.requestId,
-			rawData = serializedResult,
-		)
-
-		val response = LapisResponse(
-			requestId = rawRequest.requestId,
-			data = result,
-		)
-
-		interceptor.interceptOutgoingResponse(deviceAddress = deviceAddress, response = response)
-
-		val methodMetadataAnnotations = method.annotations.filter {
-			it.javaClass.getAnnotation(LapisMetadata::class.java) != null
-		}.toList()
-
-		sendResponse(
-			response = rawResponse,
-			methodMetadataAnnotations = methodMetadataAnnotations,
-		)
+//		interceptor.interceptIncomingRequestResult(
+//			deviceAddress = deviceAddress,
+//			request = request,
+//			result = result,
+//		)
 	}
 
 	private suspend fun processPacketAsResponse(completePacket: CompleteBluetoothPacket) {
 		val rawResponse = _responseSerializer.deserialize(completePacket.payloadStream)
 		println("$$$$ process deserialized response for request id ${rawResponse.requestId}, data: ${rawResponse.rawData}")
 
-		val method = _pendingMethodByRequestId.remove(rawResponse.requestId) ?: error("No pending method found for response id: ${rawResponse.requestId}")
+		// We need to make sure the response is fully processed before processing the method execution end
+		// I'm not sure if this is the best solution, but this should work for now
+		val canProcessEnd = _canSendEndByRequestId.getOrPut(rawResponse.requestId) {
+			MutableStateFlow(false)
+		}
+
+		val method = _pendingClientMethodByRequestId[rawResponse.requestId] ?: error("No pending method found for response id: ${rawResponse.requestId}")
+
+		val adapter = getMethodAdapter(method)
+
 		println("$$$$ Found pending method for response with id ${rawResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
-		val serializer = serializationStrategy.serializerForClass(method.getSuspendReturnType().kotlin) ?: error("No serializer found for return type: ${method.returnType}")
+		val outputType = adapter.getOutputType(method)
+
+		val serializer = serializationStrategy.serializerForClass(outputType) ?: error("No serializer found for return type: ${method.returnType.kotlin}")
 
 		val deserializedResult = serializer.deserialize(ByteArrayInputStream(rawResponse.rawData))
-
-		val continuation = _pendingContinuationsByRequestId.remove(rawResponse.requestId) ?: error("No pending continuation found for response id: ${rawResponse.requestId}")
 
 		val response = LapisResponse(
 			requestId = rawResponse.requestId,
 			data = deserializedResult,
 		)
 
+		adapter.onResult(
+			requestId = rawResponse.requestId,
+			result = deserializedResult,
+		)
+
 		interceptor.interceptIncomingResponse(deviceAddress = deviceAddress, response = response)
 
-		continuation.resume(deserializedResult)
+		canProcessEnd.value = true
 	}
 
 	private fun processPacketAsErrorResponse(completePacket: CompleteBluetoothPacket) {
 		val errorResponse = ErrorResponseSerializer.deserialize(completePacket.payloadStream)
 		println("$$$$ process deserialized error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
 
-		val method = _pendingMethodByRequestId.remove(errorResponse.requestId) ?: error("No pending method found for error response id: ${errorResponse.requestId}")
+		val method = _pendingClientMethodByRequestId.remove(errorResponse.requestId) ?: error("No pending method found for error response id: ${errorResponse.requestId}")
 		println("$$$$ Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
-		val continuation = _pendingContinuationsByRequestId.remove(errorResponse.requestId) ?: error("No pending continuation found for error response id: ${errorResponse.requestId}")
+		val adapter = getMethodAdapter(method)
 
-		val exception = RemoteException(errorResponse.message)
-
-		continuation.resumeWithException(exception)
+		adapter.onErrorMessage(
+			requestId = errorResponse.requestId,
+			throwable = RemoteException(message = errorResponse.message),
+		)
 	}
 
 	private fun processPacketAsCancellation(completePacket: CompleteBluetoothPacket) {
@@ -559,11 +465,38 @@ internal class BluetoothDeviceRpc(
 
 		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}")
 
-		_activeServerJobs.remove(cancellation.requestId)?.cancel()
+		// TODO: ver por qué se recibe una cancelación y por qué peta cuando en principio en ningún momento se ha borrado el método pendiente
+		val method = _pendingServerMethodByRequestId.remove(cancellation.requestId) ?: error("No pending method found for cancellation id: ${cancellation.requestId}")
+
+		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}: $method")
+
+		val adapter = getMethodAdapter(method)
+
+		adapter.onCancel(requestId = cancellation.requestId)
 	}
 
+	private suspend fun processPacketAsMethodExecutionEnd(completePacket: CompleteBluetoothPacket) {
+		val methodExecutionEnd = MethodExecutionEndSerializer.deserialize(completePacket.payloadStream)
+
+		println("$$$$ process deserialized method execution end for request id ${methodExecutionEnd.requestId}")
+
+		val canProcessEndFlow = _canSendEndByRequestId[methodExecutionEnd.requestId] ?: error("Couldn't check whether we should process the method execution end: ${methodExecutionEnd.requestId}")
+		canProcessEndFlow.first { canProcessEnd -> canProcessEnd }
+
+		_canSendEndByRequestId.remove(methodExecutionEnd.requestId)
+
+		val method = _pendingClientMethodByRequestId.remove(methodExecutionEnd.requestId) ?: error("No pending method found for method execution end id: ${methodExecutionEnd.requestId}")
+
+		val adapter = getMethodAdapter(method)
+
+		adapter.onEnd(requestId = methodExecutionEnd.requestId)
+	}
+
+	private fun getMethodAdapter(method: Method): LapisMethodAdapter {
+		return _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
+	}
 
 	companion object {
-		private val TAG = BluetoothDeviceRpc::class.simpleName!!
+		private val TAG = this::class.qualifiedName!!
 	}
 }

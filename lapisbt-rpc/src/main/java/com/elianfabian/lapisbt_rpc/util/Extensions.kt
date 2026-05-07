@@ -163,28 +163,29 @@ internal fun Method.isSuspend(): Boolean {
 	return Continuation::class.java.isAssignableFrom(parameterTypes.last())
 }
 
-internal fun Method.getSuspendReturnType(): Class<out Any> {
-	if (!isSuspend()) {
-		throw IllegalStateException("Method $this is not a suspend function")
-	}
-
-	val continuationType = genericParameterTypes.last()
-	if (continuationType is ParameterizedType) {
-		val actualType = continuationType.actualTypeArguments.first()
-
-		println("Actual type: $actualType")
-
-		return when (actualType) {
-			is ParameterizedType -> actualType.rawType as? Class<*> ?: throw IllegalStateException("Cannot determine return type of suspend function $this")
-			is Class<*> -> actualType
-			is WildcardType -> {
-				actualType.lowerBounds.firstOrNull() as? Class<*> ?: actualType.upperBounds.firstOrNull() as? Class<*> ?: throw IllegalStateException("Cannot determine return type of suspend function $this")
+internal fun Type.extractFirstGenericArgument(): Class<*> {
+	return when (this) {
+		is ParameterizedType -> {
+			when (val actualType = actualTypeArguments.first()) {
+				is Class<*> -> actualType
+				is ParameterizedType -> actualType.rawType as? Class<*> ?: error("Cannot determine return type of suspend function $this")
+				is WildcardType -> actualType.lowerBounds.firstOrNull() as? Class<*> ?: actualType.upperBounds.firstOrNull() as? Class<*> ?: error("Cannot determine return type of suspend function $this")
+				else -> Any::class.java
 			}
-			else -> throw IllegalStateException("Unsupported return type of suspend function $this: $actualType")
 		}
+		else -> error("Unsupported return type: $this")
 	}
+}
 
-	throw IllegalStateException("Cannot determine return type of suspend function $this: continuation type is not parameterized")
+internal fun Method.getSuspendReturnType(): Class<*> {
+	check(isSuspend()) {
+		"Method $this is not a suspend function"
+	}
+	return genericParameterTypes.last().extractFirstGenericArgument()
+}
+
+internal fun Method.getFlowReturnType(): Class<*> {
+	return genericReturnType.extractFirstGenericArgument()
 }
 
 internal fun ByteArray.padded(

@@ -12,7 +12,8 @@ public data class CompleteBluetoothPacket(
 		Request(0x01),
 		Response(0x02),
 		ErrorResponse(0x03),
-		Cancellation(0x04);
+		Cancellation(0x04),
+		MethodExecutionEnd(0x05);
 
 		public companion object {
 			private val map = entries.associateBy(Type::byteValue)

@@ -1,13 +1,14 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt_rpc.exception.asLocalException
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import kotlinx.coroutines.currentCoroutineContext
 import kotlin.coroutines.CoroutineContext
 
 public suspend fun getLapisRequestInfo(): LapisRequestInfo {
-	return currentCoroutineContext()[LapisRequestInfoContext.Key]?.requestInfo ?: error(
+	return currentCoroutineContext()[LapisRequestInfoContext.Key]?.requestInfo ?: throw IllegalStateException(
 		"No RequestInfo found in the current coroutine context. This function can only be called within the execution of a request on the server side and if the LapisBtRpc is properly set up."
-	)
+	).asLocalException()
 }
 
 public data class LapisRequestInfo(
