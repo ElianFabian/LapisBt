@@ -3,7 +3,6 @@ package com.elianfabian.lapisbt_rpc
 import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
-import com.elianfabian.lapisbt_rpc.annotation.LapisMetadata
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
@@ -18,10 +17,8 @@ import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
-import com.elianfabian.lapisbt_rpc.model.RawLapisRequest
 import com.elianfabian.lapisbt_rpc.serializer.CancellationSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
-import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import com.elianfabian.lapisbt_rpc.serializer.MethodExecutionEndSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
@@ -42,9 +39,6 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 
-// TODO: we should find a way to encapsulate the logic for different types of functions (suspend, flow, ...)
-// TODO: add support for Result type?
-// TODO: add support for flows
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: String,
 	private val lapisBt: LapisBt,
@@ -60,25 +54,23 @@ internal class BluetoothDeviceRpc(
 	private val _pendingServerMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _canSendEndByRequestId = ConcurrentHashMap<UUID, MutableStateFlow<Boolean>>()
 
-	private val _returnTypeAdapters = mutableSetOf<LapisMethodAdapter>(
+	private val _methodCommunicator = MethodCommunicatorImpl(
+		deviceAddress = deviceAddress,
+		packetProcessor = packetProcessor,
+		serializationStrategy = serializationStrategy,
+		metadataProvider = metadataProvider,
+	)
+
+	private val _returnTypeAdapters = mutableSetOf(
 		SuspendMethodAdapter(
 			deviceAddress = deviceAddress,
-			methodCommunicator = MethodCommunicatorImpl(
-				packetProcessor = packetProcessor,
-				serializationStrategy = serializationStrategy,
-			)
+			methodCommunicator = _methodCommunicator,
 		),
 		FlowMethodAdapter(
 			deviceAddress = deviceAddress,
-			methodCommunicator = MethodCommunicatorImpl(
-				packetProcessor = packetProcessor,
-				serializationStrategy = serializationStrategy,
-			)
+			methodCommunicator = _methodCommunicator,
 		)
 	)
-
-	private val _requestSerializer = RequestSerializer
-	private val _responseSerializer = ResponseSerializer
 
 
 	init {
@@ -88,6 +80,17 @@ internal class BluetoothDeviceRpc(
 					is LapisBt.Event.OnDeviceDisconnected -> {
 						if (event.disconnectedDevice.address != deviceAddress) {
 							return@collect
+						}
+
+						_pendingClientMethodByRequestId.forEach { (_, method) ->
+							val adapter = getMethodAdapter(method)
+
+							adapter.onDeviceDisconnected(deviceAddress)
+						}
+						_pendingServerMethodByRequestId.forEach { (_, method) ->
+							val adapter = getMethodAdapter(method)
+
+							adapter.onDeviceDisconnected(deviceAddress)
 						}
 
 						println("$$$ device disconnected")
@@ -155,64 +158,16 @@ internal class BluetoothDeviceRpc(
 			throw DeviceNotConnectedException(deviceAddress)
 		}
 
-		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
-
-		val serviceAnnotation = serviceInterface.getAnnotation(LapisRpc::class.java) ?: error("Service interface ${serviceInterface.name} is missing ${LapisRpc::class.simpleName} annotation")
-		val serviceName = serviceAnnotation.name
-
-		val methodAnnotation = method.getAnnotation(LapisMethod::class.java) ?: error("Method ${method.name} is missing ${LapisMethod::class.simpleName} annotation")
-		val methodName = methodAnnotation.name
-
-		val valueArgs = args.orEmpty().dropLast(1)
-		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
-			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
-			paramAnnotation.name
-		}
-
-		val argumentsByName = parametersNames.zip(valueArgs).toMap()
-
 		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 
-		val requestId = UUID.randomUUID()
-
 		val result = adapter.functionCall(
-			requestId = requestId,
+			serviceInterface = serviceInterface,
 			method = method,
 			args = args,
+			onGenerateRequestId = { requestId ->
+				_pendingClientMethodByRequestId[requestId] = method
+			}
 		)
-
-		println("$$$ functionCall($requestId) = $requestId")
-		_scope.launch {
-			_pendingClientMethodByRequestId[requestId] = method
-			println("$$$ add pending method($requestId) = $method")
-
-			val metadata = metadataProvider.createMetadataForOutgoingRequest(
-				deviceAddress = deviceAddress,
-				requestId = requestId,
-				serviceName = serviceName,
-				methodName = methodName,
-				arguments = argumentsByName,
-			)
-
-			sendRequest(
-				request = RawLapisRequest(
-					requestId = requestId,
-					serviceName = serviceName,
-					methodName = methodName,
-					rawArguments = argumentsByName.mapValues { (_, value) ->
-						val byteArrayOutputStream = ByteArrayOutputStream()
-
-						@Suppress("UNCHECKED_CAST")
-						val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
-						serializer.serialize(byteArrayOutputStream, value)
-						byteArrayOutputStream.toByteArray()
-					},
-					rawMetadata = metadataProvider.serializeMetadata(metadata),
-				),
-				// TODO: we should rethink it to see if it actually makes sense
-				methodMetadataAnnotations = method.annotations.filter { it.javaClass.getAnnotation(LapisMetadata::class.java) != null },
-			)
-		}
 
 		return result
 	}
@@ -234,27 +189,6 @@ internal class BluetoothDeviceRpc(
 		_pendingClientMethodByRequestId.clear()
 		_pendingServerMethodByRequestId.clear()
 		_canSendEndByRequestId.clear()
-	}
-
-
-	private suspend fun sendRequest(
-		request: RawLapisRequest,
-		methodMetadataAnnotations: List<Annotation>,
-	) = withContext(Dispatchers.IO) {
-		println("$$$$ Sending request with id ${request.requestId}, service: ${request.serviceName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
-
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		val payloadStream = DataOutputStream(byteArrayOutputStream)
-
-		_requestSerializer.serialize(payloadStream, request)
-
-		packetProcessor.sendPacketData(
-			type = CompleteBluetoothPacket.Type.Request.byteValue,
-			payload = byteArrayOutputStream.toByteArray(),
-			methodMetadataAnnotations,
-		)
-
-		println("$$$$ Finished sending request with id ${request.requestId}")
 	}
 
 	private suspend fun sendErrorResponse(
@@ -409,7 +343,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private suspend fun processPacketAsResponse(completePacket: CompleteBluetoothPacket) {
-		val rawResponse = _responseSerializer.deserialize(completePacket.payloadStream)
+		val rawResponse = ResponseSerializer.deserialize(completePacket.payloadStream)
 		println("$$$$ process deserialized response for request id ${rawResponse.requestId}, data: ${rawResponse.rawData}")
 
 		// We need to make sure the response is fully processed before processing the method execution end
@@ -465,7 +399,6 @@ internal class BluetoothDeviceRpc(
 
 		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}")
 
-		// TODO: ver por qué se recibe una cancelación y por qué peta cuando en principio en ningún momento se ha borrado el método pendiente
 		val method = _pendingServerMethodByRequestId.remove(cancellation.requestId) ?: error("No pending method found for cancellation id: ${cancellation.requestId}")
 
 		println("$$$$ process deserialized cancellation for request id ${cancellation.requestId}: $method")
@@ -495,6 +428,7 @@ internal class BluetoothDeviceRpc(
 	private fun getMethodAdapter(method: Method): LapisMethodAdapter {
 		return _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 	}
+
 
 	companion object {
 		private val TAG = this::class.qualifiedName!!

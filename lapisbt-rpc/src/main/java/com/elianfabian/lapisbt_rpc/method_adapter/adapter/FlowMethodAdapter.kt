@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
+import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.LocalException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
@@ -16,7 +17,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.lang.reflect.Method
@@ -41,6 +44,8 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onUnregister() {
+		// TODO: think of cancellation messages, since dispose implies a forced disconnection
+		//  maybe all messages should just be the refers to the disconnection itself
 		val message = "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
 
 		_scope.cancel(CancellationException(message))
@@ -58,14 +63,31 @@ internal class FlowMethodAdapter(
 	override fun shouldIntercept(method: Method): Boolean = method.returnType.kotlin == Flow::class
 
 	override fun functionCall(
-		requestId: UUID,
+		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
+		onGenerateRequestId: (requestId: UUID) -> Unit,
 	): Any {
-		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
 
+		// We convert it to a SharedFlow so that we don't waste resources creating multiple requests
+		// every time there's a new subscriber
+		// We also set "started" to "SharingStarted.WhileSubscribed(stopTimeoutMillis = 0)" since we want
+		// to immediately stop receiving values when the collection is canceled
+		// The user of this library can call the "shareIn(...)" operator again and set the parameters
+		// according to their needs
 		return callbackFlow {
+			val requestId = UUID.randomUUID()
+
+			onGenerateRequestId(requestId)
+
 			_pendingChannelsByRequestId[requestId] = this@callbackFlow
+
+			methodCommunicator.sendRequest(
+				requestId = requestId,
+				serviceInterface = serviceInterface,
+				method = method,
+				args = args,
+			)
 
 			awaitClose {
 				println("$$$ Flow($isActive) del requestId $requestId recolectado/cancelado localmente")
@@ -75,7 +97,11 @@ internal class FlowMethodAdapter(
 					methodCommunicator.cancel(requestId = requestId)
 				}
 			}
-		}
+		}.shareIn(
+			scope = _scope,
+			started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
+			replay = 0,
+		)
 	}
 
 	override suspend fun onReceiveRequest(request: LapisRequest, server: LapisServerService) {
@@ -98,6 +124,9 @@ internal class FlowMethodAdapter(
 			}
 			catch (e: CancellationException) {
 				println("$$$ onReceiveRequest: $e")
+				// FIXME: we comment this for now because when the client cancels the flow collection this is executed
+				//  and then we send back a cancellation signal, but it should not happen
+				//  So maybe we could create a new CancellationException that handles this scenario
 				//methodCommunicator.cancel(requestId = request.requestId)
 				throw e
 			}
@@ -145,5 +174,18 @@ internal class FlowMethodAdapter(
 	override fun onErrorMessage(requestId: UUID, throwable: Throwable) {
 		println("$$$ onErrorMessage($requestId): $throwable")
 		_pendingChannelsByRequestId.remove(requestId)?.close(throwable)
+	}
+
+	override fun onDeviceDisconnected(deviceAddress: String) {
+		_scope.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+		_pendingChannelsByRequestId.forEach { (_, channel) ->
+			channel.close(DeviceNotConnectedException(deviceAddress))
+		}
+		_pendingChannelsByRequestId.clear()
+
+		_activeServerJobs.forEach { (_, job) ->
+			job.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+		}
+		_activeServerJobs.clear()
 	}
 }

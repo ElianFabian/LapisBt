@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import android.util.Log
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
+import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
@@ -66,17 +67,27 @@ internal class SuspendMethodAdapter(
 	override fun shouldIntercept(method: Method): Boolean = method.isSuspend()
 
 	override fun functionCall(
-		requestId: UUID,
+		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
+		onGenerateRequestId: (requestId: UUID) -> Unit,
 	): Any {
-		println("$$$$$ functionCall called with method: ${method.name}, args: ${args?.joinToString()}")
-
 		@Suppress("UNCHECKED_CAST")
 		val continuation = args.orEmpty().last() as Continuation<Any?>
 		return try {
 
 			val rpcBlock = suspend {
+				val requestId = UUID.randomUUID()
+
+				onGenerateRequestId(requestId)
+
+				methodCommunicator.sendRequest(
+					requestId = requestId,
+					serviceInterface = serviceInterface,
+					method = method,
+					args = args,
+				)
+
 				suspendCancellableCoroutine { cancellableContinuation ->
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
 
@@ -146,6 +157,18 @@ internal class SuspendMethodAdapter(
 
 	override fun onErrorMessage(requestId: UUID, throwable: Throwable) {
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(throwable)
+	}
+
+	override fun onDeviceDisconnected(deviceAddress: String) {
+		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
+			continuation.resumeWithException(DeviceNotConnectedException(deviceAddress))
+		}
+		_pendingContinuationsByRequestId.clear()
+
+		_activeServerJobs.forEach { (_, job) ->
+			job.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+		}
+		_activeServerJobs.clear()
 	}
 
 
