@@ -332,7 +332,7 @@ internal class BluetoothDeviceRpc(
 		}
 		finally {
 			println("$$$ processPacketAsRequest.finally")
-			_pendingClientMethodByRequestId.remove(request.requestId)
+			_pendingServerMethodByRequestId.remove(request.requestId)
 		}
 
 //		interceptor.interceptIncomingRequestResult(
