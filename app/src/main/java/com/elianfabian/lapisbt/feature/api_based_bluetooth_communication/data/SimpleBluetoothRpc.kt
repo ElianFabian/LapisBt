@@ -22,4 +22,10 @@ interface SimpleBluetoothRpc {
 
 	 @LapisMethod("naturalNumbers")
 	 fun naturalNumbers(): Flow<Int>
+
+	 @LapisMethod("brightnessFlow")
+	 fun brightnessFlow(): Flow<Int>
+
+	 @LapisMethod("lightSensor")
+	 fun lightSensor(): Flow<Float>
 }

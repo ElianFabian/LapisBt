@@ -35,4 +35,12 @@ class SimpleBluetoothRpcServer(
 			emit(i++)
 		}
 	}
+
+	override fun brightnessFlow(): Flow<Int> {
+		return androidHelper.brightnessFlow()
+	}
+
+	override fun lightSensor(): Flow<Float> {
+		return androidHelper.lightSensorFlow()
+	}
 }

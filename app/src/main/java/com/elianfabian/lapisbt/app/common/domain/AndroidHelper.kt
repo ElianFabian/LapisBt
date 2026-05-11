@@ -1,5 +1,7 @@
 package com.elianfabian.lapisbt.app.common.domain
 
+import kotlinx.coroutines.flow.Flow
+
 interface AndroidHelper {
 
 	fun stopApplication()
@@ -18,4 +20,8 @@ interface AndroidHelper {
 
 	fun isAppInBackground(): Boolean
 	fun isAppClosed(): Boolean
+
+	fun brightnessFlow(): Flow<Int>
+
+	fun lightSensorFlow(): Flow<Float>
 }

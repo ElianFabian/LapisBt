@@ -1,11 +1,16 @@
 package com.elianfabian.lapisbt.app.common.data
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
 import android.database.ContentObserver
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -35,9 +40,11 @@ import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -281,6 +288,45 @@ class AndroidHelperImpl(
 	override fun onAppEnteredBackground() {
 		_isAppInBackground = true
 	}
+
+	override fun brightnessFlow(): Flow<Int> {
+		val flow by settingFlow(
+			context = context,
+			key = Settings.System.SCREEN_BRIGHTNESS,
+			type = SettingFlowDelegate.Type.System,
+			scope = applicationScope,
+		)
+
+		return flow.map { it.toIntOrNull() ?: 0 }
+	}
+
+	override fun lightSensorFlow(): Flow<Float> = callbackFlow {
+		val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+		val lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+
+		if (lightSensor == null) {
+			close(Exception("The device does not have light sensor"))
+			return@callbackFlow
+		}
+
+		val listener = object : SensorEventListener {
+			override fun onSensorChanged(event: SensorEvent?) {
+				event?.let {
+					trySend(it.values[0])
+				}
+			}
+
+			override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+
+			}
+		}
+
+		sensorManager.registerListener(listener, lightSensor, SensorManager.SENSOR_DELAY_UI)
+
+		awaitClose {
+			sensorManager.unregisterListener(listener)
+		}
+	}
 }
 
 
@@ -305,7 +351,18 @@ private class SettingFlowDelegate(
 					if (value != null) {
 						trySend(value)
 					}
+
+					println("$$$ key: $key, value: $value")
 				}
+			}
+
+			val value = when (type) {
+				Type.Global -> Settings.Global.getString(context.contentResolver, key)
+				Type.System -> Settings.System.getString(context.contentResolver, key)
+				Type.Secure -> Settings.Secure.getString(context.contentResolver, key)
+			}
+			if (value != null) {
+				trySend(value)
 			}
 
 			val uri = when (type) {
@@ -320,7 +377,7 @@ private class SettingFlowDelegate(
 			}
 		}.stateIn(
 			scope = scope,
-			started = SharingStarted.WhileSubscribed(5000),
+			started = SharingStarted.WhileSubscribed(0),
 			initialValue = Settings.Secure.getString(context.contentResolver, key) ?: "",
 		)
 	}
