@@ -505,6 +505,8 @@ internal class LapisBtImpl(
 			return
 		}
 
+		_isDisposed = true
+
 		_scope.cancel()
 
 		_bluetoothServerSocketByServiceUuid.forEach { (_, serverSocket) ->
