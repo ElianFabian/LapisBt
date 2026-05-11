@@ -7,7 +7,7 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
-import com.elianfabian.lapisbt_rpc.exception.RemoteException
+import com.elianfabian.lapisbt_rpc.exception.LapisRemoteException
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
 import com.elianfabian.lapisbt_rpc.method_adapter.MethodCommunicatorImpl
@@ -390,7 +390,7 @@ internal class BluetoothDeviceRpc(
 
 		adapter.onErrorMessage(
 			requestId = errorResponse.requestId,
-			throwable = RemoteException(message = errorResponse.message),
+			throwable = LapisRemoteException(message = errorResponse.message),
 		)
 	}
 
