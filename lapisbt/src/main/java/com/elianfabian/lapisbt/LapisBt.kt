@@ -346,12 +346,13 @@ public interface LapisBt {
 		 * throughout your application's lifecycle.
 		 */
 		public fun newInstance(context: Context): LapisBt {
-			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+			val appContext = context.applicationContext
+			val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
 			return LapisBtImpl(
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
-				androidHelper = AndroidHelperImpl(context),
-				bluetoothEvents = LapisBluetoothEventsImpl(context),
+				androidHelper = AndroidHelperImpl(appContext),
+				bluetoothEvents = LapisBluetoothEventsImpl(appContext),
 			)
 		}
 
