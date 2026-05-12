@@ -463,6 +463,14 @@ internal class LapisBtImpl(
 					action(clientSocket.outputStream)
 				}
 				catch (_: IOException) {
+					if (!_isDisposed) {
+						_events.emit(
+							LapisBt.Event.OnDeviceDisconnected(
+								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
+								disconnectedLocally = false,
+							)
+						)
+					}
 					return@withContext false
 				}
 
@@ -490,6 +498,14 @@ internal class LapisBtImpl(
 					action(clientSocket.inputStream)
 				}
 				catch (_: IOException) {
+					if (!_isDisposed) {
+						_events.emit(
+							LapisBt.Event.OnDeviceDisconnected(
+								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
+								disconnectedLocally = false,
+							)
+						)
+					}
 					return@withContext false
 				}
 
