@@ -117,7 +117,7 @@ internal class LapisBtImpl(
 		checkIsNotDispose()
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			return false
+			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
 
 		// Not all devices support changing the Bluetooth name, and there doesn't seem to be a way to check it
