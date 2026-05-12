@@ -147,7 +147,7 @@ internal class LapisBtImpl(
 		checkIsNotDispose()
 
 		if (!androidHelper.isBluetoothScanGranted()) {
-			return false
+			throw SecurityException("BLUETOOTH_SCAN permission was not granted.")
 		}
 
 		updateDevices()
@@ -159,7 +159,7 @@ internal class LapisBtImpl(
 		checkIsNotDispose()
 
 		if (!androidHelper.isBluetoothScanGranted()) {
-			return false
+			throw SecurityException("BLUETOOTH_SCAN permission was not granted.")
 		}
 
 		return lapisAdapter.cancelDiscovery()
