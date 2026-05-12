@@ -457,7 +457,7 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return _readMutex.withLock(deviceAddress) {
+		return _writeMutex.withLock(deviceAddress) {
 			withContext(Dispatchers.IO) {
 				ensureActive()
 
@@ -492,7 +492,7 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		return _writeMutex.withLock(deviceAddress) {
+		return _readMutex.withLock(deviceAddress) {
 			withContext(Dispatchers.IO) {
 				ensureActive()
 
@@ -1279,7 +1279,11 @@ internal class LapisBtImpl(
 
 	private fun handleDisconnectedDevice(deviceAddress: String) {
 		val clientSocket = _clientSocketByAddress[deviceAddress]
-		clientSocket?.close()
+		try {
+			clientSocket?.close()
+		} catch (e: Exception) {
+			Log.e(TAG, "Error closing client socket for $deviceAddress", e)
+		}
 		_clientSocketByAddress.remove(deviceAddress)
 		_clientJobByAddress[deviceAddress]?.cancel()
 		_clientJobByAddress.remove(deviceAddress)
