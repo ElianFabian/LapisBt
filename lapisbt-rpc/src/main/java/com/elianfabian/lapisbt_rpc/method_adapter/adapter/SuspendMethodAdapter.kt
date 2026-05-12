@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 import android.util.Log
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
+import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
@@ -136,6 +137,22 @@ internal class SuspendMethodAdapter(
 
 		_activeServerJobs[request.requestId] = job
 
+		job.invokeOnCompletion { throwable ->
+			when (throwable) {
+				is RemoteCancellationException -> {
+					// no-op
+				}
+				is CancellationException -> {
+					_scope.launch {
+
+					}
+				}
+				null -> {
+					_activeServerJobs.remove(request.requestId)
+				}
+			}
+		}
+
 		job.join()
 	}
 
@@ -146,8 +163,8 @@ internal class SuspendMethodAdapter(
 
 	override fun onCancel(requestId: UUID) {
 		println("$$$ onCancel: $requestId")
-		_activeServerJobs.remove(requestId)?.cancel(CancellationException("Remote cancellation from device with address '$deviceAddress'"))
-		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(CancellationException("Remote cancellation from device with address '$deviceAddress'"))
+		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
+		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
 	override fun onResult(requestId: UUID, result: Any?) {
