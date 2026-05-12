@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisMetadataProvider
 import com.elianfabian.lapisbt_rpc.LapisPacketProcessor
 import com.elianfabian.lapisbt_rpc.LapisSerializationStrategy
@@ -53,7 +54,7 @@ internal interface MethodCommunicator {
 }
 
 internal class MethodCommunicatorImpl(
-	private val deviceAddress: String,
+	private val deviceAddress: BluetoothDevice.Address,
 	private val packetProcessor: LapisPacketProcessor,
 	private val serializationStrategy: LapisSerializationStrategy,
 	private val metadataProvider: LapisMetadataProvider<Any?>,

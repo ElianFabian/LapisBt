@@ -1,5 +1,7 @@
 package com.elianfabian.lapisbt_rpc.exception
 
-public class DeviceNotConnectedException(deviceAddress: String) : RuntimeException(
+import com.elianfabian.lapisbt.model.BluetoothDevice
+
+public class DeviceNotConnectedException(deviceAddress: BluetoothDevice.Address) : RuntimeException(
 	"Device '$deviceAddress' is not connected"
 )

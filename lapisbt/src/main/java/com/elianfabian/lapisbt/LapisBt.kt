@@ -8,6 +8,7 @@ import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.InputStream
@@ -132,7 +133,7 @@ public interface LapisBt {
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDevice(deviceAddress: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
 
 	/**
 	 * Tries to connect with the given device and service uuid without pairing.
@@ -147,14 +148,14 @@ public interface LapisBt {
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDeviceWithoutPairing(deviceAddress: String, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
 
 	/**
 	 * Disconnects from the remote device.
 	 *
 	 * @return true on success, false on error.
 	 */
-	public suspend fun disconnectFromDevice(deviceAddress: String): Boolean
+	public suspend fun disconnectFromDevice(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Cancels an ongoing connection attempt before it has been established.
@@ -164,7 +165,7 @@ public interface LapisBt {
 	 * @see connectToDevice
 	 * @see connectToDeviceWithoutPairing
 	 */
-	public suspend fun cancelConnectionAttempt(deviceAddress: String): Boolean
+	public suspend fun cancelConnectionAttempt(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Returns a BluetoothDevice for the given [deviceAddress].
@@ -172,7 +173,7 @@ public interface LapisBt {
 	 * It will first check the internal state of processed bluetooth devices
 	 * to find it, otherwise it will call [android.bluetooth.BluetoothAdapter.getRemoteDevice].
 	 */
-	public fun getRemoteDevice(deviceAddress: String): BluetoothDevice
+	public fun getRemoteDevice(deviceAddress: BluetoothDevice.Address): BluetoothDevice
 
 	/**
 	 * Starts a pairing request with a device.
@@ -182,7 +183,7 @@ public interface LapisBt {
 	 *
 	 * @return false on immediate error, true if pairing will begin.
 	 */
-	public fun startDevicePairing(deviceAddress: String): Boolean
+	public fun startDevicePairing(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Unpairs a device.
@@ -195,7 +196,7 @@ public interface LapisBt {
 	 * @see startDevicePairing
 	 */
 	@InternalBluetoothReflectionApi
-	public fun unpairDevice(deviceAddress: String): Boolean
+	public fun unpairDevice(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Cancel a current pairing attempt for the given device.ç
@@ -205,7 +206,7 @@ public interface LapisBt {
 	 * @see startDevicePairing
 	 */
 	@InternalBluetoothReflectionApi
-	public fun cancelPairingAttempt(deviceAddress: String): Boolean
+	public fun cancelPairingAttempt(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Sends binary data to the target device via an [OutputStream].
@@ -217,7 +218,7 @@ public interface LapisBt {
 	 * @param action A lambda providing access to the [OutputStream].
 	 * @return True if the data was sent successfully, false otherwise.
 	 */
-	public suspend fun sendData(deviceAddress: String, action: suspend (stream: OutputStream) -> Unit): Boolean
+	public suspend fun sendData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: OutputStream) -> Unit): Boolean
 
 	/**
 	 * Receives binary data from the target device via an [InputStream].
@@ -229,7 +230,7 @@ public interface LapisBt {
 	 * @param action A lambda providing access to the [InputStream].
 	 * @return True if the operation completed without exceptions, false otherwise.
 	 */
-	public suspend fun receiveData(deviceAddress: String, action: suspend (stream: InputStream) -> Unit): Boolean
+	public suspend fun receiveData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: InputStream) -> Unit): Boolean
 
 
 	/**
@@ -366,30 +367,7 @@ public interface LapisBt {
 		 * @return true if the address is valid, false otherwise
 		 */
 		public fun checkBluetoothAddress(address: String?): Boolean {
-			val addressLength = 17
-
-			if (address == null || address.length != addressLength) {
-				return false
-			}
-			for (i in 0..<addressLength) {
-				val c = address[i]
-				when (i % 3) {
-					0, 1 -> {
-						if ((c in '0'..'9') || (c in 'A'..'F')) {
-							// hex character, OK
-							break
-						}
-						return false
-					}
-					2 -> {
-						if (c == ':') {
-							break // OK
-						}
-						return false
-					}
-				}
-			}
-			return true
+			return checkBluetoothAddressInternal(address)
 		}
 	}
 }

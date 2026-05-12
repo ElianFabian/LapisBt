@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import android.util.Log
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
@@ -31,7 +32,7 @@ import kotlin.coroutines.startCoroutine
 import kotlin.reflect.KClass
 
 internal class SuspendMethodAdapter(
-	private val deviceAddress: String,
+	private val deviceAddress: BluetoothDevice.Address,
 	private val methodCommunicator: MethodCommunicator,
 ) : LapisMethodAdapter {
 
@@ -176,7 +177,7 @@ internal class SuspendMethodAdapter(
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(throwable)
 	}
 
-	override fun onDeviceDisconnected(deviceAddress: String) {
+	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
 		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
 			continuation.resumeWithException(DeviceNotConnectedException(deviceAddress))
 		}

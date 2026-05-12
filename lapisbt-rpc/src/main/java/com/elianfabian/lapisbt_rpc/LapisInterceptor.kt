@@ -1,19 +1,20 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
 
 public interface LapisInterceptor {
 
 	public suspend fun interceptIncomingRequest(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		request: LapisRequest,
 	) {
 		// no-op
 	}
 
 	public suspend fun interceptIncomingRequestResult(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		request: LapisRequest,
 		result: Any?,
 	) {
@@ -21,21 +22,21 @@ public interface LapisInterceptor {
 	}
 
 	public suspend fun interceptOutgoingRequest(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		request: LapisRequest,
 	) {
 		// no-op
 	}
 
 	public suspend fun interceptIncomingResponse(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		response: LapisResponse,
 	) {
 		// no-op
 	}
 
 	public suspend fun interceptOutgoingResponse(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		response: LapisResponse,
 	) {
 		// no-op

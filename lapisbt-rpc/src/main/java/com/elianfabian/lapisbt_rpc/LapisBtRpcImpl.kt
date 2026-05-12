@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
@@ -13,20 +14,19 @@ internal class LapisBtRpcImpl(
 	private val serializationStrategy: LapisSerializationStrategy,
 	private val interceptor: LapisInterceptor,
 	private val metadataProvider: LapisMetadataProvider<Any?>,
-	private val createPacketProcessor: (deviceAddress: String) -> LapisPacketProcessor,
+	private val createPacketProcessor: (deviceAddress: BluetoothDevice.Address) -> LapisPacketProcessor,
 ) : LapisBtRpc {
 
-	private val _bluetoothClientServicesByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
-	private val _bluetoothServerServiceByAddress = ConcurrentHashMap<String, ConcurrentHashMap<KClass<*>, Any>>()
-	private val _bluetoothDeviceRpcByAddress = ConcurrentHashMap<String, BluetoothDeviceRpc>()
+	private val _bluetoothClientServicesByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
+	private val _bluetoothServerServiceByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
+	private val _bluetoothDeviceRpcByAddress = ConcurrentHashMap<BluetoothDevice.Address, BluetoothDeviceRpc>()
 
 	@Volatile
 	private var _isDisposed = false
 
 
-	override fun <T : Any> getOrCreateBluetoothClientService(deviceAddress: String, serviceInterface: KClass<T>): T {
+	override fun <T : Any> getOrCreateBluetoothClientService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>): T {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		if (!serviceInterface.java.isInterface) {
 			throw IllegalArgumentException("Service interface ${serviceInterface.qualifiedName} must be an interface")
@@ -74,9 +74,8 @@ internal class LapisBtRpcImpl(
 		return newClientService
 	}
 
-	override fun getBluetoothClientServiceByName(deviceAddress: String, serviceName: String): Any {
+	override fun getBluetoothClientServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		val clientServicesByClass = _bluetoothClientServicesByAddress[deviceAddress] ?: throw IllegalStateException("There's no client service registered for address '$deviceAddress'")
 		clientServicesByClass.entries.forEach { (serviceInterface, clientService) ->
@@ -89,9 +88,8 @@ internal class LapisBtRpcImpl(
 		throw IllegalStateException("There's no client service registered for address '$deviceAddress' and service name '$serviceName'")
 	}
 
-	override fun <T : Any> unregisterBluetoothClientService(deviceAddress: String, serviceInterface: KClass<T>) {
+	override fun <T : Any> unregisterBluetoothClientService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>) {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		val clientServices = _bluetoothClientServicesByAddress[deviceAddress] ?: throw IllegalStateException("There's no client service registered for address '$deviceAddress'")
 		if (clientServices.remove(serviceInterface) == null) {
@@ -101,9 +99,8 @@ internal class LapisBtRpcImpl(
 		tryCleanupResources(deviceAddress)
 	}
 
-	override fun <T : Any> unregisterBluetoothServiceClientsByAddress(deviceAddress: String) {
+	override fun <T : Any> unregisterBluetoothServiceClientsByAddress(deviceAddress: BluetoothDevice.Address) {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		if (_bluetoothClientServicesByAddress.remove(deviceAddress) == null) {
 			throw IllegalStateException("There's no client services registered for address '$deviceAddress'")
@@ -112,9 +109,8 @@ internal class LapisBtRpcImpl(
 		tryCleanupResources(deviceAddress)
 	}
 
-	override fun <T : Any> registerBluetoothServerService(deviceAddress: String, server: T, serviceInterface: KClass<T>) {
+	override fun <T : Any> registerBluetoothServerService(deviceAddress: BluetoothDevice.Address, server: T, serviceInterface: KClass<T>) {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		if (!serviceInterface.java.isInterface) {
 			throw IllegalArgumentException("Service interface ${serviceInterface.qualifiedName} must be an interface")
@@ -150,9 +146,8 @@ internal class LapisBtRpcImpl(
 		}
 	}
 
-	override fun getBluetoothServerServiceByName(deviceAddress: String, serviceName: String): Any {
+	override fun getBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		val serverServices = _bluetoothServerServiceByAddress[deviceAddress] ?: throw IllegalStateException("There's no server service registered for address '$deviceAddress'")
 
@@ -164,9 +159,8 @@ internal class LapisBtRpcImpl(
 		return serverService
 	}
 
-	override fun <T : Any> unregisterBluetoothServerService(deviceAddress: String, serviceInterface: KClass<T>) {
+	override fun <T : Any> unregisterBluetoothServerService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>) {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		val serverServices = _bluetoothServerServiceByAddress[deviceAddress] ?: throw IllegalStateException("There's no server service registered for address '$deviceAddress'")
 		val server = serverServices.remove(serviceInterface) ?: throw IllegalStateException("There's no server service registered for address '$deviceAddress' and interface $serviceInterface")
@@ -178,9 +172,8 @@ internal class LapisBtRpcImpl(
 		tryCleanupResources(deviceAddress)
 	}
 
-	override fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: String) {
+	override fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: BluetoothDevice.Address) {
 		checkIsNotDisposed()
-		requireValidAddress(deviceAddress)
 
 		val removedServicesMap = _bluetoothServerServiceByAddress.remove(deviceAddress)
 			?: throw IllegalStateException("There's no server services registered for address '$deviceAddress'")
@@ -219,13 +212,7 @@ internal class LapisBtRpcImpl(
 	}
 
 
-	private fun requireValidAddress(deviceAddress: String) {
-		require(LapisBt.checkBluetoothAddress(deviceAddress)) {
-			"The device address '$deviceAddress' is invalid"
-		}
-	}
-
-	private fun tryCleanupResources(deviceAddress: String) {
+	private fun tryCleanupResources(deviceAddress: BluetoothDevice.Address) {
 		val hasClients = _bluetoothClientServicesByAddress[deviceAddress]?.isNotEmpty() == true
 		val hasServers = _bluetoothServerServiceByAddress[deviceAddress]?.isNotEmpty() == true
 

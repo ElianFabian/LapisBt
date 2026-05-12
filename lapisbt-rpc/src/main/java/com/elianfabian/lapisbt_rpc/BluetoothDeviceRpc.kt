@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 
 internal class BluetoothDeviceRpc(
-	private val deviceAddress: String,
+	private val deviceAddress: BluetoothDevice.Address,
 	private val lapisBt: LapisBt,
 	private val lapisRpc: LapisBtRpc,
 	private val serializationStrategy: LapisSerializationStrategy,

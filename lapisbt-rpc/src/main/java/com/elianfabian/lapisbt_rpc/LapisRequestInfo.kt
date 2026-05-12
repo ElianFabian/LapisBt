@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.exception.asLocalException
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import kotlinx.coroutines.currentCoroutineContext
@@ -12,7 +13,7 @@ public suspend fun getLapisRequestInfo(): LapisRequestInfo {
 }
 
 public data class LapisRequestInfo(
-	public val deviceAddress: String,
+	public val deviceAddress: BluetoothDevice.Address,
 	public val request: LapisRequest,
 )
 

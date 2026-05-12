@@ -1,9 +1,10 @@
 package com.elianfabian.lapisbt.model
 
+import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import java.util.UUID
 
 public data class BluetoothDevice(
-	val address: String,
+	val address: Address,
 	val name: String?,
 	val alias: String?,
 	val addressType: AddressType,
@@ -14,6 +15,20 @@ public data class BluetoothDevice(
 	val pairingState: PairingState,
 	val connectionState: ConnectionState,
 ) {
+	@JvmInline
+	public value class Address(
+		public val value: String,
+	) {
+		init {
+			require(checkBluetoothAddressInternal(value)) {
+				"Invalid bluetooth device address: $value. (e.g., 00:43:A8:23:10:F0)"
+			}
+		}
+
+		override fun toString(): String = value
+	}
+
+
 	public enum class PairingState {
 		None,
 		Pairing,

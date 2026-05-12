@@ -1,11 +1,12 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import java.util.UUID
 
 public interface LapisMetadataProvider<out T> {
 
 	public suspend fun createMetadataForOutgoingRequest(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		requestId: UUID,
 		serviceName: String,
 		methodName: String,
@@ -21,7 +22,7 @@ public interface LapisMetadataProvider<out T> {
 internal object NoOpLapisMetadataProvider : LapisMetadataProvider<Nothing?> {
 
 	override suspend fun createMetadataForOutgoingRequest(
-		deviceAddress: String,
+		deviceAddress: BluetoothDevice.Address,
 		requestId: UUID,
 		serviceName: String,
 		methodName: String,

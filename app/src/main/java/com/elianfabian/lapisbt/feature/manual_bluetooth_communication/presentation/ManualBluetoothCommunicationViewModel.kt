@@ -136,7 +136,7 @@ class ManualBluetoothCommunicationViewModel(
 												val dataStream = DataOutputStream(stream)
 
 												dataStream.writeUTF("address")
-												dataStream.writeUTF(event.connectedDevice.address)
+												dataStream.writeUTF(event.connectedDevice.address.value)
 											}
 										}
 										"address" -> {
@@ -151,7 +151,7 @@ class ManualBluetoothCommunicationViewModel(
 												content = messageContent,
 												isRead = false,
 												senderName = event.connectedDevice.name,
-												senderAddress = event.connectedDevice.address,
+												senderAddress = event.connectedDevice.address.value,
 											)
 
 											val messages = _messages.updateAndGet {
@@ -469,7 +469,7 @@ class ManualBluetoothCommunicationViewModel(
 					val currentDeviceAddress = storageController.getBluetoothAddress() ?: return@launch
 					if (action.message.senderAddress != currentDeviceAddress) {
 						val targetDevice = lapisBt.pairedDevices.value.find { device ->
-							device.address == action.message.senderAddress
+							device.address.value == action.message.senderAddress
 						} ?: return@launch
 
 						_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(targetDevice)

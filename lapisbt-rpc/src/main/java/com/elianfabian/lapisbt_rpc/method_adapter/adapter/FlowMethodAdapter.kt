@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.LocalException
@@ -31,7 +32,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
 internal class FlowMethodAdapter(
-	private val deviceAddress: String,
+	private val deviceAddress: BluetoothDevice.Address,
 	private val methodCommunicator: MethodCommunicator,
 ) : LapisMethodAdapter {
 
@@ -179,7 +180,7 @@ internal class FlowMethodAdapter(
 		_pendingChannelsByRequestId.remove(requestId)?.close(throwable)
 	}
 
-	override fun onDeviceDisconnected(deviceAddress: String) {
+	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
 		_scope.cancel(CancellationException("Device '$deviceAddress' disconnected"))
 		_pendingChannelsByRequestId.forEach { (_, channel) ->
 			channel.close(DeviceNotConnectedException(deviceAddress))

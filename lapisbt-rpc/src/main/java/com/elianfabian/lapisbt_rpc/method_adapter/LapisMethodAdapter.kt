@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import java.lang.reflect.Method
 import java.util.UUID
@@ -34,7 +35,7 @@ internal interface LapisMethodAdapter {
 	public fun onErrorMessage(requestId: UUID, throwable: Throwable)
 
 	// TODO: I have to test this
-	public fun onDeviceDisconnected(deviceAddress: String)
+	public fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address)
 
 	public fun onRegister()
 

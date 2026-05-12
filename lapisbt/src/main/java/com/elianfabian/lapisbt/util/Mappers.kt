@@ -6,7 +6,7 @@ import com.elianfabian.lapisbt.model.BluetoothDevice
 
 internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.ConnectionState): BluetoothDevice {
 	return BluetoothDevice(
-		address = this.address,
+		address = BluetoothDevice.Address(this.address),
 		name = this.name,
 		alias = this.alias,
 		addressType = when (this.addressType) {

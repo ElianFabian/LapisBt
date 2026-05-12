@@ -1,13 +1,14 @@
 package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data
 
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class SimpleBluetoothRpcServer(
-	private val deviceAddress: String,
+	private val deviceAddress: BluetoothDevice.Address,
 	private val androidHelper: AndroidHelper,
 ) : SimpleBluetoothRpc {
 
@@ -18,7 +19,7 @@ class SimpleBluetoothRpcServer(
 
 	override suspend fun getMyOwnAddress(): String {
 		println("$$$ getMyOwnAddress: ${getLapisRequestInfo()}")
-		return deviceAddress
+		return deviceAddress.value
 	}
 
 	override suspend fun openAppSettings() {

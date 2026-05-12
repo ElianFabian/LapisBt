@@ -185,7 +185,7 @@ fun ManualBluetoothCommunicationScreen(
 
 									Text(text = device.name ?: "(No name)")
 									Spacer(Modifier.height(4.dp))
-									Text(text = device.address)
+									Text(text = device.address.value)
 								}
 
 								is ManualBluetoothCommunicationState.SelectedDevice.None -> {
@@ -205,7 +205,7 @@ fun ManualBluetoothCommunicationScreen(
 					state.connectedDevices.forEach { device ->
 						DropdownMenuItem(
 							text = {
-								Text(text = device.name ?: device.address)
+								Text(text = device.name ?: device.address.value)
 							},
 							onClick = {
 								onAction(ManualBluetoothCommunicationAction.SelectTargetDeviceToMessage(device))
@@ -521,7 +521,7 @@ private fun BluetoothDeviceList(
 				items(state.pairedDevices) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
-						address = device.address,
+						address = device.address.value,
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
@@ -564,7 +564,7 @@ private fun BluetoothDeviceList(
 				items(state.scannedDevices) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
-						address = device.address,
+						address = device.address.value,
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
@@ -607,7 +607,7 @@ private fun BluetoothDeviceList(
 				items(state.connectedDevices) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
-						address = device.address,
+						address = device.address.value,
 						connectionState = device.connectionState,
 						pairingState = device.pairingState,
 						onClick = {
@@ -846,7 +846,7 @@ private fun Preview() = BasePreview {
 			majorDeviceClass = BluetoothDevice.MajorDeviceClass.Phone,
 			uuids = emptyList(),
 			addressType = BluetoothDevice.AddressType.Unknown,
-			address = "123:45:67:89:AB:$name",
+			address = BluetoothDevice.Address("11:22:33:44:55:66"),
 			connectionState = BluetoothDevice.ConnectionState.Disconnected,
 			pairingState = when (Random.nextInt(0, 3)) {
 				0 -> BluetoothDevice.PairingState.Paired

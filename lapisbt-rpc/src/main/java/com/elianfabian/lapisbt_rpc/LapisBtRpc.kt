@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlin.reflect.KClass
 
 /**
@@ -28,13 +29,13 @@ public interface LapisBtRpc {
 	 * @param serviceInterface The interface class annotated with [@LapisRpc].
 	 * @return A proxy instance of [T].
 	 */
-	public fun <T : Any> getOrCreateBluetoothClientService(deviceAddress: String, serviceInterface: KClass<T>): T
+	public fun <T : Any> getOrCreateBluetoothClientService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>): T
 
-	public fun getBluetoothClientServiceByName(deviceAddress: String, serviceName: String): Any
+	public fun getBluetoothClientServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any
 
-	public fun <T : Any> unregisterBluetoothClientService(deviceAddress: String, serviceInterface: KClass<T>)
+	public fun <T : Any> unregisterBluetoothClientService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>)
 
-	public fun <T : Any> unregisterBluetoothServiceClientsByAddress(deviceAddress: String)
+	public fun <T : Any> unregisterBluetoothServiceClientsByAddress(deviceAddress: BluetoothDevice.Address)
 
 	/**
 	 * Registers a local implementation of an RPC interface to handle incoming requests.
@@ -46,13 +47,13 @@ public interface LapisBtRpc {
 	 * @param server The concrete implementation of the RPC logic.
 	 * @param serviceInterface The interface class that defines the contract.
 	 */
-	public fun <T : Any> registerBluetoothServerService(deviceAddress: String, server: T, serviceInterface: KClass<T>)
+	public fun <T : Any> registerBluetoothServerService(deviceAddress: BluetoothDevice.Address, server: T, serviceInterface: KClass<T>)
 
-	public fun getBluetoothServerServiceByName(deviceAddress: String, serviceName: String): Any
+	public fun getBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any
 
-	public fun <T : Any> unregisterBluetoothServerService(deviceAddress: String, serviceInterface: KClass<T>)
+	public fun <T : Any> unregisterBluetoothServerService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>)
 
-	public fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: String)
+	public fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: BluetoothDevice.Address)
 
 	/**
 	 * Releases all resources held by this instance.
@@ -75,7 +76,7 @@ public interface LapisBtRpc {
 			serializationStrategy: LapisSerializationStrategy? = null,
 			interceptor: LapisInterceptor? = null,
 			metadataProvider: LapisMetadataProvider<Any?>? = null,
-			createLapisPacketProcessor: ((deviceAddress: String) -> LapisPacketProcessor)? = null,
+			createLapisPacketProcessor: ((deviceAddress: BluetoothDevice.Address) -> LapisPacketProcessor)? = null,
 		): LapisBtRpc {
 			return LapisBtRpcImpl(
 				lapisBt = lapisBt,
@@ -98,7 +99,7 @@ public interface LapisBtRpc {
 		 * At this point, [getOrCreateBluetoothClientService] is guaranteed to return a
 		 * functional proxy for the specified address.
 		 */
-		public fun onLapisServiceRegistered(deviceAddress: String)
+		public fun onLapisServiceRegistered(deviceAddress: BluetoothDevice.Address)
 
 		/**
 		 * Triggered when an RPC service becomes unavailable.
@@ -108,22 +109,22 @@ public interface LapisBtRpc {
 		 * 2. The underlying [LapisBt] connection to the device is lost.
 		 * 3. The [LapisBtRpc] instance is disposed.
 		 */
-		public fun onLapisServiceUnregistered(deviceAddress: String)
+		public fun onLapisServiceUnregistered(deviceAddress: BluetoothDevice.Address)
 	}
 }
 
 
-public inline fun <reified T : Any> LapisBtRpc.getOrCreateBluetoothClientService(deviceAddress: String): T =
+public inline fun <reified T : Any> LapisBtRpc.getOrCreateBluetoothClientService(deviceAddress: BluetoothDevice.Address): T =
 	getOrCreateBluetoothClientService(deviceAddress, T::class)
 
-public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothClientService(deviceAddress: String) {
+public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothClientService(deviceAddress: BluetoothDevice.Address) {
 	unregisterBluetoothClientService(deviceAddress, T::class)
 }
 
-public inline fun <reified T : Any> LapisBtRpc.registerBluetoothServerService(deviceAddress: String, server: T) {
+public inline fun <reified T : Any> LapisBtRpc.registerBluetoothServerService(deviceAddress: BluetoothDevice.Address, server: T) {
 	registerBluetoothServerService(deviceAddress, server, T::class)
 }
 
-public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothServerService(deviceAddress: String) {
+public inline fun <reified T : Any> LapisBtRpc.unregisterBluetoothServerService(deviceAddress: BluetoothDevice.Address) {
 	unregisterBluetoothServerService(deviceAddress, T::class)
 }
