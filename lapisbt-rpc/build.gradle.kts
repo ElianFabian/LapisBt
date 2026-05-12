@@ -36,7 +36,7 @@ android {
 
 dependencies {
 
-	implementation(project(":lapisbt"))
+	api(project(":lapisbt"))
 
 	// TODO: see if we should add this in the rpc library
 	//implementation(libs.kotlinReflect)
