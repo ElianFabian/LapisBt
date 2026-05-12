@@ -17,10 +17,8 @@ import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.UUID
@@ -35,45 +33,20 @@ abstract class BasePermissionControllerImpl(
 	abstract val permissionName: String
 
 	private val _state by lazy {
-		object : MutableStateFlow<PermissionState> {
+		val state = MutableStateFlow(getCurrentState())
 
-			private val _state = MutableStateFlow(getCurrentState())
+		@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+		object : MutableStateFlow<PermissionState> by state {
+
 			override var value: PermissionState
 				get() {
 					val newValue = getCurrentState()
-					_state.value = newValue
+					state.value = newValue
 					return newValue
 				}
 				set(value) {
-					_state.value = value
+					state.value = value
 				}
-
-			override fun compareAndSet(expect: PermissionState, update: PermissionState): Boolean {
-				return _state.compareAndSet(expect, update)
-			}
-
-			override val replayCache: List<PermissionState>
-				get() = _state.replayCache
-
-			override suspend fun collect(collector: FlowCollector<PermissionState>): Nothing {
-				_state.collect(collector)
-			}
-
-			override val subscriptionCount: StateFlow<Int>
-				get() = _state.subscriptionCount
-
-			override suspend fun emit(value: PermissionState) {
-				_state.emit(value)
-			}
-
-			@ExperimentalCoroutinesApi
-			override fun resetReplayCache() {
-				_state.resetReplayCache()
-			}
-
-			override fun tryEmit(value: PermissionState): Boolean {
-				return _state.tryEmit(value)
-			}
 		}
 	}
 	override val state = _state.asStateFlow()
@@ -143,45 +116,20 @@ abstract class BaseMultiplePermissionControllerImpl(
 	abstract val permissionNames: List<String>
 
 	private val _state by lazy {
-		object : MutableStateFlow<Map<String, PermissionState>> {
+		val state = MutableStateFlow(getCurrentState())
 
-			private val _state = MutableStateFlow(getCurrentState())
+		@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
+		object : MutableStateFlow<Map<String, PermissionState>> by state {
+
 			override var value: Map<String, PermissionState>
 				get() {
 					val newValue = getCurrentState()
-					_state.value = newValue
+					state.value = newValue
 					return newValue
 				}
 				set(value) {
-					_state.value = value
+					state.value = value
 				}
-
-			override fun compareAndSet(expect: Map<String, PermissionState>, update: Map<String, PermissionState>): Boolean {
-				return _state.compareAndSet(expect, update)
-			}
-
-			override val replayCache: List<Map<String, PermissionState>>
-				get() = _state.replayCache
-
-			override suspend fun collect(collector: FlowCollector<Map<String, PermissionState>>): Nothing {
-				_state.collect(collector)
-			}
-
-			override val subscriptionCount: StateFlow<Int>
-				get() = _state.subscriptionCount
-
-			override suspend fun emit(value: Map<String, PermissionState>) {
-				_state.emit(value)
-			}
-
-			@ExperimentalCoroutinesApi
-			override fun resetReplayCache() {
-				_state.resetReplayCache()
-			}
-
-			override fun tryEmit(value: Map<String, PermissionState>): Boolean {
-				return _state.tryEmit(value)
-			}
 		}
 	}
 	override val state = _state.asStateFlow()
