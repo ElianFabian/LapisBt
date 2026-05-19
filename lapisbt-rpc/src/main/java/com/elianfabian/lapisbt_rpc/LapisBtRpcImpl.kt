@@ -29,7 +29,7 @@ internal class LapisBtRpcImpl(
 		checkIsNotDisposed()
 
 		if (!serviceInterface.java.isInterface) {
-			throw IllegalArgumentException("Service interface ${serviceInterface.qualifiedName} must be an interface")
+			throw IllegalArgumentException("Service ${serviceInterface.qualifiedName} must be an interface")
 		}
 		if (serviceInterface.java.getAnnotation(LapisRpc::class.java) == null) {
 			throw IllegalArgumentException("Service interface ${serviceInterface.qualifiedName} must be annotated with @LapisRpc")
