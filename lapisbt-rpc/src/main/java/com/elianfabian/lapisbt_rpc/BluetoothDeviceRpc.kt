@@ -39,6 +39,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
 
+// TODO: add support for flow parameters
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: BluetoothDevice.Address,
 	private val lapisBt: LapisBt,
