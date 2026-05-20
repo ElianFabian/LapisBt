@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt_rpc
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
+import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy

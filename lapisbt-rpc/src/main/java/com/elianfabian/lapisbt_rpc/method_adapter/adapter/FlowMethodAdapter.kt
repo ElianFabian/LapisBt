@@ -8,7 +8,7 @@ import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
-import com.elianfabian.lapisbt_rpc.method_adapter.MethodCommunicator
+import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.util.getFlowReturnType
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +33,7 @@ import kotlin.reflect.KClass
 
 internal class FlowMethodAdapter(
 	private val deviceAddress: BluetoothDevice.Address,
-	private val methodCommunicator: MethodCommunicator,
+	private val bluetoothDeviceRpc: BluetoothDeviceRpc,
 ) : LapisMethodAdapter {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -85,7 +85,7 @@ internal class FlowMethodAdapter(
 
 			_pendingChannelsByRequestId[requestId] = this@callbackFlow
 
-			methodCommunicator.sendRequest(
+			bluetoothDeviceRpc.sendRequest(
 				requestId = requestId,
 				serviceInterface = serviceInterface,
 				method = method,
@@ -97,7 +97,7 @@ internal class FlowMethodAdapter(
 				_pendingChannelsByRequestId.remove(requestId)
 				_scope.launch {
 					println("$$$$ cancel callbackFlow")
-					methodCommunicator.cancel(requestId = requestId)
+					bluetoothDeviceRpc.cancel(requestId = requestId)
 				}
 			}
 		}.shareIn(
@@ -124,13 +124,13 @@ internal class FlowMethodAdapter(
 							// no-op
 						}
 						is CancellationException -> {
-							methodCommunicator.cancel(requestId = request.requestId)
+							bluetoothDeviceRpc.cancel(requestId = request.requestId)
 						}
 						is LocalException -> {
 							throw throwable.cause!!
 						}
 						else -> {
-							methodCommunicator.sendErrorMessage(
+							bluetoothDeviceRpc.sendErrorMessage(
 								requestId = request.requestId,
 								message = throwable.message.toString(),
 							)
@@ -138,14 +138,14 @@ internal class FlowMethodAdapter(
 					}
 				}
 				.collect { value ->
-					methodCommunicator.sendResult(
+					bluetoothDeviceRpc.sendResult(
 						requestId = request.requestId,
 						result = value,
 					)
 
 					println("$$$ onReceiveRequest.flow(${coroutineContext.isActive}): request = $request, emission = $value")
 				}
-			methodCommunicator.sendEnd(requestId = request.requestId)
+			bluetoothDeviceRpc.sendEnd(requestId = request.requestId)
 		}
 
 		_activeServerJobs[request.requestId] = job

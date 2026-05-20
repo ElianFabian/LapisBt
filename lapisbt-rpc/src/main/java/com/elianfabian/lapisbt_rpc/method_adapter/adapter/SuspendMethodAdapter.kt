@@ -8,7 +8,7 @@ import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
-import com.elianfabian.lapisbt_rpc.method_adapter.MethodCommunicator
+import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.util.getSuspendReturnType
 import com.elianfabian.lapisbt_rpc.util.isSuspend
@@ -33,7 +33,7 @@ import kotlin.reflect.KClass
 
 internal class SuspendMethodAdapter(
 	private val deviceAddress: BluetoothDevice.Address,
-	private val methodCommunicator: MethodCommunicator,
+	private val bluetoothDeviceRpc: BluetoothDeviceRpc,
 ) : LapisMethodAdapter {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -83,7 +83,7 @@ internal class SuspendMethodAdapter(
 
 				onGenerateRequestId(requestId)
 
-				methodCommunicator.sendRequest(
+				bluetoothDeviceRpc.sendRequest(
 					requestId = requestId,
 					serviceInterface = serviceInterface,
 					method = method,
@@ -100,7 +100,7 @@ internal class SuspendMethodAdapter(
 						if (cause is CancellationException) {
 							_scope.launch {
 								try {
-									methodCommunicator.cancel(requestId = requestId)
+									bluetoothDeviceRpc.cancel(requestId = requestId)
 								}
 								catch (e: Exception) {
 									Log.e(TAG, "Failed to send cancellation for $requestId", e)
@@ -128,12 +128,12 @@ internal class SuspendMethodAdapter(
 
 			println("$$$ onReceiveRequest: request = $request, result = $result")
 
-			methodCommunicator.sendResult(
+			bluetoothDeviceRpc.sendResult(
 				requestId = request.requestId,
 				result = result,
 			)
 
-			methodCommunicator.sendEnd(requestId = request.requestId)
+			bluetoothDeviceRpc.sendEnd(requestId = request.requestId)
 		}
 
 		_activeServerJobs[request.requestId] = job
