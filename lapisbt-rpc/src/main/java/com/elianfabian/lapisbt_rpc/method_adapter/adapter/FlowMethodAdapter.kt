@@ -171,6 +171,7 @@ internal class FlowMethodAdapter(
 	override fun onResult(requestId: UUID, result: Any?) {
 		println("$$$ onResult($requestId) = $result")
 		_scope.launch {
+			// maybe we should use trySend instead of send
 			_pendingChannelsByRequestId[requestId]?.send(result)
 		}
 	}

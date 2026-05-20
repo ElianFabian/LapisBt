@@ -87,7 +87,7 @@ internal class SuspendMethodAdapter(
 					requestId = requestId,
 					serviceInterface = serviceInterface,
 					method = method,
-					args = args,
+					args = args.orEmpty().dropLast(1).toTypedArray(),
 				)
 
 				suspendCancellableCoroutine { cancellableContinuation ->

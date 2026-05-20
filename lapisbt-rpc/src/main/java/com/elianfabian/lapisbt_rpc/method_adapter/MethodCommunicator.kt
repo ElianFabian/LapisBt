@@ -20,6 +20,7 @@ import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import com.elianfabian.lapisbt_rpc.serializer.MethodExecutionEndSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
+import com.elianfabian.lapisbt_rpc.util.isSuspend
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.lang.reflect.Method
@@ -72,7 +73,8 @@ internal class MethodCommunicatorImpl(
 		val methodAnnotation = method.getAnnotation(LapisMethod::class.java) ?: error("Method ${method.name} is missing ${LapisMethod::class.simpleName} annotation")
 		val methodName = methodAnnotation.name
 
-		val valueArgs = args.orEmpty().dropLast(1)
+		val valueArgs = args.orEmpty().toList()
+
 		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
 			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
 			paramAnnotation.name
