@@ -3,7 +3,6 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 import android.util.Log
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
-import com.elianfabian.lapisbt_rpc.exception.DeviceDisconnectedException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
@@ -179,8 +178,7 @@ internal class SuspendMethodAdapter(
 
 	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
 		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
-			// TODO: should we really throw an exception here? Disconnection is a normal event that can happen at any time, so maybe we should just close the channel without an exception
-			continuation.resumeWithException(DeviceDisconnectedException(deviceAddress))
+			continuation.resumeWithException(CancellationException("Device '$deviceAddress' disconnected"))
 		}
 		_pendingContinuationsByRequestId.clear()
 

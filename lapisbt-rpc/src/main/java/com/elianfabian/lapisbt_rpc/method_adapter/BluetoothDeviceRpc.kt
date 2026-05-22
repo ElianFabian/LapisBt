@@ -53,6 +53,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,6 +83,8 @@ internal class BluetoothDeviceRpc(
 ) {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+	private var _isDisposed = false
 
 	private val _pendingClientMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _pendingServerMethodByRequestId = ConcurrentHashMap<UUID, Method>()
@@ -144,6 +147,7 @@ internal class BluetoothDeviceRpc(
 			for (completePacket in packetProcessor.remoteCompletePackets) {
 				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
 				launch {
+					ensureActive()
 					when (completePacket.type) {
 						CompleteBluetoothPacket.Type.Request -> {
 							processPacketAsRequest(completePacket)
@@ -915,6 +919,11 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun internalDispose() {
+		if (_isDisposed) {
+			return
+		}
+		_isDisposed = true
+
 		println("$$$ internalDispose")
 		packetProcessor.dispose()
 
