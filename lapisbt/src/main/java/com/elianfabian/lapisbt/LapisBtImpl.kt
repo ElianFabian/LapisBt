@@ -286,6 +286,8 @@ internal class LapisBtImpl(
 
 		val disconnectedDevice = getRemoteDeviceInternal(deviceAddress)
 
+		println("$$$$ Device disconnected: $disconnectedDevice, locally = $disconnectedLocally | 1")
+
 		_events.emit(
 			LapisBt.Event.OnDeviceDisconnected(
 				disconnectedDevice = disconnectedDevice,
@@ -457,6 +459,8 @@ internal class LapisBtImpl(
 				}
 				catch (_: IOException) {
 					if (!_isDisposed) {
+						println("$$$$ Device disconnected: ${getRemoteDeviceInternal(deviceAddress)}, locally = false | 2")
+						handleDisconnectedDevice(deviceAddress)
 						_events.emit(
 							LapisBt.Event.OnDeviceDisconnected(
 								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
@@ -490,6 +494,8 @@ internal class LapisBtImpl(
 				}
 				catch (_: IOException) {
 					if (!_isDisposed) {
+						println("$$$$ Device disconnected: ${getRemoteDeviceInternal(deviceAddress)}, locally = false | 3")
+						handleDisconnectedDevice(deviceAddress)
 						_events.emit(
 							LapisBt.Event.OnDeviceDisconnected(
 								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
@@ -781,6 +787,8 @@ internal class LapisBtImpl(
 
 				val disconnectedDevice = getRemoteDeviceInternal(targetDeviceAddress)
 
+				println("$$$$ Device disconnected: $disconnectedDevice, locally = ${_unpairingsStarted.contains(targetDeviceAddress)} | 4")
+
 				_events.emit(
 					LapisBt.Event.OnDeviceDisconnected(
 						disconnectedDevice = disconnectedDevice,
@@ -877,6 +885,8 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
+									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 5")
+
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
@@ -899,6 +909,8 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
+									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 6")
+
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
 											disconnectedDevice = disconnectedDevice,
@@ -920,6 +932,8 @@ internal class LapisBtImpl(
 									if (!handleDisconnectedDevice(disconnectedDevice.address)) {
 										return@launch
 									}
+
+									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 7")
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -1291,6 +1305,7 @@ internal class LapisBtImpl(
 	private fun handleDisconnectedDevice(deviceAddress: BluetoothDevice.Address): Boolean {
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 		try {
+			println("$$$ handleDisconnectedDevice.clientSocket: $clientSocket for $deviceAddress")
 			clientSocket?.close()
 		}
 		catch (e: Exception) {
