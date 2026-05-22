@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -251,6 +252,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 		_scope.launch {
 			for (packet in _remotePacketChannel) {
 				println("$$$$ processing packet: $packet")
+				ensureActive()
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
 						println("$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, original payload size: ${packet.originalPayloadSize}")

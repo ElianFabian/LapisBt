@@ -2,13 +2,13 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
-import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
+import com.elianfabian.lapisbt_rpc.exception.DeviceDisconnectedException
 import com.elianfabian.lapisbt_rpc.exception.LocalException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
+import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.LapisServerService
-import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.util.getFlowReturnType
 import kotlinx.coroutines.CoroutineScope
@@ -184,7 +184,8 @@ internal class FlowMethodAdapter(
 	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
 		_scope.cancel(CancellationException("Device '$deviceAddress' disconnected"))
 		_pendingChannelsByRequestId.forEach { (_, channel) ->
-			channel.close(DeviceNotConnectedException(deviceAddress))
+			// TODO: should we really throw an exception here? Disconnection is a normal event that can happen at any time, so maybe we should just close the channel without an exception
+			channel.close(DeviceDisconnectedException(deviceAddress))
 		}
 		_pendingChannelsByRequestId.clear()
 

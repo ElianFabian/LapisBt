@@ -44,4 +44,10 @@ class SimpleBluetoothRpcServer(
 	override fun lightSensor(): Flow<Float> {
 		return androidHelper.lightSensorFlow()
 	}
+
+	override suspend fun sendLargeData(data: Flow<String>) {
+		data.collect {
+			println("$$$ sendLargeData: $it")
+		}
+	}
 }

@@ -9,11 +9,16 @@ public data class CompleteBluetoothPacket(
 	val payloadStream: InputStream,
 ) {
 	public enum class Type(public val byteValue: Byte) {
-		Request(0x01),
-		Response(0x02),
-		ErrorResponse(0x03),
-		Cancellation(0x04),
-		MethodExecutionEnd(0x05);
+		Request(1),
+		Response(2),
+		ErrorResponse(3),
+		Cancellation(4),
+		Completion(5),
+		ArgumentFlowCollection(6),
+		ArgumentFlowEmission(7),
+		ArgumentFlowCompletion(8),
+		ArgumentFlowCancellation(9),
+		ArgumentFlowError(10);
 
 		public companion object {
 			private val map = entries.associateBy(Type::byteValue)

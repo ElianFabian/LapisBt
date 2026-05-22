@@ -16,33 +16,54 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
 import com.elianfabian.lapisbt_rpc.exception.LapisRemoteException
+import com.elianfabian.lapisbt_rpc.exception.LocalException
+import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.method_adapter.adapter.FlowMethodAdapter
 import com.elianfabian.lapisbt_rpc.method_adapter.adapter.SuspendMethodAdapter
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
+import com.elianfabian.lapisbt_rpc.model.LapisArgumentFlowCancellation
+import com.elianfabian.lapisbt_rpc.model.LapisArgumentFlowCollection
+import com.elianfabian.lapisbt_rpc.model.LapisArgumentFlowCompletion
+import com.elianfabian.lapisbt_rpc.model.LapisArgumentFlowError
 import com.elianfabian.lapisbt_rpc.model.LapisCancellation
 import com.elianfabian.lapisbt_rpc.model.LapisErrorResponse
 import com.elianfabian.lapisbt_rpc.model.LapisMethodExecutionEnd
 import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import com.elianfabian.lapisbt_rpc.model.LapisResponse
+import com.elianfabian.lapisbt_rpc.model.RawLapisArgumentFlowEmission
 import com.elianfabian.lapisbt_rpc.model.RawLapisRequest
 import com.elianfabian.lapisbt_rpc.model.RawLapisResponse
+import com.elianfabian.lapisbt_rpc.serializer.ArgumentFlowCancellationSerializer
+import com.elianfabian.lapisbt_rpc.serializer.ArgumentFlowCollectionSerializer
+import com.elianfabian.lapisbt_rpc.serializer.ArgumentFlowCompletionSerializer
+import com.elianfabian.lapisbt_rpc.serializer.ArgumentFlowErrorSerializer
 import com.elianfabian.lapisbt_rpc.serializer.CancellationSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ErrorResponseSerializer
+import com.elianfabian.lapisbt_rpc.serializer.FlowArgumentEmissionSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import com.elianfabian.lapisbt_rpc.serializer.MethodExecutionEndSerializer
 import com.elianfabian.lapisbt_rpc.serializer.RequestSerializer
 import com.elianfabian.lapisbt_rpc.serializer.ResponseSerializer
+import com.elianfabian.lapisbt_rpc.util.extractFirstGenericArgument
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.lang.reflect.Method
 import java.util.UUID
@@ -65,6 +86,10 @@ internal class BluetoothDeviceRpc(
 	private val _pendingClientMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _pendingServerMethodByRequestId = ConcurrentHashMap<UUID, Method>()
 	private val _canSendEndByRequestId = ConcurrentHashMap<UUID, MutableStateFlow<Boolean>>()
+	private val _pendingArgumentFlowChannelsById = ConcurrentHashMap<UUID, SendChannel<Any?>>()
+	private val _pendingArgumentFlowById = ConcurrentHashMap<UUID, Flow<Any?>>()
+	private val _pendingArgumentFlowJobById = ConcurrentHashMap<UUID, Job>()
+
 
 	private val _returnTypeAdapters = mutableSetOf(
 		SuspendMethodAdapter(
@@ -132,8 +157,23 @@ internal class BluetoothDeviceRpc(
 						CompleteBluetoothPacket.Type.Cancellation -> {
 							processPacketAsCancellation(completePacket)
 						}
-						CompleteBluetoothPacket.Type.MethodExecutionEnd -> {
+						CompleteBluetoothPacket.Type.Completion -> {
 							processPacketAsMethodExecutionEnd(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ArgumentFlowCollection -> {
+							processPacketAsArgumentFlowCollection(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ArgumentFlowEmission -> {
+							processPacketAsArgumentFlowEmission(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ArgumentFlowCancellation -> {
+							processPacketAsArgumentFlowCancellation(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ArgumentFlowCompletion -> {
+							processPacketAsArgumentFlowCompletion(completePacket)
+						}
+						CompleteBluetoothPacket.Type.ArgumentFlowError -> {
+							processPacketAsArgumentFlowError(completePacket)
 						}
 					}
 				}
@@ -215,13 +255,29 @@ internal class BluetoothDeviceRpc(
 			requestId = requestId,
 			serviceName = serviceName,
 			methodName = methodName,
-			rawArguments = argumentsByName.mapValues { (_, value) ->
-				val byteArrayOutputStream = ByteArrayOutputStream()
+			rawArguments = argumentsByName.mapValues { (parameterName, value) ->
+				if (value != null && Flow::class.isInstance(value)) {
+					val flowId = UUID.randomUUID()
 
-				@Suppress("UNCHECKED_CAST")
-				val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
-				serializer.serialize(byteArrayOutputStream, value)
-				byteArrayOutputStream.toByteArray()
+					_scope.launch {
+						val flow = value as? Flow<Any?> ?: error("Only Flow<*> is supported for Flow parameters, but got ${value::class}")
+						_pendingArgumentFlowById[flowId] = flow
+					}
+
+					val byteArrayOutputStream = ByteArrayOutputStream()
+					val dataStream = DataOutputStream(byteArrayOutputStream)
+					dataStream.writeLong(flowId.mostSignificantBits)
+					dataStream.writeLong(flowId.leastSignificantBits)
+					byteArrayOutputStream.toByteArray()
+				}
+				else {
+					val byteArrayOutputStream = ByteArrayOutputStream()
+
+					@Suppress("UNCHECKED_CAST")
+					val serializer = serializationStrategy.serializerForClass(value?.let { it::class } ?: Nothing::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
+					serializer.serialize(byteArrayOutputStream, value)
+					byteArrayOutputStream.toByteArray()
+				}
 			},
 			rawMetadata = metadataProvider.serializeMetadata(metadata),
 		)
@@ -279,7 +335,7 @@ internal class BluetoothDeviceRpc(
 		MethodExecutionEndSerializer.serialize(byteArrayStream, methodExecutionEnd)
 
 		packetProcessor.sendPacketData(
-			type = CompleteBluetoothPacket.Type.MethodExecutionEnd.byteValue,
+			type = CompleteBluetoothPacket.Type.Completion.byteValue,
 			payload = byteArrayStream.toByteArray(),
 			methodMetadataAnnotations = emptyList(),
 		)
@@ -373,11 +429,53 @@ internal class BluetoothDeviceRpc(
 				return@mapIndexedNotNull null
 			}
 
-			val valueType = method.parameterTypes[index]
-			val serializer = serializationStrategy.serializerForClass(valueType.kotlin)
-			val valueStream = ByteArrayInputStream(valueBytes)
+			val valueType = method.parameterTypes[index].kotlin
+			if (valueType == Flow::class) {
+				val flowId = ByteArrayInputStream(valueBytes).use { stream ->
+					val dataStream = DataInputStream(stream)
+					val mostSigBits = dataStream.readLong()
+					val leastSigBits = dataStream.readLong()
+					UUID(mostSigBits, leastSigBits)
+				}
 
-			name to serializer?.deserialize(valueStream)
+				println("$$$ Creating flow for parameter '$name' of method '${method.name}' with flow id $flowId")
+
+				val flow = callbackFlow {
+					_pendingArgumentFlowChannelsById[flowId] = this
+
+					sendArgumentFlowCollection(
+						flowId = flowId,
+						parameterName = name,
+						requestId = rawRequest.requestId,
+					)
+
+					awaitClose {
+						println("$$$ Flow for parameter '$name' of method '${method.name}' is being cancelled locally")
+
+						_pendingArgumentFlowChannelsById.remove(flowId)
+
+						launch {
+							sendArgumentFlowCancellation(
+								flowId = flowId,
+								parameterName = name,
+								requestId = rawRequest.requestId,
+							)
+						}
+					}
+				}.shareIn(
+					scope = _scope,
+					started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
+					replay = 0,
+				)
+
+				name to flow
+			}
+			else {
+				val serializer = serializationStrategy.serializerForClass(valueType)
+				val valueStream = ByteArrayInputStream(valueBytes)
+
+				name to serializer?.deserialize(valueStream)
+			}
 		}.toMap()
 
 		if (missingParameters.isNotEmpty()) {
@@ -435,9 +533,11 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 		catch (e: CancellationException) {
+			println("$$$ Request with id ${request.requestId} was cancelled: ${e.message}")
 			throw e
 		}
 		catch (e: Throwable) {
+			println("$$$ Error processing request with id ${request.requestId}: ${e.message}")
 			sendErrorResponse(
 				LapisErrorResponse(
 					requestId = rawRequest.requestId,
@@ -447,7 +547,7 @@ internal class BluetoothDeviceRpc(
 			return
 		}
 		finally {
-			println("$$$ processPacketAsRequest.finally")
+			println("$$$ processPacketAsRequest.finally: ${request.requestId}")
 			_pendingServerMethodByRequestId.remove(request.requestId)
 		}
 
@@ -541,6 +641,117 @@ internal class BluetoothDeviceRpc(
 		adapter.onEnd(requestId = methodExecutionEnd.requestId)
 	}
 
+	private fun processPacketAsArgumentFlowCollection(completePacket: CompleteBluetoothPacket) {
+		val flowCollection = ArgumentFlowCollectionSerializer.deserialize(completePacket.payloadStream)
+
+		// TODO: Maybe we should add the service name and the method name to provide more informative error messages
+		val flow = _pendingArgumentFlowById.remove(flowCollection.flowId) ?: error("No pending flow found for argument flow collection for parameter '${flowCollection.parameterName}' with id: ${flowCollection.flowId}")
+		_pendingArgumentFlowJobById[flowCollection.flowId] = _scope.launch {
+			try {
+				flow.collect {
+					sendArgumentFlowEmission(
+						argumentFlowId = flowCollection.flowId,
+						parameterName = flowCollection.parameterName,
+						requestId = flowCollection.requestId,
+						value = it,
+					)
+				}
+				sendArgumentFlowCompletion(
+					flowId = flowCollection.flowId,
+					parameterName = flowCollection.parameterName,
+					requestId = flowCollection.requestId,
+				)
+			}
+			catch (e: RemoteCancellationException) {
+				// no-op
+			}
+			catch (e: CancellationException) {
+				println("$$$ Flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId} was cancelled locally")
+				sendArgumentFlowCancellation(
+					flowId = flowCollection.flowId,
+					parameterName = flowCollection.parameterName,
+					requestId = flowCollection.requestId,
+				)
+			}
+			catch (e: LocalException) {
+				throw e.cause!!
+			}
+			catch (e: Throwable) {
+				println("$$$ Error collecting flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId}: ${e.message}")
+				sendArgumentFlowError(
+					flowId = flowCollection.flowId,
+					parameterName = flowCollection.parameterName,
+					requestId = flowCollection.requestId,
+					message = e.message ?: "Unknown error",
+				)
+			}
+			finally {
+				_pendingArgumentFlowJobById.remove(flowCollection.flowId)
+			}
+		}
+	}
+
+	private fun processPacketAsArgumentFlowEmission(completePacket: CompleteBluetoothPacket) {
+		val emission = FlowArgumentEmissionSerializer.deserialize(completePacket.payloadStream)
+
+		println("$$$$ process deserialized argument flow emission for flow id ${emission.flowId}, value: ${emission.rawValue}")
+
+		val channel = _pendingArgumentFlowChannelsById[emission.flowId] ?: error("No pending flow found for emission with id: ${emission.flowId}")
+
+		val method = _pendingServerMethodByRequestId[emission.requestId] ?: error("No pending method found for argument flow emission with id: ${emission.flowId}")
+		println("$$$$ Found pending method for argument flow emission with id ${emission.flowId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+
+		var parameterIndex = -1
+		for (parameterAnnotations in method.parameterAnnotations) {
+			parameterIndex++
+
+			val paramAnnotation = parameterAnnotations.filterIsInstance<LapisParam>().firstOrNull { it.name == emission.parameterName }
+			println("$$$ parameter index: $parameterIndex, parameter name: ${paramAnnotation?.name}, emission parameter name: ${emission.parameterName}")
+			if (paramAnnotation != null) {
+				break
+			}
+		}
+
+		println("$$$$ parameter index for emission with id ${emission.flowId} is $parameterIndex")
+
+		if (parameterIndex == -1) {
+			error("No parameter found with name '${emission.parameterName}' in method '${method.name}'")
+		}
+
+		if (!Flow::class.java.isAssignableFrom(method.parameterTypes[parameterIndex])) {
+			error("Parameter with name '${emission.parameterName}' in method '${method.name}' was expected to be a Flow, but got ${method.parameterTypes[parameterIndex]}")
+		}
+
+		val flowGenericType = method.genericParameterTypes[parameterIndex].extractFirstGenericArgument().kotlin
+
+		val serializer = serializationStrategy.serializerForClass(flowGenericType) ?: error("No serializer found for argument flow emission for value type $flowGenericType with id: ${emission.flowId}")
+		val deserializedValue = serializer.deserialize(ByteArrayInputStream(emission.rawValue))
+
+		channel.trySend(deserializedValue)
+	}
+
+	private fun processPacketAsArgumentFlowCancellation(completePacket: CompleteBluetoothPacket) {
+		val cancellation = ArgumentFlowCancellationSerializer.deserialize(completePacket.payloadStream)
+		println("$$$ process deserialized argument flow cancellation for flow id ${cancellation.flowId}")
+
+		_pendingArgumentFlowJobById.remove(cancellation.flowId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
+		_pendingArgumentFlowById.remove(cancellation.flowId)
+	}
+
+	private fun processPacketAsArgumentFlowCompletion(completePacket: CompleteBluetoothPacket) {
+		val completion = ArgumentFlowCompletionSerializer.deserialize(completePacket.payloadStream)
+		println("$$$ process deserialized argument flow completion for flow id ${completion.flowId}")
+
+		_pendingArgumentFlowChannelsById.remove(completion.flowId)?.close()
+	}
+
+	private fun processPacketAsArgumentFlowError(completePacket: CompleteBluetoothPacket) {
+		val error = ArgumentFlowErrorSerializer.deserialize(completePacket.payloadStream)
+		println("$$$ process deserialized argument flow error for flow id ${error.flowId}, message: ${error.message}")
+
+		_pendingArgumentFlowChannelsById.remove(error.flowId)?.close(LapisRemoteException(error.message))
+	}
+
 	private suspend fun sendErrorResponse(
 		errorResponse: LapisErrorResponse,
 	) = withContext(Dispatchers.IO) {
@@ -560,6 +771,145 @@ internal class BluetoothDeviceRpc(
 		println("$$$$ Finished sending error response with id ${errorResponse.requestId}")
 	}
 
+	private suspend fun sendArgumentFlowCollection(
+		flowId: UUID,
+		parameterName: String,
+		requestId: UUID,
+	) {
+		println("$$$$ sendArgumentFlowCollection for flow $flowId")
+
+		val flowCollection = LapisArgumentFlowCollection(
+			flowId = flowId,
+			parameterName = parameterName,
+			requestId = requestId,
+		)
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		ArgumentFlowCollectionSerializer.serialize(payloadStream, flowCollection)
+
+		packetProcessor.sendPacketData(
+			type = CompleteBluetoothPacket.Type.ArgumentFlowCollection.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+			methodMetadataAnnotations = emptyList(),
+		)
+	}
+
+	private suspend fun sendArgumentFlowCompletion(
+		flowId: UUID,
+		parameterName: String,
+		requestId: UUID,
+	) {
+		println("$$$$ sendArgumentFlowCompletion for flow $flowId")
+
+		val flowCompletion = LapisArgumentFlowCompletion(
+			flowId = flowId,
+			parameterName = parameterName,
+			requestId = requestId,
+		)
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		ArgumentFlowCompletionSerializer.serialize(payloadStream, flowCompletion)
+
+		packetProcessor.sendPacketData(
+			type = CompleteBluetoothPacket.Type.ArgumentFlowCompletion.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+			methodMetadataAnnotations = emptyList(),
+		)
+	}
+
+	private suspend fun sendArgumentFlowCancellation(
+		flowId: UUID,
+		parameterName: String,
+		requestId: UUID,
+	) {
+		println("$$$$ sendArgumentFlowCancellation for flow $flowId")
+
+		val flowCancellation = LapisArgumentFlowCancellation(
+			flowId = flowId,
+			parameterName = parameterName,
+			requestId = requestId,
+		)
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		ArgumentFlowCancellationSerializer.serialize(payloadStream, flowCancellation)
+
+		packetProcessor.sendPacketData(
+			type = CompleteBluetoothPacket.Type.ArgumentFlowCancellation.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+			methodMetadataAnnotations = emptyList(),
+		)
+	}
+
+	private suspend fun sendArgumentFlowError(
+		flowId: UUID,
+		parameterName: String,
+		requestId: UUID,
+		message: String,
+	) {
+		println("$$$$ sendArgumentFlowError for flow $flowId, message: $message")
+
+		val flowError = LapisArgumentFlowError(
+			flowId = flowId,
+			parameterName = parameterName,
+			requestId = requestId,
+			message = message,
+		)
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		val payloadStream = DataOutputStream(byteArrayOutputStream)
+
+		ArgumentFlowErrorSerializer.serialize(payloadStream, flowError)
+
+		packetProcessor.sendPacketData(
+			type = CompleteBluetoothPacket.Type.ArgumentFlowError.byteValue,
+			payload = byteArrayOutputStream.toByteArray(),
+			methodMetadataAnnotations = emptyList(),
+		)
+	}
+
+	private fun sendArgumentFlowEmission(
+		argumentFlowId: UUID,
+		parameterName: String,
+		requestId: UUID,
+		value: Any?,
+	) {
+		println("$$$$ sendArgumentEmission for flow $argumentFlowId, value: $value")
+
+		@Suppress("UNCHECKED_CAST")
+		val serializer = serializationStrategy.serializerForClass(if (value == null) Nothing::class else value::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
+
+		val byteArrayOutputStream = ByteArrayOutputStream()
+		serializer.serialize(byteArrayOutputStream, value)
+		val serializedValue = byteArrayOutputStream.toByteArray()
+
+		val emission = RawLapisArgumentFlowEmission(
+			flowId = argumentFlowId,
+			requestId = requestId,
+			parameterName = parameterName,
+			rawValue = serializedValue,
+		)
+
+		val emissionBao = ByteArrayOutputStream()
+
+		FlowArgumentEmissionSerializer.serialize(emissionBao, emission)
+
+		val payload = emissionBao.toByteArray()
+
+		_scope.launch {
+			packetProcessor.sendPacketData(
+				type = CompleteBluetoothPacket.Type.ArgumentFlowEmission.byteValue,
+				payload = payload,
+				methodMetadataAnnotations = emptyList(),
+			)
+		}
+	}
+
 	private fun getMethodAdapter(method: Method): LapisMethodAdapter {
 		return _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 	}
@@ -574,6 +924,9 @@ internal class BluetoothDeviceRpc(
 		_returnTypeAdapters.clear()
 		_pendingClientMethodByRequestId.clear()
 		_pendingServerMethodByRequestId.clear()
+		_pendingArgumentFlowChannelsById.clear()
+		_pendingArgumentFlowById.clear()
+		_pendingArgumentFlowJobById.clear()
 		_canSendEndByRequestId.clear()
 	}
 

@@ -28,4 +28,10 @@ interface SimpleBluetoothRpc {
 
 	 @LapisMethod("lightSensor")
 	 fun lightSensor(): Flow<Float>
+
+	 @LapisMethod("sendLargeData")
+	 suspend fun sendLargeData(
+		 @LapisParam("data")
+		 data: Flow<String>
+	 )
 }
