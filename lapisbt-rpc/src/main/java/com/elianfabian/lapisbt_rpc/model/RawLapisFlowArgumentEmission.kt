@@ -2,7 +2,7 @@ package com.elianfabian.lapisbt_rpc.model
 
 import java.util.UUID
 
-internal data class RawLapisArgumentFlowEmission(
+internal data class RawLapisFlowArgumentEmission(
 	val flowId: UUID,
 	val parameterName: String,
 	val requestId: UUID,
@@ -12,7 +12,7 @@ internal data class RawLapisArgumentFlowEmission(
 		if (this === other) return true
 		if (javaClass != other?.javaClass) return false
 
-		other as RawLapisArgumentFlowEmission
+		other as RawLapisFlowArgumentEmission
 
 		if (flowId != other.flowId) return false
 		if (parameterName != other.parameterName) return false

@@ -14,11 +14,11 @@ public data class CompleteBluetoothPacket(
 		ErrorResponse(3),
 		Cancellation(4),
 		Completion(5),
-		ArgumentFlowCollection(6),
-		ArgumentFlowEmission(7),
-		ArgumentFlowCompletion(8),
-		ArgumentFlowCancellation(9),
-		ArgumentFlowError(10);
+		FlowParameterCollection(6),
+		FlowParameterEmission(7),
+		FlowParameterCompletion(8),
+		FlowParameterCancellation(9),
+		FlowParameterError(10);
 
 		public companion object {
 			private val map = entries.associateBy(Type::byteValue)

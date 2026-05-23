@@ -1,15 +1,15 @@
 package com.elianfabian.lapisbt_rpc.serializer
 
-import com.elianfabian.lapisbt_rpc.model.LapisArgumentFlowCollection
+import com.elianfabian.lapisbt_rpc.model.LapisFlowParameterCompletion
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
-internal object ArgumentFlowCollectionSerializer : LapisSerializer<LapisArgumentFlowCollection> {
+internal object FlowParameterCompletionSerializer : LapisSerializer<LapisFlowParameterCompletion> {
 
-	override fun serialize(stream: OutputStream, data: LapisArgumentFlowCollection) {
+	override fun serialize(stream: OutputStream, data: LapisFlowParameterCompletion) {
 		val dataStream = DataOutputStream(stream)
 		dataStream.writeLong(data.flowId.mostSignificantBits)
 		dataStream.writeLong(data.flowId.leastSignificantBits)
@@ -18,7 +18,7 @@ internal object ArgumentFlowCollectionSerializer : LapisSerializer<LapisArgument
 		dataStream.writeLong(data.requestId.leastSignificantBits)
 	}
 
-	override fun deserialize(stream: InputStream): LapisArgumentFlowCollection {
+	override fun deserialize(stream: InputStream): LapisFlowParameterCompletion {
 		val dataStream = DataInputStream(stream)
 		val mostSigBits = dataStream.readLong()
 		val leastSigBits = dataStream.readLong()
@@ -31,7 +31,7 @@ internal object ArgumentFlowCollectionSerializer : LapisSerializer<LapisArgument
 
 		val requestId = UUID(requestMostSigBits, requestLeastSigBits)
 
-		return LapisArgumentFlowCollection(
+		return LapisFlowParameterCompletion(
 			flowId = id,
 			parameterName = parameterName,
 			requestId = requestId,
