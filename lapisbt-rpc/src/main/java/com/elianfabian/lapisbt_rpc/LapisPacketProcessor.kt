@@ -41,6 +41,7 @@ public interface LapisPacketProcessor {
 }
 
 
+// TODO: we may change the compression implementation by using DeflateOutputStream and DeflateInputStream
 internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 	private companion object {
