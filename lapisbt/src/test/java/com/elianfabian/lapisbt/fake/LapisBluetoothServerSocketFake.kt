@@ -2,27 +2,41 @@ package com.elianfabian.lapisbt.fake
 
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
+import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 internal class LapisBluetoothServerSocketFake(
-	private val remoteDevice: LapisBluetoothDeviceFake,
+	private val environment: FakeBluetoothEnvironment,
+	private val address: String,
+	private val serviceUuid: UUID,
 ) : LapisBluetoothServerSocket {
 
-	private val queue = LinkedBlockingQueue<Int>()
+	private val pendingConnections = LinkedBlockingQueue<LapisBluetoothSocket>()
+	private var isClosed = false
 
-	// TODO: I think we should be able to decide when to throw a IOException
+	/**
+	 * Enqueues a socket to be returned by [accept].
+	 */
+	fun enqueueIncomingConnection(socket: LapisBluetoothSocket) {
+		pendingConnections.put(socket)
+	}
+
 	override fun accept(): LapisBluetoothSocket {
-		// TODO: I think we should also be able to set the timeout outside
-		queue.poll(2, TimeUnit.SECONDS)
-		return LapisBluetoothSocketFake(
-			remoteDevice = remoteDevice,
-		)
+		if (isClosed) throw IOException("Server socket closed")
+		
+		// Wait for a connection to be enqueued by the environment
+		return pendingConnections.poll(5, TimeUnit.SECONDS) 
+			?: throw IOException("Accept timed out - no incoming connection in 5 seconds")
 	}
 
 	override fun close() {
-		if (queue.isEmpty()) {
-			queue.add(1)
+		if (isClosed) {
+			return
 		}
+		isClosed = true
+		pendingConnections.clear()
+		environment.unregisterServer(address, serviceUuid)
 	}
 }

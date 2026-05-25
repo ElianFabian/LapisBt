@@ -25,6 +25,8 @@ internal data class LapisBluetoothDeviceFake(
 	override val addressType: Int = BluetoothDevice.ADDRESS_TYPE_UNKNOWN,
 	override val type: Int = BluetoothDevice.DEVICE_TYPE_CLASSIC,
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
+	private val environment: FakeBluetoothEnvironment,
+	var requesterAddress: String = ""
 ) : LapisBluetoothDevice {
 
 	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
@@ -50,7 +52,6 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun setPin(pin: ByteArray): Boolean {
-		// I don't think this is worth faking to be tested
 		return false
 	}
 
@@ -67,7 +68,6 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun isBondingInitiatedLocally(): Boolean {
-		// We may change this later for testing purposes
 		return false
 	}
 
@@ -88,32 +88,13 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		if (uuids == null) {
-			uuids = listOf(uuid)
-		}
-		else if (uuids.orEmpty().isEmpty()) {
-			uuids = uuids?.plus(uuid)
-		}
-
-		if (bondState != AndroidBluetoothDevice.BOND_BONDED) {
-			createBond()
-		}
-
-		return LapisBluetoothSocketFake(
+		return environment.requestConnection(requesterAddress, address, uuid) ?: LapisBluetoothSocketFake(
 			remoteDevice = this,
+			connectSuccess = true
 		)
 	}
 
 	override fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		if (uuids == null) {
-			uuids = listOf(uuid)
-		}
-		else if (uuids.orEmpty().isEmpty()) {
-			uuids = uuids?.plus(uuid)
-		}
-
-		return LapisBluetoothSocketFake(
-			remoteDevice = this,
-		)
+		return createRfcommSocketToServiceRecord(uuid)
 	}
 }

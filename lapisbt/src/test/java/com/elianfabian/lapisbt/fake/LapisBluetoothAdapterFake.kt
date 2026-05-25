@@ -1,59 +1,17 @@
 package com.elianfabian.lapisbt.fake
 
-import android.bluetooth.BluetoothClass
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
-import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
-import com.elianfabian.lapisbt.util.TestRandom
-import com.elianfabian.lapisbt.util.generateAddress
 import java.util.UUID
 
 internal class LapisBluetoothAdapterFake(
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
 	override var isEnabled: Boolean,
+	private val environment: FakeBluetoothEnvironment,
 ) : LapisBluetoothAdapter {
 
-	private val _devices = (1..20).map {
-		LapisBluetoothDeviceFake(
-			address = generateAddress(),
-			name = "Device $it",
-			alias = "Device $it alias",
-			type = listOf(
-				AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC,
-				AndroidBluetoothDevice.DEVICE_TYPE_LE,
-				AndroidBluetoothDevice.DEVICE_TYPE_DUAL,
-				//AndroidBluetoothDevice.DEVICE_TYPE_UNKNOWN,
-			).random(TestRandom),
-			addressType = listOf(
-				AndroidBluetoothDevice.ADDRESS_TYPE_PUBLIC,
-				AndroidBluetoothDevice.ADDRESS_TYPE_RANDOM,
-				AndroidBluetoothDevice.ADDRESS_TYPE_ANONYMOUS,
-				//AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN,
-			).random(TestRandom),
-			bondState = listOf(
-				AndroidBluetoothDevice.BOND_BONDED,
-				AndroidBluetoothDevice.BOND_BONDING,
-				AndroidBluetoothDevice.BOND_NONE
-			).random(TestRandom),
-			majorDeviceClass = listOf(
-//				BluetoothClass.Device.Major.TOY,
-//				BluetoothClass.Device.Major.COMPUTER,
-				BluetoothClass.Device.Major.PHONE,
-//				BluetoothClass.Device.Major.AUDIO_VIDEO,
-//				BluetoothClass.Device.Major.HEALTH,
-//				BluetoothClass.Device.Major.IMAGING,
-//				BluetoothClass.Device.Major.MISC,
-//				BluetoothClass.Device.Major.NETWORKING,
-//				BluetoothClass.Device.Major.PERIPHERAL,
-//				BluetoothClass.Device.Major.WEARABLE,
-				//BluetoothClass.Device.Major.UNCATEGORIZED,
-			).random(TestRandom),
-			uuids = emptyList(),
-			bluetoothEventsFake = bluetoothEventsFake,
-		)
-	}
-
+	var address: String = ""
 
 	private var _name: String? = null
 
@@ -72,7 +30,7 @@ internal class LapisBluetoothAdapterFake(
 		_isDiscovering = true
 		bluetoothEventsFake.emitDiscovering(true)
 
-		getScannableDevices().forEach { device ->
+		environment.getScannableDevices(address).forEach { device ->
 			bluetoothEventsFake.emitDeviceFound(device)
 		}
 
@@ -86,41 +44,30 @@ internal class LapisBluetoothAdapterFake(
 	}
 
 	override fun listenUsingRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val remoteDevice = _devices.filter { it.bondState == AndroidBluetoothDevice.BOND_BONDED }.random(TestRandom)
-		remoteDevice.bondState = AndroidBluetoothDevice.BOND_BONDED
-		remoteDevice.setConnected(true)
-
-		bluetoothEventsFake.emitDeviceBondState(remoteDevice)
-
-		return LapisBluetoothServerSocketFake(
-			remoteDevice = remoteDevice,
+		val serverSocket = LapisBluetoothServerSocketFake(
+			environment = environment,
+			address = address,
+			serviceUuid = uuid
 		)
+		environment.registerServer(address, uuid, serverSocket)
+		return serverSocket
 	}
 
 	override fun listenUsingInsecureRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val remoteDevice = _devices.filter { it.bondState != AndroidBluetoothDevice.BOND_BONDED }.random(TestRandom)
-		remoteDevice.setConnected(true)
-
-		return LapisBluetoothServerSocketFake(
-			remoteDevice = remoteDevice,
-		)
+		return listenUsingRfcommWithServiceRecord(name, uuid)
 	}
 
 	override fun getRemoteDevice(address: String): LapisBluetoothDevice {
-		return _devices.first { it.address == address }
+		return LapisBluetoothDeviceFake(
+			address = address,
+			name = null,
+			bluetoothEventsFake = bluetoothEventsFake,
+			environment = environment,
+			requesterAddress = this.address
+		)
 	}
 
-	override fun getBondedDevices(): List<LapisBluetoothDevice> {
-		return _devices.filter { it.bondState == AndroidBluetoothDevice.BOND_BONDED }
-	}
-
-	fun getAllDevices(): List<LapisBluetoothDevice> {
-		return _devices
-	}
-
-	fun getScannableDevices(): List<LapisBluetoothDevice> {
-		return _devices.filter {
-			it.bondState != AndroidBluetoothDevice.BOND_BONDED && !it.isConnected()
-		}
+	override fun getBondedDevices(): List<LapisBluetoothDevice>? {
+		return emptyList() // We can implement this later if needed
 	}
 }

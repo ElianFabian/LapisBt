@@ -21,7 +21,7 @@ public data class BluetoothDevice(
 	) {
 		init {
 			require(checkBluetoothAddressInternal(value)) {
-				"Invalid bluetooth device address: $value. (e.g., 00:43:A8:23:10:F0)"
+				"Invalid bluetooth device address: '$value'. (e.g., 00:43:A8:23:10:F0)"
 			}
 		}
 
