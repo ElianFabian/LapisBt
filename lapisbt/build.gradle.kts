@@ -32,6 +32,10 @@ android {
 			jvmTarget = JvmTarget.JVM_11
 		}
 	}
+
+	testOptions {
+		unitTests.isReturnDefaultValues = true
+	}
 }
 
 dependencies {

@@ -1,9 +1,10 @@
 package com.elianfabian.lapisbt.fake
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothClass
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothStatusCodes
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.CoroutineScope
@@ -14,19 +15,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+@SuppressLint("NewApi")
 internal data class LapisBluetoothDeviceFake(
 	override val address: String,
 	override var name: String?,
-	override var bondState: Int = BluetoothDevice.BOND_NONE,
+	override var bondState: Int = AndroidBluetoothDevice.BOND_NONE,
 	override var alias: String? = null,
 	override var uuids: List<UUID>? = emptyList(),
 	override val deviceClass: Int = BluetoothClass.Device.PHONE_SMART,
 	override val majorDeviceClass: Int = BluetoothClass.Device.Major.PHONE,
-	override val addressType: Int = BluetoothDevice.ADDRESS_TYPE_UNKNOWN,
-	override val type: Int = BluetoothDevice.DEVICE_TYPE_CLASSIC,
+
+	override val addressType: Int = AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN,
+	override val type: Int = AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC,
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
-	private val environment: FakeBluetoothEnvironment,
-	var requesterAddress: String = ""
+	internal val environment: FakeBluetoothEnvironment,
+	var requesterAddress: String = "",
 ) : LapisBluetoothDevice {
 
 	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
@@ -36,12 +39,29 @@ internal data class LapisBluetoothDeviceFake(
 	private var _bondingJob: Job? = null
 
 	override fun createBond(): Boolean {
+		val config = environment.getDeviceConfig(address)
+		val pairingResult = config?.pairingResult ?: FakeBluetoothConfiguration.PairingResult.Success
+
 		bondState = AndroidBluetoothDevice.BOND_BONDING
 		bluetoothEventsFake.emitDeviceBondState(this.copy())
+
 		_bondingJob = _scope.launch {
 			delay(250)
-			bondState = AndroidBluetoothDevice.BOND_BONDED
-			bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
+			if (pairingResult is FakeBluetoothConfiguration.PairingResult.Failure) {
+				bondState = AndroidBluetoothDevice.BOND_NONE
+				bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
+				bluetoothEventsFake.emitUnbondReason(
+					LapisBluetoothEvents.UnbondReasonEvent(
+						androidDevice = this@LapisBluetoothDeviceFake.copy(),
+						reason = pairingResult.reason
+					)
+				)
+			}
+			else {
+				environment.bondDevices(requesterAddress, address)
+				bondState = AndroidBluetoothDevice.BOND_BONDED
+				bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
+			}
 		}
 		return true
 	}
@@ -56,6 +76,7 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun removeBond(): Boolean {
+		environment.unpairDeviceLocally(requesterAddress, address)
 		bondState = AndroidBluetoothDevice.BOND_NONE
 		bluetoothEventsFake.emitDeviceBondState(this.copy())
 		return true
@@ -88,13 +109,16 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		return environment.requestConnection(requesterAddress, address, uuid) ?: LapisBluetoothSocketFake(
+		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = true) ?: LapisBluetoothSocketFake(
 			remoteDevice = this,
-			connectSuccess = true
+			connectSuccess = false
 		)
 	}
 
 	override fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		return createRfcommSocketToServiceRecord(uuid)
+		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = false) ?: LapisBluetoothSocketFake(
+			remoteDevice = this,
+			connectSuccess = false
+		)
 	}
 }

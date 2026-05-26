@@ -24,17 +24,17 @@ internal class LapisBluetoothServerSocketFake(
 	}
 
 	override fun accept(): LapisBluetoothSocket {
-		if (isClosed) throw IOException("Server socket closed")
-		
+		if (isClosed) {
+			throw IOException("Server socket closed")
+		}
+
 		// Wait for a connection to be enqueued by the environment
-		return pendingConnections.poll(5, TimeUnit.SECONDS) 
-			?: throw IOException("Accept timed out - no incoming connection in 5 seconds")
+		return pendingConnections.poll(1, TimeUnit.SECONDS)
+			?: throw IOException("Accept timed out - no incoming connection in 1 seconds")
 	}
 
 	override fun close() {
-		if (isClosed) {
-			return
-		}
+		if (isClosed) return
 		isClosed = true
 		pendingConnections.clear()
 		environment.unregisterServer(address, serviceUuid)

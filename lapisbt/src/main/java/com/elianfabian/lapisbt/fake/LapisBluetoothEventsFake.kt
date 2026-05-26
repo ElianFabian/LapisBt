@@ -1,15 +1,25 @@
 package com.elianfabian.lapisbt.fake
 
+import android.content.Context
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
+import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
-internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
+internal class LapisBluetoothEventsFake(
+    context: Context? = null
+) : LapisBluetoothEvents {
+
+	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
 	private val _bluetoothStateFlow = MutableSharedFlow<Int>(extraBufferCapacity = Int.MAX_VALUE)
-	override val bluetoothStateFlow = _bluetoothStateFlow.asSharedFlow()
+	override val bluetoothStateFlow: SharedFlow<Int> = _bluetoothStateFlow.asSharedFlow()
 
 	private val _deviceAliasChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceAliasChangeFlow: SharedFlow<LapisBluetoothDevice> = _deviceAliasChangeFlow.asSharedFlow()
@@ -36,11 +46,22 @@ internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
 	override val unbondReasonFlow: SharedFlow<LapisBluetoothEvents.UnbondReasonEvent> = _unbondReasonFlow.asSharedFlow()
 
 	private val _pairingRequestFlow = MutableSharedFlow<LapisBluetoothEvents.PairingRequestEvent>(extraBufferCapacity = Int.MAX_VALUE)
-	override val pairingRequestFlow = _pairingRequestFlow.asSharedFlow()
+	override val pairingRequestFlow: SharedFlow<LapisBluetoothEvents.PairingRequestEvent> = _pairingRequestFlow.asSharedFlow()
 
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
 	override val onActivityResumed: SharedFlow<Unit> = _onActivityResumed.asSharedFlow()
 
+    private val realEvents: LapisBluetoothEvents? = context?.let { LapisBluetoothEventsImpl(it) }
+
+    init {
+        if (realEvents != null) {
+            _scope.launch {
+                realEvents.onActivityResumed.collect {
+                    _onActivityResumed.emit(Unit)
+                }
+            }
+        }
+    }
 
 	fun emitBluetoothState(state: Int) {
 		_bluetoothStateFlow.tryEmit(state)
@@ -55,9 +76,7 @@ internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
 	}
 
 	fun emitDeviceBondState(device: LapisBluetoothDevice) {
-		_deviceBondStateChangeFlow.tryEmit(device).also {
-			println("Emitted bond state change for device ${device.address}, new bond state: ${device.bondState}: $it")
-		}
+		_deviceBondStateChangeFlow.tryEmit(device)
 	}
 
 	fun emitDiscovering(isDiscovering: Boolean) {
@@ -84,7 +103,11 @@ internal class LapisBluetoothEventsFake : LapisBluetoothEvents {
 		_pairingRequestFlow.tryEmit(event)
 	}
 
+	fun emitUnbondReason(event: LapisBluetoothEvents.UnbondReasonEvent) {
+		_unbondReasonFlow.tryEmit(event)
+	}
+
 	override fun dispose() {
-		// No-op
+		realEvents?.dispose()
 	}
 }

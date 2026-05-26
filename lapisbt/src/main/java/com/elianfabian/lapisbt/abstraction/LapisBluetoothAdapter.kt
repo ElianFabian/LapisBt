@@ -2,17 +2,17 @@ package com.elianfabian.lapisbt.abstraction
 
 import java.util.UUID
 
-internal interface LapisBluetoothAdapter {
+public interface LapisBluetoothAdapter {
 
-	val name: String?
-	val isEnabled: Boolean
-	val isDiscovering: Boolean
+	public val name: String?
+	public val isEnabled: Boolean
+	public val isDiscovering: Boolean
 
-	fun setName(name: String): Boolean
-	fun startDiscovery(): Boolean
-	fun cancelDiscovery(): Boolean
-	fun listenUsingRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket
-	fun listenUsingInsecureRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket
-	fun getRemoteDevice(address: String): LapisBluetoothDevice
-	fun getBondedDevices(): List<LapisBluetoothDevice>?
+	public fun setName(name: String): Boolean
+	public fun startDiscovery(): Boolean
+	public fun cancelDiscovery(): Boolean
+	public fun listenUsingRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket
+	public fun listenUsingInsecureRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket
+	public fun getRemoteDevice(address: String): LapisBluetoothDevice
+	public fun getBondedDevices(): List<LapisBluetoothDevice>?
 }

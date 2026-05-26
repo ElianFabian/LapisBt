@@ -6,4 +6,5 @@ internal interface AndroidHelper {
 
 	fun isBluetoothConnectGranted(): Boolean
 	fun isBluetoothScanGranted(): Boolean
+	fun isLocationEnabled(): Boolean
 }

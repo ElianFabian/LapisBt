@@ -3,7 +3,9 @@ package com.elianfabian.lapisbt.abstraction.impl
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
+import androidx.core.content.getSystemService
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 
 internal class AndroidHelperImpl(
@@ -26,5 +28,11 @@ internal class AndroidHelperImpl(
 			return context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
 		}
 		return true
+	}
+
+	override fun isLocationEnabled(): Boolean {
+		val locationManager = context.getSystemService<LocationManager>() ?: return false
+		return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+				locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 	}
 }

@@ -1,7 +1,7 @@
 package com.elianfabian.lapisbt.abstraction
 
-internal interface LapisBluetoothServerSocket {
+public interface LapisBluetoothServerSocket {
 
-	fun accept(): LapisBluetoothSocket
-	fun close()
+	public fun accept(): LapisBluetoothSocket
+	public fun close()
 }
