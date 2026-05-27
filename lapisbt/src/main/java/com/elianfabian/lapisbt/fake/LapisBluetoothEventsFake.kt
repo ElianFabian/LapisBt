@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 internal class LapisBluetoothEventsFake(
-    context: Context? = null
+	context: Context? = null,
 ) : LapisBluetoothEvents {
 
 	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
@@ -42,6 +42,9 @@ internal class LapisBluetoothEventsFake(
 	private val _isDiscoveringFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = Int.MAX_VALUE)
 	override val isDiscoveringFlow: SharedFlow<Boolean> = _isDiscoveringFlow.asSharedFlow()
 
+	private val _scanModeFlow = MutableSharedFlow<Int>(extraBufferCapacity = Int.MAX_VALUE)
+	override val scanModeFlow = _scanModeFlow.asSharedFlow()
+
 	private val _unbondReasonFlow = MutableSharedFlow<LapisBluetoothEvents.UnbondReasonEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val unbondReasonFlow: SharedFlow<LapisBluetoothEvents.UnbondReasonEvent> = _unbondReasonFlow.asSharedFlow()
 
@@ -51,17 +54,17 @@ internal class LapisBluetoothEventsFake(
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
 	override val onActivityResumed: SharedFlow<Unit> = _onActivityResumed.asSharedFlow()
 
-    private val realEvents: LapisBluetoothEvents? = context?.let { LapisBluetoothEventsImpl(it) }
+	private val realEvents: LapisBluetoothEvents? = context?.let { LapisBluetoothEventsImpl(it) }
 
-    init {
-        if (realEvents != null) {
-            _scope.launch {
-                realEvents.onActivityResumed.collect {
-                    _onActivityResumed.emit(Unit)
-                }
-            }
-        }
-    }
+	init {
+		if (realEvents != null) {
+			_scope.launch {
+				realEvents.onActivityResumed.collect {
+					_onActivityResumed.emit(Unit)
+				}
+			}
+		}
+	}
 
 	fun emitBluetoothState(state: Int) {
 		_bluetoothStateFlow.tryEmit(state)
@@ -81,6 +84,10 @@ internal class LapisBluetoothEventsFake(
 
 	fun emitDiscovering(isDiscovering: Boolean) {
 		_isDiscoveringFlow.tryEmit(isDiscovering)
+	}
+
+	fun emitScanMode(scanMode: Int) {
+		_scanModeFlow.tryEmit(scanMode)
 	}
 
 	fun emitDeviceName(name: String?) {

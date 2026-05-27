@@ -18,6 +18,7 @@ import com.elianfabian.lapisbt.broadcast_receiver.DeviceNameChangeBroadcastRecei
 import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.DiscoveryStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.PairingRequestBroadcastReceiver
+import com.elianfabian.lapisbt.broadcast_receiver.ScanModeChangeBroadcastReceiver
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -54,6 +55,9 @@ internal class LapisBluetoothEventsImpl(
 	private val _isDiscoveringFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = Int.MAX_VALUE)
 	override val isDiscoveringFlow = _isDiscoveringFlow.asSharedFlow()
 
+	private val _scanModeFlow = MutableSharedFlow<Int>(extraBufferCapacity = Int.MAX_VALUE)
+	override val scanModeFlow = _scanModeFlow.asSharedFlow()
+
 	private val _onActivityResumed = MutableSharedFlow<Unit>(extraBufferCapacity = Int.MAX_VALUE)
 	override val onActivityResumed = _onActivityResumed.asSharedFlow()
 
@@ -75,6 +79,7 @@ internal class LapisBluetoothEventsImpl(
 		context.unregisterReceiver(_deviceUuidsChangeReceiver)
 		context.unregisterReceiver(_deviceFoundReceiver)
 		context.unregisterReceiver(_discoveryStateChangeReceiver)
+		context.unregisterReceiver(_scanModeChangeReceiver)
 		context.unregisterReceiver(_pairingRequestBroadcastReceiver)
 	}
 
@@ -172,6 +177,12 @@ internal class LapisBluetoothEventsImpl(
 		}
 	)
 
+	private val _scanModeChangeReceiver = ScanModeChangeBroadcastReceiver(
+		onScanModeChanged = { previousScanMode, newScanMode ->
+			_scanModeFlow.tryEmit(newScanMode)
+		}
+	)
+
 	private val _pairingRequestBroadcastReceiver = PairingRequestBroadcastReceiver(
 		onPairingRequest = { androidDevice, pairingKey, pairingVariant ->
 			val lapisDevice = LapisBluetoothDeviceImpl(androidDevice)
@@ -236,6 +247,10 @@ internal class LapisBluetoothEventsImpl(
 				addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
 				addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
 			},
+		)
+		context.registerReceiver(
+			_scanModeChangeReceiver,
+			IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED),
 		)
 		context.registerReceiver(
 			_pairingRequestBroadcastReceiver,

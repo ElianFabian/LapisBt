@@ -42,6 +42,8 @@ public interface LapisBt {
 
 	public val isScanning: StateFlow<Boolean>
 
+	public val scanMode: StateFlow<ScanMode>
+
 	public val activeBluetoothServersUuids: StateFlow<List<UUID>>
 
 
@@ -248,6 +250,12 @@ public interface LapisBt {
 		TurningOff;
 
 		public val isOn: Boolean get() = this == On
+	}
+
+	public enum class ScanMode {
+		ConnectableDiscoverable,
+		Connectable,
+		None,
 	}
 
 	public sealed interface ConnectionResult {

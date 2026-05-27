@@ -16,6 +16,8 @@ internal class LapisBluetoothAdapterImpl(
 
 	override val isDiscovering: Boolean get() = adapter.isDiscovering
 
+	override val scanMode: Int get() = adapter.scanMode
+
 
 	override fun setName(name: String): Boolean {
 		return adapter.setName(name)

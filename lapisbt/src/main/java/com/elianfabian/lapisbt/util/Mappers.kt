@@ -1,6 +1,8 @@
 package com.elianfabian.lapisbt.util
 
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothClass
+import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
 
@@ -145,4 +147,13 @@ internal fun LapisBluetoothDevice.toModel(connectionState: BluetoothDevice.Conne
 		},
 		connectionState = connectionState,
 	)
+}
+
+internal fun convertToScanMode(scanMode: Int): LapisBt.ScanMode {
+	return when (scanMode) {
+		BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE -> LapisBt.ScanMode.ConnectableDiscoverable
+		BluetoothAdapter.SCAN_MODE_CONNECTABLE -> LapisBt.ScanMode.Connectable
+		BluetoothAdapter.SCAN_MODE_NONE -> LapisBt.ScanMode.None
+		else -> error("Unknown scan mode: $scanMode")
+	}
 }

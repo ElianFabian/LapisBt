@@ -11,6 +11,7 @@ import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
+import com.elianfabian.lapisbt.util.convertToScanMode
 import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -87,6 +88,15 @@ internal class LapisBtImpl(
 	)
 	override val isScanning = _isScanning.asStateFlow()
 
+	// TODO: probably we should set this again in onResume when the permission is granted
+	private val _scanMode = MutableStateFlow(
+		if (androidHelper.isBluetoothConnectGranted()) {
+			convertToScanMode(lapisAdapter.scanMode)
+		}
+		else LapisBt.ScanMode.None
+	)
+	override val scanMode = _scanMode.asStateFlow()
+
 	private val _activeBluetoothServersUuids = MutableStateFlow(emptyList<UUID>())
 	override val activeBluetoothServersUuids = _activeBluetoothServersUuids.asStateFlow()
 
@@ -147,7 +157,7 @@ internal class LapisBtImpl(
 		checkIsNotDispose()
 
 		if (!androidHelper.isBluetoothScanGranted()) {
-			throw SecurityException("BLUETOOTH_SCAN permission was not granted.")
+			return false
 		}
 
 		updateDevices()
@@ -159,7 +169,7 @@ internal class LapisBtImpl(
 		checkIsNotDispose()
 
 		if (!androidHelper.isBluetoothScanGranted()) {
-			throw SecurityException("BLUETOOTH_SCAN permission was not granted.")
+			return false
 		}
 
 		return lapisAdapter.cancelDiscovery()
@@ -861,7 +871,11 @@ internal class LapisBtImpl(
 				_isScanning.value = isDiscovering
 			}
 		}
-
+		_scope.launch {
+			bluetoothEvents.scanModeFlow.collect { scanMode ->
+				_scanMode.value = convertToScanMode(scanMode)
+			}
+		}
 		_scope.launch {
 			_bluetoothState.collect { state ->
 				if (state == LapisBt.BluetoothState.Off) {
@@ -1013,6 +1027,7 @@ internal class LapisBtImpl(
 				if (isBluetoothConnectPermissionGranted) {
 					_bluetoothDeviceName.value = lapisAdapter.name
 				}
+				_scanMode.value = convertToScanMode(lapisAdapter.scanMode)
 			}.collect()
 		}
 	}

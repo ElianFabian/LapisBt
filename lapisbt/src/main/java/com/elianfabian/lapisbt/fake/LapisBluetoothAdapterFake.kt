@@ -40,6 +40,14 @@ internal class LapisBluetoothAdapterFake(
 	private var _isDiscovering: Boolean = false
 	override val isDiscovering: Boolean get() = _isDiscovering
 
+	override val scanMode: Int
+		get() = if (context != null) {
+			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+			bluetoothManager.adapter.scanMode
+		} else {
+			TODO("Implement scanMode for fake adapter")
+		}
+
 	override fun setName(name: String): Boolean {
 		_name = name
 		bluetoothEventsFake.emitDeviceName(name)

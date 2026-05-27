@@ -13,6 +13,7 @@ internal interface LapisBluetoothEvents {
 	val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothDevice>
 	val deviceFoundFlow: SharedFlow<LapisBluetoothDevice>
 	val isDiscoveringFlow: SharedFlow<Boolean>
+	val scanModeFlow: SharedFlow<Int>
 	val pairingRequestFlow: SharedFlow<PairingRequestEvent>
 	val onActivityResumed: SharedFlow<Unit>
 

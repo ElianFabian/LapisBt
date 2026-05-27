@@ -7,6 +7,7 @@ public interface LapisBluetoothAdapter {
 	public val name: String?
 	public val isEnabled: Boolean
 	public val isDiscovering: Boolean
+	public val scanMode: Int
 
 	public fun setName(name: String): Boolean
 	public fun startDiscovery(): Boolean
