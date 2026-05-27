@@ -29,8 +29,15 @@ internal class LapisBluetoothServerSocketFake(
 		}
 
 		// Wait for a connection to be enqueued by the environment
-		return pendingConnections.poll(1, TimeUnit.SECONDS)
-			?: throw IOException("Accept timed out - no incoming connection in 1 seconds")
+		val clientSocket = pendingConnections.poll(Long.MAX_VALUE, TimeUnit.SECONDS)
+			?: throw IOException("Accept timed out")
+
+		if (clientSocket is LapisBluetoothSocketFake) {
+			println("$$$ serverSocket finished: $address")
+			clientSocket.setConnected(true)
+		}
+
+		return clientSocket
 	}
 
 	override fun close() {

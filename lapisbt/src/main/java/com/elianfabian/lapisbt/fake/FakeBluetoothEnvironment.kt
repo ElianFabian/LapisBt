@@ -6,6 +6,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.BidirectionalStreamPipe
+import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
@@ -37,7 +38,13 @@ public class FakeBluetoothEnvironment(
 		address: String = generateAddress(),
 		name: String = "Device ${address.takeLast(5)}",
 		config: FakeBluetoothConfiguration = globalConfig.copy(),
+		useRealDeviceState: Boolean = true,
 	): FakeBluetoothDevice {
+		val context = if (useRealDeviceState) {
+			context
+		}
+		else null
+
 		val eventsFake = LapisBluetoothEventsFake(context)
 		val adapterFake = LapisBluetoothAdapterFake(
 			bluetoothEventsFake = eventsFake,
@@ -64,6 +71,7 @@ public class FakeBluetoothEnvironment(
 			lapisBt = lapisBt,
 			config = config,
 			events = eventsFake,
+			environment = this,
 		)
 		val entry = FakeBluetoothDeviceEntry(
 			device = fakeDevice,
@@ -101,6 +109,10 @@ public class FakeBluetoothEnvironment(
 		return devices[address]?.config
 	}
 
+	internal fun getDeviceEvents(address: String): LapisBluetoothEventsFake? {
+		return devices[address]?.events
+	}
+
 	internal fun unregisterServer(deviceAddress: String, uuid: UUID) {
 		activeServers[deviceAddress]?.remove(uuid)
 	}
@@ -113,11 +125,21 @@ public class FakeBluetoothEnvironment(
 		if (address1 == address2) {
 			return
 		}
-		bondingRegistry.getOrPut(address1) { java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>()) }.add(address2)
-		bondingRegistry.getOrPut(address2) { java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>()) }.add(address1)
-		
+		bondingRegistry.getOrPut(address1) { Collections.newSetFromMap(ConcurrentHashMap()) }.add(address2)
+		bondingRegistry.getOrPut(address2) { Collections.newSetFromMap(ConcurrentHashMap()) }.add(address1)
+
 		emitBondState(address1, address2, AndroidBluetoothDevice.BOND_BONDED)
 		emitBondState(address2, address1, AndroidBluetoothDevice.BOND_BONDED)
+	}
+
+	internal fun initiatePairing(myAddress: String, targetAddress: String) {
+		if (isBonded(myAddress, targetAddress)) {
+			return
+		}
+
+		val myEntry = devices[myAddress] ?: return
+
+		myEntry.device.launchPairingProcess(targetAddress)
 	}
 
 	/**
@@ -127,7 +149,7 @@ public class FakeBluetoothEnvironment(
 	public fun unpairDeviceLocally(myAddress: String, targetAddress: String) {
 		if (bondingRegistry[myAddress]?.remove(targetAddress) == true) {
 			emitBondState(myAddress, targetAddress, AndroidBluetoothDevice.BOND_NONE)
-			
+
 			// Unpairing forces disconnection in real Bluetooth stacks
 			forceDisconnect(myAddress, targetAddress)
 		}
@@ -182,13 +204,13 @@ public class FakeBluetoothEnvironment(
 	): LapisBluetoothSocketFake? {
 		val serverEntry = activeServers[targetAddress]?.get(uuid) ?: return null
 
+		val isSecure = isSecureRequest || serverEntry.isSecure
+
 		// If either side is secure, pairing is required.
 		// For testing, we automatically pair them if not already bonded.
-		if (isSecureRequest || serverEntry.isSecure) {
-			if (!isBonded(requesterAddress, targetAddress)) {
-				println("Secure connection requested: automatically pairing $requesterAddress and $targetAddress")
-				bondDevices(requesterAddress, targetAddress)
-			}
+		if (isSecure && !isBonded(requesterAddress, targetAddress)) {
+			println("Secure connection requested: automatically initiating pairing between $requesterAddress and $targetAddress")
+			initiatePairing(requesterAddress, targetAddress)
 		}
 
 		val requesterEntry = devices[requesterAddress] ?: return null
@@ -212,7 +234,8 @@ public class FakeBluetoothEnvironment(
 				requesterAddress = requesterAddress
 			),
 			inputStream = pipe.sideA.inputStream,
-			outputStream = pipe.sideA.outputStream
+			outputStream = pipe.sideA.outputStream,
+			isSecure = isSecure
 		)
 
 		val serverSideSocket = LapisBluetoothSocketFake(
@@ -224,27 +247,30 @@ public class FakeBluetoothEnvironment(
 				requesterAddress = targetAddress
 			),
 			inputStream = pipe.sideB.inputStream,
-			outputStream = pipe.sideB.outputStream
+			outputStream = pipe.sideB.outputStream,
+			isSecure = isSecure
 		)
 
 		clientSocket.twin = serverSideSocket
 		serverSideSocket.twin = clientSocket
-		
-		// Track connection for forced disconnection
-		val pair = if (requesterAddress < targetAddress) requesterAddress to targetAddress else targetAddress to requesterAddress
-		val connections = activeConnections.getOrPut(pair) { java.util.Collections.synchronizedList(mutableListOf()) }
-		connections.add(clientSocket)
-		connections.add(serverSideSocket)
 
 		serverEntry.socket.enqueueIncomingConnection(serverSideSocket)
 
 		return clientSocket
 	}
-	
+
+	internal fun registerSocket(socket: LapisBluetoothSocketFake) {
+		val address1 = socket.remoteDevice.address
+		val address2 = socket.remoteDevice.requesterAddress
+		val pair = if (address1 < address2) address1 to address2 else address2 to address1
+		val connections = activeConnections.getOrPut(pair) { Collections.synchronizedList(mutableListOf()) }
+		connections.add(socket)
+	}
+
 	internal fun unregisterSocket(socket: LapisBluetoothSocketFake) {
-		val addr1 = socket.remoteDevice.address
-		val addr2 = socket.remoteDevice.requesterAddress
-		val pair = if (addr1 < addr2) addr1 to addr2 else addr2 to addr1
+		val address1 = socket.remoteDevice.address
+		val address2 = socket.remoteDevice.requesterAddress
+		val pair = if (address1 < address2) address1 to address2 else address2 to address1
 		activeConnections[pair]?.remove(socket)
 	}
 }

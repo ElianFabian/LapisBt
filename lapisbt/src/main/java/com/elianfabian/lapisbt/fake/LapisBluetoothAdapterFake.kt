@@ -6,69 +6,72 @@ import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
+import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
 import java.util.UUID
 
 internal class LapisBluetoothAdapterFake(
 	private val bluetoothEventsFake: LapisBluetoothEventsFake,
 	private val config: FakeBluetoothConfiguration,
 	private val environment: FakeBluetoothEnvironment,
-    private val context: Context?,
+	context: Context?,
 ) : LapisBluetoothAdapter {
+
+	private val _realAdapter = if (context != null) {
+		LapisBluetoothAdapterImpl(
+			adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter,
+		)
+	}
+	else null
 
 	internal var address: String = ""
 
 	private var _name: String? = null
 
-	override val name: String? get() {
-        return if (context != null) {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            bluetoothManager.adapter.name
-        } else {
-            _name ?: config.name
-        }
-    }
-
-	override val isEnabled: Boolean get() {
-        return if (context != null) {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            bluetoothManager.adapter.isEnabled
-        } else {
-            config.bluetoothState == LapisBt.BluetoothState.On
-        }
-	}
-
-	private var _isDiscovering: Boolean = false
-	override val isDiscovering: Boolean get() = _isDiscovering
-
-	override val scanMode: Int
-		get() = if (context != null) {
-			val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-			bluetoothManager.adapter.scanMode
-		} else {
-			TODO("Implement scanMode for fake adapter")
+	override val name: String?
+		get() {
+			return if (_realAdapter != null) {
+				_realAdapter.name
+			}
+			else {
+				_name ?: config.name
+			}
 		}
 
+	override val isEnabled: Boolean
+		get() {
+			return _realAdapter?.isEnabled ?: (config.bluetoothState == LapisBt.BluetoothState.On)
+		}
+
+	private var _isDiscovering: Boolean = false
+	override val isDiscovering: Boolean get() = _realAdapter?.isDiscovering ?: _isDiscovering
+
+	override val scanMode: Int
+		get() = _realAdapter?.scanMode ?: config.scanMode
+
 	override fun setName(name: String): Boolean {
+		if (_realAdapter != null) {
+			return _realAdapter.setName(name)
+		}
+
 		_name = name
 		bluetoothEventsFake.emitDeviceName(name)
+
 		return true
 	}
 
 	override fun startDiscovery(): Boolean {
 		if (!isEnabled) {
+			println("$$$ enabled")
 			return false
 		}
-        
-        if (context != null) {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val realAdapter = bluetoothManager.adapter
-            val success = realAdapter.startDiscovery()
-            if (!success) return false
-            realAdapter.cancelDiscovery()
-        } else {
-            if (!config.isBluetoothScanGranted) return false
-            if (config.needsLocationForScan && !config.isLocationEnabled) return false
-        }
+		if (!config.isBluetoothScanGranted) {
+			println("$$$ granted")
+			return false
+		}
+		if (config.needsLocationForScan && !config.isLocationEnabled) {
+			println("$$$ location")
+			return false
+		}
 
 		_isDiscovering = true
 		bluetoothEventsFake.emitDiscovering(true)
@@ -116,7 +119,7 @@ internal class LapisBluetoothAdapterFake(
 		)
 	}
 
-	override fun getBondedDevices(): List<LapisBluetoothDevice>? {
+	override fun getBondedDevices(): List<LapisBluetoothDevice> {
 		return environment.getBondedDevicesFor(address)
 	}
 }

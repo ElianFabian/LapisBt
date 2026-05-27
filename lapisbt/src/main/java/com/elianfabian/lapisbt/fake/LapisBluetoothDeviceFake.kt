@@ -36,33 +36,8 @@ internal data class LapisBluetoothDeviceFake(
 
 	private var _isConnected: Boolean = false
 
-	private var _bondingJob: Job? = null
-
 	override fun createBond(): Boolean {
-		val config = environment.getDeviceConfig(address)
-		val pairingResult = config?.pairingResult ?: FakeBluetoothConfiguration.PairingResult.Success
-
-		bondState = AndroidBluetoothDevice.BOND_BONDING
-		bluetoothEventsFake.emitDeviceBondState(this.copy())
-
-		_bondingJob = _scope.launch {
-			delay(250)
-			if (pairingResult is FakeBluetoothConfiguration.PairingResult.Failure) {
-				bondState = AndroidBluetoothDevice.BOND_NONE
-				bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
-				bluetoothEventsFake.emitUnbondReason(
-					LapisBluetoothEvents.UnbondReasonEvent(
-						androidDevice = this@LapisBluetoothDeviceFake.copy(),
-						reason = pairingResult.reason
-					)
-				)
-			}
-			else {
-				environment.bondDevices(requesterAddress, address)
-				bondState = AndroidBluetoothDevice.BOND_BONDED
-				bluetoothEventsFake.emitDeviceBondState(this@LapisBluetoothDeviceFake.copy())
-			}
-		}
+		environment.initiatePairing(requesterAddress, address)
 		return true
 	}
 
@@ -83,8 +58,6 @@ internal data class LapisBluetoothDeviceFake(
 	}
 
 	override fun cancelBondProcess(): Boolean {
-		_bondingJob?.cancel()
-
 		return true
 	}
 

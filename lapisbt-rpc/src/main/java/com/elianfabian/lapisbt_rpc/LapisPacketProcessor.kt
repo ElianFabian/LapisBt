@@ -206,8 +206,12 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 			dataStream.write(bytesToWrite)
 		}
 
-		// I'm not sure if flush is necessary here, we'll see during testing
-		//dataStream.flush()
+
+		// It doesn't seem to make any difference on bluetooth,
+		// but it does when it comes to testing using fake streams
+		// I don't like that the user should be aware of this in order to
+		// make the fake bluetooth environment properly work
+		dataStream.flush()
 		println("$$$$ packet sent: $packet")
 	}
 

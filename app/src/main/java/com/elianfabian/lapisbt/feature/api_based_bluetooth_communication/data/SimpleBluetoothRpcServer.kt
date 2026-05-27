@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data
 
 import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,7 @@ import kotlinx.coroutines.flow.flow
 class SimpleBluetoothRpcServer(
 	private val deviceAddress: BluetoothDevice.Address,
 	private val androidHelper: AndroidHelper,
-) : SimpleBluetoothRpc {
+) : SimpleBluetoothRpc, LapisBtRpc.Registered {
 
 	override suspend fun showToast(message: String) {
 		println("$$$ Received string data: $message")
@@ -49,5 +50,13 @@ class SimpleBluetoothRpcServer(
 		data.collect {
 			println("$$$ sendLargeData: $it")
 		}
+	}
+
+	override fun onLapisServiceRegistered(deviceAddress: BluetoothDevice.Address) {
+		println("$$$ onLapisServiceRegistered: $deviceAddress, $this")
+	}
+
+	override fun onLapisServiceUnregistered(deviceAddress: BluetoothDevice.Address) {
+		println("$$$ onLapisServiceUnregistered: $deviceAddress, $this")
 	}
 }

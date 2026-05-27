@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.fake
 
+import android.bluetooth.BluetoothAdapter
 import com.elianfabian.lapisbt.LapisBt
 
 /**
@@ -19,18 +20,19 @@ public data class FakeBluetoothConfiguration(
     public var isLocationEnabled: Boolean = true,
     public var name: String? = "Fake Adapter",
     public var needsLocationForScan: Boolean = false,
-    
+    public var scanMode: Int = BluetoothAdapter.SCAN_MODE_NONE,
+
     // Remote Device Interaction (Used in both modes)
     public var connectionResult: ConnectionResult = ConnectionResult.Success,
-    public var pairingResult: PairingResult = PairingResult.Success
+    public var pairingResult: PairingResult = PairingResult.Success,
 ) {
-    public sealed interface ConnectionResult {
-        public data object Success : ConnectionResult
-        public data object CouldNotConnect : ConnectionResult
-    }
+	public sealed interface ConnectionResult {
+		public data object Success : ConnectionResult
+		public data object CouldNotConnect : ConnectionResult
+	}
 
-    public sealed interface PairingResult {
-        public data object Success : PairingResult
-        public data class Failure(val reason: Int) : PairingResult
-    }
+	public sealed interface PairingResult {
+		public data object Success : PairingResult
+		public data class Failure(val reason: Int) : PairingResult
+	}
 }

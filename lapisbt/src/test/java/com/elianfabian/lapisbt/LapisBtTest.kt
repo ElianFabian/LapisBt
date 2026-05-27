@@ -276,13 +276,8 @@ class LapisBtTest {
 
 		device.setPermissions(connect = false, scan = false)
 
-		try {
-			device.lapisBt.startScan()
-			error("Should have thrown SecurityException")
-		}
-		catch (e: Throwable) {
-			assertThat(e).isInstanceOf(SecurityException::class.java)
-		}
+		// LapisBtImpl.startScan returns false if scan permission is not granted
+		assertThat(device.lapisBt.startScan()).isFalse()
 
 		device.setPermissions(connect = true, scan = true)
 		assertThat(device.lapisBt.startScan()).isTrue()

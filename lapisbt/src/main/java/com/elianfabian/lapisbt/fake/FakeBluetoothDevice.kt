@@ -2,15 +2,25 @@ package com.elianfabian.lapisbt.fake
 
 import android.bluetooth.BluetoothAdapter
 import com.elianfabian.lapisbt.LapisBt
+import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 public class FakeBluetoothDevice internal constructor(
     public val address: BluetoothDevice.Address,
     public val lapisBt: LapisBt,
     public val config: FakeBluetoothConfiguration,
     private val events: LapisBluetoothEventsFake,
+    private val environment: FakeBluetoothEnvironment,
 ) {
     public val name: String? get() = lapisBt.bluetoothDeviceName.value
+
+    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
     public fun setBluetoothState(newState: LapisBt.BluetoothState) {
         config.bluetoothState = newState
@@ -37,5 +47,50 @@ public class FakeBluetoothDevice internal constructor(
 
     internal fun onActivityResumed() {
         events.emitActivityResumed()
+    }
+
+    internal fun launchPairingProcess(targetAddress: String) {
+        scope.launch {
+            // Simulate pairing request delay
+            delay(250)
+            
+            val pairingResult = config.pairingResult
+            if (pairingResult is FakeBluetoothConfiguration.PairingResult.Failure) {
+                events.emitUnbondReason(
+                    LapisBluetoothEvents.UnbondReasonEvent(
+                        androidDevice = environment.getScannableDevices(address.value).first { it.address == targetAddress },
+                        reason = pairingResult.reason
+                    )
+                )
+                return@launch
+            }
+
+            val myLapisDevice = environment.getScannableDevices(targetAddress).first { it.address == address.value }
+            val targetLapisDevice = environment.getScannableDevices(address.value).first { it.address == targetAddress }
+            val pairingKey = 123456
+            val pairingVariant = AndroidBluetoothDevice.PAIRING_VARIANT_PIN
+
+            // Emit the dialog event for both devices
+            events.emitPairingRequestEvent(
+                LapisBluetoothEvents.PairingRequestEvent(
+                    androidDevice = targetLapisDevice,
+                    pairingKey = pairingKey,
+                    pairingVariant = pairingVariant
+                )
+            )
+
+            environment.getDeviceEvents(targetAddress)?.emitPairingRequestEvent(
+                LapisBluetoothEvents.PairingRequestEvent(
+                    androidDevice = myLapisDevice,
+                    pairingKey = pairingKey,
+                    pairingVariant = pairingVariant
+                )
+            )
+
+            // Simulate user interaction delay
+            delay(500)
+            
+            environment.bondDevices(address.value, targetAddress)
+        }
     }
 }

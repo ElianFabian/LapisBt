@@ -89,6 +89,7 @@ internal class BluetoothDeviceRpc(
 
 
 	init {
+		println("$$$ bluetoothDeviceRpc: $deviceAddress")
 		_scope.launch {
 			lapisBt.events.collect { event ->
 				when (event) {
@@ -108,7 +109,7 @@ internal class BluetoothDeviceRpc(
 							adapter.onDeviceDisconnected(deviceAddress)
 						}
 
-						println("$$$ device disconnected")
+						println("$$$ BluetoothDeviceRpc - device disconnected($deviceAddress): ${hashCode()}")
 						internalDispose()
 					}
 					else -> Unit
@@ -732,7 +733,7 @@ internal class BluetoothDeviceRpc(
 		}
 		_isDisposed = true
 
-		println("$$$ internalDispose")
+		println("$$$ internalDispose: ${hashCode()}")
 		packetProcessor.dispose()
 
 		_scope.cancel()

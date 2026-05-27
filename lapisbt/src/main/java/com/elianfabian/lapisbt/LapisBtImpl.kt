@@ -112,6 +112,7 @@ internal class LapisBtImpl(
 	// This is to know which device stared the bonding process
 	private val _pairingsStarted = mutableSetOf<BluetoothDevice.Address>()
 
+	// Unpairings implicitly forces disconnection
 	private val _unpairingsStarted = mutableSetOf<BluetoothDevice.Address>()
 
 	// This is to check unexpected bonded devices
@@ -282,6 +283,7 @@ internal class LapisBtImpl(
 			true
 		}
 		catch (e: IOException) {
+			println("$$$$ disconnectFromDevice catch: $e")
 			if (e.message.orEmpty().contains("Broken pipe")) {
 				false
 			}
@@ -290,13 +292,17 @@ internal class LapisBtImpl(
 
 		updateDevices()
 
+		// If we put this skip disconnection event logic inside handleDisconnectedDevice
+		// it doesn't work, probably because of concurrency issues
+		_skipDisconnectionEventForDevices.add(deviceAddress)
 		if (!handleDisconnectedDevice(deviceAddress)) {
+			_skipDisconnectionEventForDevices.remove(deviceAddress)
 			return false
 		}
 
 		val disconnectedDevice = getRemoteDeviceInternal(deviceAddress)
 
-		println("$$$$ Device disconnected: $disconnectedDevice, locally = $disconnectedLocally | 1")
+		println("$$$$ Device disconnected(locally = $disconnectedLocally | 1): $disconnectedDevice")
 
 		_events.emit(
 			LapisBt.Event.OnDeviceDisconnected(
@@ -305,7 +311,7 @@ internal class LapisBtImpl(
 			)
 		)
 
-		_skipDisconnectionEventForDevices.add(deviceAddress)
+		println("$$$ end of disconnectFromDevice: $deviceAddress")
 
 		return true
 	}
@@ -467,10 +473,15 @@ internal class LapisBtImpl(
 				try {
 					action(clientSocket.outputStream)
 				}
-				catch (_: IOException) {
+				catch (e: IOException) {
+					println("$$$ sendData error: $e")
 					if (!_isDisposed) {
-						println("$$$$ Device disconnected: ${getRemoteDeviceInternal(deviceAddress)}, locally = false | 2")
-						handleDisconnectedDevice(deviceAddress)
+						println("$$$$ Device disconnected(locally = false | 2): ${getRemoteDeviceInternal(deviceAddress)}")
+						_skipDisconnectionEventForDevices.add(deviceAddress)
+						if (!handleDisconnectedDevice(deviceAddress)) {
+							_skipDisconnectionEventForDevices.remove(deviceAddress)
+							return@withContext false
+						}
 						_events.emit(
 							LapisBt.Event.OnDeviceDisconnected(
 								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
@@ -491,6 +502,8 @@ internal class LapisBtImpl(
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 
+		println("$$$ receiveData($deviceAddress) = $clientSocket | ${clientSocket?.isConnected}")
+
 		if (clientSocket == null || !clientSocket.isConnected) {
 			return false
 		}
@@ -502,10 +515,15 @@ internal class LapisBtImpl(
 				try {
 					action(clientSocket.inputStream)
 				}
-				catch (_: IOException) {
+				catch (e: IOException) {
+					println("$$$ receiveData error: $e")
 					if (!_isDisposed) {
-						println("$$$$ Device disconnected: ${getRemoteDeviceInternal(deviceAddress)}, locally = false | 3")
-						handleDisconnectedDevice(deviceAddress)
+						println("$$$$ Device disconnected(locally = false | 3): ${getRemoteDeviceInternal(deviceAddress)}")
+						_skipDisconnectionEventForDevices.add(deviceAddress)
+						if (!handleDisconnectedDevice(deviceAddress)) {
+							_skipDisconnectionEventForDevices.remove(deviceAddress)
+							return@withContext false
+						}
 						_events.emit(
 							LapisBt.Event.OnDeviceDisconnected(
 								disconnectedDevice = getRemoteDeviceInternal(deviceAddress),
@@ -735,7 +753,11 @@ internal class LapisBtImpl(
 				//
 				// The bonded device in this case did not explicitly request pairing with us.
 				// We treat this as a spurious/ghost bond caused by the stack and ignore it.
-				if (lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED && targetDeviceAddress !in _incomingPairingRequests) {
+				if (
+					lapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED
+					&& targetDeviceAddress !in _incomingPairingRequests
+					&& targetDeviceAddress !in _pairingsStarted
+				) {
 					Log.w(TAG, "Unexpected bonded device ${lapisDevice.address}. This is very likely a Bluetooth stack bug, and the bonded device didn't actually try to pair with this device.")
 
 					_events.emit(
@@ -778,6 +800,7 @@ internal class LapisBtImpl(
 
 				println("$$$ disconnectedDevice(${_clientSocketByAddress[targetDeviceAddress]?.isConnected}): $disconnectedAndroidDevice | $_skipDisconnectionEventForDevices")
 
+				println("$$$ skip disconnection events = $_skipDisconnectionEventForDevices")
 				if (targetDeviceAddress in _skipDisconnectionEventForDevices) {
 					_skipDisconnectionEventForDevices.remove(targetDeviceAddress)
 					return@collect
@@ -791,13 +814,13 @@ internal class LapisBtImpl(
 					return@collect
 				}
 
+				val disconnectedDevice = getRemoteDeviceInternal(targetDeviceAddress)
+
 				if (!handleDisconnectedDevice(targetDeviceAddress)) {
 					return@collect
 				}
 
-				val disconnectedDevice = getRemoteDeviceInternal(targetDeviceAddress)
-
-				println("$$$$ Device disconnected: $disconnectedDevice, locally = ${_unpairingsStarted.contains(targetDeviceAddress)} | 4")
+				println("$$$$ Device disconnected(locally = ${_unpairingsStarted.contains(targetDeviceAddress)} | 4): $disconnectedDevice")
 
 				_events.emit(
 					LapisBt.Event.OnDeviceDisconnected(
@@ -899,7 +922,7 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 5")
+									println("$$$$ Device disconnected(locally = true | 5): $disconnectedDevice")
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -923,7 +946,7 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 6")
+									println("$$$$ Device disconnected(locally = true | 6): $disconnectedDevice")
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -947,7 +970,7 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									println("$$$$ Device disconnected: $disconnectedDevice, locally = true | 7")
+									println("$$$$ Device disconnected(locally = true | 7): $disconnectedDevice")
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -988,9 +1011,6 @@ internal class LapisBtImpl(
 				}
 
 
-				// Maybe pairing variant should be a sealed interface so we can add an unknown value,
-				// but for now I think this is useful for development in the very unlikely case
-				// we experience a value different from the ones defined here.
 				val pairingVariant = when (val pairingVariant = event.pairingVariant) {
 					AndroidBluetoothDevice.PAIRING_VARIANT_PIN -> LapisBt.Event.OnPairingRequest.PairingVariant.Pin
 					AndroidBluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION -> LapisBt.Event.OnPairingRequest.PairingVariant.PasskeyConfirmation
@@ -1002,18 +1022,19 @@ internal class LapisBtImpl(
 					else -> error("No pairing variant for value: $pairingVariant")
 				}
 
+				val initiatedLocally = _pairingsStarted.contains(targetDeviceAddress)
+
+				_incomingPairingRequests.add(targetDeviceAddress)
+				_pairingsStarted.remove(targetDeviceAddress)
+
 				_events.emit(
 					LapisBt.Event.OnPairingRequest(
 						device = getRemoteDeviceInternal(targetDeviceAddress),
 						pairingKey = event.pairingKey,
 						pairingVariant = pairingVariant,
-						initiatedLocally = _pairingsStarted.contains(targetDeviceAddress),
+						initiatedLocally = initiatedLocally,
 					)
 				)
-
-				_incomingPairingRequests.add(targetDeviceAddress)
-
-				_pairingsStarted.remove(targetDeviceAddress)
 			}
 		}
 		_scope.launch {
@@ -1322,11 +1343,14 @@ internal class LapisBtImpl(
 		try {
 			println("$$$ handleDisconnectedDevice.clientSocket: $clientSocket for $deviceAddress")
 			clientSocket?.close()
+			println("$$$ handleDisconnectedDevice.clientSocket: $clientSocket for $deviceAddress CLOSE")
 		}
 		catch (e: Exception) {
+			println("$$$ handleDisconnectedDevice error: $e")
 			Log.e(TAG, "Error closing client socket for $deviceAddress", e)
 			return false
 		}
+
 		_clientSocketByAddress.remove(deviceAddress)
 		_clientJobByAddress[deviceAddress]?.cancel()
 		_clientJobByAddress.remove(deviceAddress)
@@ -1350,6 +1374,8 @@ internal class LapisBtImpl(
 		_connectedDevices.update { devices ->
 			devices.filter { it.address != deviceAddress }
 		}
+
+		println("$$$ end of handleDisconnectedDevice: $deviceAddress")
 
 		return true
 	}
