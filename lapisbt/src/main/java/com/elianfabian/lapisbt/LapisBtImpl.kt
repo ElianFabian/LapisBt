@@ -11,6 +11,7 @@ import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
+import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import com.elianfabian.lapisbt.util.convertToScanMode
 import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
@@ -1400,30 +1401,7 @@ internal class LapisBtImpl(
 		 * @return true if the address is valid, false otherwise
 		 */
 		fun checkBluetoothAddress(address: String): Boolean {
-			val addressLength = 17
-
-			if (address.length != addressLength) {
-				return false
-			}
-			for (i in 0..<addressLength) {
-				val c = address[i]
-				when (i % 3) {
-					0, 1 -> {
-						if ((c in '0'..'9') || (c in 'A'..'F')) {
-							// hex character, OK
-							break
-						}
-						return false
-					}
-					2 -> {
-						if (c == ':') {
-							break // OK
-						}
-						return false
-					}
-				}
-			}
-			return true
+			return checkBluetoothAddressInternal(address)
 		}
 	}
 
