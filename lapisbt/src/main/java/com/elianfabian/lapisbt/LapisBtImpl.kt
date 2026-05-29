@@ -486,10 +486,8 @@ internal class LapisBtImpl(
 
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
-		_skipDisconnectionEventForDevices.add(deviceAddress)
 		if (device.removeBond()) {
 			_unpairingsStarted.add(deviceAddress)
-			_skipDisconnectionEventForDevices.remove(deviceAddress)
 			return true
 		}
 

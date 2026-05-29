@@ -343,7 +343,6 @@ class LapisBtTest {
 		assertThat(environment.isBonded(peripheral.address.value, phone.address.value)).isTrue()
 	}
 
-	// FIXME: this test now times out, see why
 	@Test
 	fun `unpairing forces disconnection`() = runTest {
 		val environment = SimulatedBluetoothEnvironment()
