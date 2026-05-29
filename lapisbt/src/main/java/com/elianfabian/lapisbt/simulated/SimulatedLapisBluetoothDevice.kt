@@ -1,22 +1,15 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothStatusCodes
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
-import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.UUID
 
 @SuppressLint("NewApi")
-internal data class LapisBluetoothDeviceFake(
+internal data class SimulatedLapisBluetoothDevice(
 	override val address: String,
 	override var name: String?,
 	override var bondState: Int = AndroidBluetoothDevice.BOND_NONE,
@@ -27,12 +20,10 @@ internal data class LapisBluetoothDeviceFake(
 
 	override val addressType: Int = AndroidBluetoothDevice.ADDRESS_TYPE_UNKNOWN,
 	override val type: Int = AndroidBluetoothDevice.DEVICE_TYPE_CLASSIC,
-	private val bluetoothEventsFake: LapisBluetoothEventsFake,
-	internal val environment: FakeBluetoothEnvironment,
+	private val bluetoothEvents: SimulatedLapisBluetoothEvents,
+	internal val environment: SimulatedBluetoothEnvironment,
 	var requesterAddress: String = "",
 ) : LapisBluetoothDevice {
-
-	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
 	private var _isConnected: Boolean = false
 
@@ -53,7 +44,7 @@ internal data class LapisBluetoothDeviceFake(
 	override fun removeBond(): Boolean {
 		environment.unpairDeviceLocally(requesterAddress, address)
 		bondState = AndroidBluetoothDevice.BOND_NONE
-		bluetoothEventsFake.emitDeviceBondState(this.copy())
+		bluetoothEvents.emitDeviceBondState(this.copy())
 		return true
 	}
 
@@ -77,19 +68,19 @@ internal data class LapisBluetoothDeviceFake(
 		_isConnected = connected
 
 		if (!connected) {
-			bluetoothEventsFake.emitDeviceDisconnected(this.copy())
+			bluetoothEvents.emitDeviceDisconnected(this.copy())
 		}
 	}
 
 	override fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = true) ?: LapisBluetoothSocketFake(
+		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = true) ?: SimulatedLapisBluetoothSocket(
 			remoteDevice = this,
 			connectSuccess = false
 		)
 	}
 
 	override fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
-		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = false) ?: LapisBluetoothSocketFake(
+		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = false) ?: SimulatedLapisBluetoothSocket(
 			remoteDevice = this,
 			connectSuccess = false
 		)

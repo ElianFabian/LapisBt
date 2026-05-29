@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import android.content.Context
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-internal class LapisBluetoothEventsFake(
+internal class SimulatedLapisBluetoothEvents(
 	context: Context? = null,
 ) : LapisBluetoothEvents {
 

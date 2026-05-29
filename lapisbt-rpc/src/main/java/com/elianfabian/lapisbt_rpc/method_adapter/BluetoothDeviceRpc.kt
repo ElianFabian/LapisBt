@@ -94,7 +94,7 @@ internal class BluetoothDeviceRpc(
 			lapisBt.events.collect { event ->
 				when (event) {
 					is LapisBt.Event.OnDeviceDisconnected -> {
-						if (event.disconnectedDevice.address != deviceAddress) {
+						if (event.device.address != deviceAddress) {
 							return@collect
 						}
 

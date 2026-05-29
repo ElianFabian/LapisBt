@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -9,10 +9,10 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
 import java.util.UUID
 
-internal class LapisBluetoothAdapterFake(
-	private val bluetoothEventsFake: LapisBluetoothEventsFake,
-	private val config: FakeBluetoothConfiguration,
-	private val environment: FakeBluetoothEnvironment,
+internal class SimulatedLapisBluetoothAdapter(
+	private val bluetoothEvents: SimulatedLapisBluetoothEvents,
+	private val config: SimulatedBluetoothConfiguration,
+	private val environment: SimulatedBluetoothEnvironment,
 	context: Context?,
 ) : LapisBluetoothAdapter {
 
@@ -54,7 +54,7 @@ internal class LapisBluetoothAdapterFake(
 		}
 
 		_name = name
-		bluetoothEventsFake.emitDeviceName(name)
+		bluetoothEvents.emitDeviceName(name)
 
 		return true
 	}
@@ -74,10 +74,10 @@ internal class LapisBluetoothAdapterFake(
 		}
 
 		_isDiscovering = true
-		bluetoothEventsFake.emitDiscovering(true)
+		bluetoothEvents.emitDiscovering(true)
 
 		environment.getScannableDevices(address).forEach { device ->
-			bluetoothEventsFake.emitDeviceFound(device)
+			bluetoothEvents.emitDeviceFound(device)
 		}
 
 		return true
@@ -85,12 +85,12 @@ internal class LapisBluetoothAdapterFake(
 
 	override fun cancelDiscovery(): Boolean {
 		_isDiscovering = false
-		bluetoothEventsFake.emitDiscovering(false)
+		bluetoothEvents.emitDiscovering(false)
 		return true
 	}
 
 	override fun listenUsingRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val serverSocket = LapisBluetoothServerSocketFake(
+		val serverSocket = SimulatedLapisBluetoothServerSocket(
 			environment = environment,
 			address = address,
 			serviceUuid = uuid
@@ -100,7 +100,7 @@ internal class LapisBluetoothAdapterFake(
 	}
 
 	override fun listenUsingInsecureRfcommWithServiceRecord(name: String, uuid: UUID): LapisBluetoothServerSocket {
-		val serverSocket = LapisBluetoothServerSocketFake(
+		val serverSocket = SimulatedLapisBluetoothServerSocket(
 			environment = environment,
 			address = address,
 			serviceUuid = uuid
@@ -110,10 +110,10 @@ internal class LapisBluetoothAdapterFake(
 	}
 
 	override fun getRemoteDevice(address: String): LapisBluetoothDevice {
-		return LapisBluetoothDeviceFake(
+		return SimulatedLapisBluetoothDevice(
 			address = address,
 			name = null,
-			bluetoothEventsFake = bluetoothEventsFake,
+			bluetoothEvents = bluetoothEvents,
 			environment = environment,
 			requesterAddress = this.address
 		)

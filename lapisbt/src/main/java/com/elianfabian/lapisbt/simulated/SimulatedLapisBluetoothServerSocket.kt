@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
@@ -7,8 +7,8 @@ import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
-internal class LapisBluetoothServerSocketFake(
-	private val environment: FakeBluetoothEnvironment,
+internal class SimulatedLapisBluetoothServerSocket(
+	private val environment: SimulatedBluetoothEnvironment,
 	private val address: String,
 	private val serviceUuid: UUID,
 ) : LapisBluetoothServerSocket {
@@ -32,7 +32,7 @@ internal class LapisBluetoothServerSocketFake(
 		val clientSocket = pendingConnections.poll(Long.MAX_VALUE, TimeUnit.SECONDS)
 			?: throw IOException("Accept timed out")
 
-		if (clientSocket is LapisBluetoothSocketFake) {
+		if (clientSocket is SimulatedLapisBluetoothSocket) {
 			println("$$$ serverSocket finished: $address")
 			clientSocket.setConnected(true)
 		}

@@ -14,9 +14,7 @@ abstract class FragmentKey(
 	override fun getScopeTag(): String = toString()
 
 	override fun bindServices(serviceBinder: ServiceBinder) {
-		if (serviceModule is ServiceModule) {
-			serviceModule.bindModuleServices(serviceBinder)
-		}
+		serviceModule?.bindModuleServices(serviceBinder)
 	}
 }
 

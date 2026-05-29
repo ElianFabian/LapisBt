@@ -2,11 +2,7 @@ package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,7 +35,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -57,7 +51,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -562,7 +555,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.pairedDevices) { device ->
+				items(
+					items = state.pairedDevices,
+					key = {
+						it.address.toString() + "paired"
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,
@@ -605,7 +603,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.scannedDevices) { device ->
+				items(
+					items = state.scannedDevices,
+					key = {
+						it.address.toString() + "scanned"
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,
@@ -645,7 +648,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.connectedDevices) { device ->
+				items(
+					items = state.connectedDevices,
+					key = {
+						it.address.toString() + "connected"
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,

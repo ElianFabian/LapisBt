@@ -1,11 +1,11 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.impl.AndroidHelperImpl
 import android.content.Context
 
-internal class AndroidHelperFake(
-	private val config: FakeBluetoothConfiguration,
+internal class SimulatedAndroidHelper(
+	private val config: SimulatedBluetoothConfiguration,
 	private val context: Context?
 ) : AndroidHelper {
 

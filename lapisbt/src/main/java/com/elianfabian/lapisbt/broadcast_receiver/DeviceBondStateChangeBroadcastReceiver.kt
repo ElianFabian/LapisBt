@@ -16,8 +16,6 @@ internal class DeviceBondStateChangeBroadcastReceiver(
 			return
 		}
 
-		println("$$$ DeviceBondStateChangeBroadcastReceiver.intent: ${intent.contentToString()}")
-
 		val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
 		val oldState = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, AndroidBluetoothDevice.ERROR)
 		val newState = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_BOND_STATE, AndroidBluetoothDevice.ERROR)

@@ -112,12 +112,12 @@ class ManualBluetoothCommunicationViewModel(
 				when (event) {
 					is LapisBt.Event.OnDeviceConnected -> {
 						if (_selectedDevice.value == ManualBluetoothCommunicationState.SelectedDevice.None) {
-							_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(event.connectedDevice)
+							_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(event.device)
 						}
 
 						if (storageController.getBluetoothAddress() == null) {
 							launch {
-								lapisBt.sendData(event.connectedDevice.address) { stream ->
+								lapisBt.sendData(event.device.address) { stream ->
 									val dataStream = DataOutputStream(stream)
 
 									dataStream.writeUTF("get-address")
@@ -126,17 +126,17 @@ class ManualBluetoothCommunicationViewModel(
 						}
 
 						launch {
-							lapisBt.receiveData(event.connectedDevice.address) { stream ->
+							lapisBt.receiveData(event.device.address) { stream ->
 								val dataStream = DataInputStream(stream)
 								while (true) {
 									val type = dataStream.readUTF()
 									when (type) {
 										"get-address" -> {
-											lapisBt.sendData(event.connectedDevice.address) { stream ->
+											lapisBt.sendData(event.device.address) { stream ->
 												val dataStream = DataOutputStream(stream)
 
 												dataStream.writeUTF("address")
-												dataStream.writeUTF(event.connectedDevice.address.value)
+												dataStream.writeUTF(event.device.address.value)
 											}
 										}
 										"address" -> {
@@ -150,8 +150,8 @@ class ManualBluetoothCommunicationViewModel(
 											val message = BluetoothMessage(
 												content = messageContent,
 												isRead = false,
-												senderName = event.connectedDevice.name,
-												senderAddress = event.connectedDevice.address.value,
+												senderName = event.device.name,
+												senderAddress = event.device.address.value,
 											)
 
 											val messages = _messages.updateAndGet {
@@ -178,10 +178,10 @@ class ManualBluetoothCommunicationViewModel(
 							}
 						}
 
-						androidHelper.showToast("Device connected: '${event.connectedDevice.name}'")
+						androidHelper.showToast("Device connected: '${event.device.name}'")
 					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
-						androidHelper.showToast("Device disconnected: '${event.disconnectedDevice.name}'")
+						androidHelper.showToast("Device disconnected: '${event.device.name}'")
 
 						_selectedDevice.update { selection ->
 							when (selection) {

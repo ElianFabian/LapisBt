@@ -11,7 +11,7 @@ import java.nio.channels.Pipe
  * Creates two bidirectional pipes cross-linked to represent two sides of a connection.
  * Data written to [sideA.outputStream] is readable from [sideB.inputStream], and vice versa.
  */
-public class º(bufferSize: Int = 65536) {
+public class BidirectionalStreamPipe() {
 
     private val pipeA = Pipe.open()
     private val pipeB = Pipe.open()

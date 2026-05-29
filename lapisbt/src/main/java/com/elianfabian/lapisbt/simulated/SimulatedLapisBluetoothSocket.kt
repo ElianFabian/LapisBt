@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import java.io.ByteArrayInputStream
@@ -9,8 +9,8 @@ import java.io.OutputStream
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
-internal class LapisBluetoothSocketFake(
-	override val remoteDevice: LapisBluetoothDeviceFake,
+internal class SimulatedLapisBluetoothSocket(
+	override val remoteDevice: SimulatedLapisBluetoothDevice,
 	var connectSuccess: Boolean = true,
 	override val inputStream: InputStream = ByteArrayInputStream(ByteArray(0)),
 	override val outputStream: OutputStream = ByteArrayOutputStream(),
@@ -19,7 +19,7 @@ internal class LapisBluetoothSocketFake(
 
 	override var isConnected: Boolean = false
 
-	var twin: LapisBluetoothSocketFake? = null
+	var twin: SimulatedLapisBluetoothSocket? = null
 
 	private val _queue = LinkedBlockingQueue<Int>()
 
@@ -68,7 +68,7 @@ internal class LapisBluetoothSocketFake(
 			inputStream.close()
 			outputStream.close()
 		} catch (_: Exception) {
-			// Ignore close errors in fake
+			// Ignore close errors
 		}
 
 		if (_queue.isEmpty()) {

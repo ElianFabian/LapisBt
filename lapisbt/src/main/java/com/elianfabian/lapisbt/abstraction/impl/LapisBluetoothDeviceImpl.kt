@@ -40,7 +40,10 @@ internal class LapisBluetoothDeviceImpl(
 		get() = device.type
 
 	override val bondState: Int
-		get() = device.bondState
+		get() {
+			println("$$$ lapisDeviceImpl($address)@${hashCode()}: ${device.bondState}")
+			return device.bondState
+		}
 
 	override fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
 		val bluetoothSocket = device.createRfcommSocketToServiceRecord(uuid)

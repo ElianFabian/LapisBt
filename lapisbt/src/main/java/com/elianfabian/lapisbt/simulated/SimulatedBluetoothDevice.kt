@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.fake
+package com.elianfabian.lapisbt.simulated
 
 import android.bluetooth.BluetoothAdapter
 import com.elianfabian.lapisbt.LapisBt
@@ -11,16 +11,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-public class FakeBluetoothDevice internal constructor(
+public class SimulatedBluetoothDevice internal constructor(
     public val address: BluetoothDevice.Address,
     public val lapisBt: LapisBt,
-    public val config: FakeBluetoothConfiguration,
-    private val events: LapisBluetoothEventsFake,
-    private val environment: FakeBluetoothEnvironment,
+    public val config: SimulatedBluetoothConfiguration,
+    private val events: SimulatedLapisBluetoothEvents,
+    private val environment: SimulatedBluetoothEnvironment,
 ) {
     public val name: String? get() = lapisBt.bluetoothDeviceName.value
-
-    private val scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
     public fun setBluetoothState(newState: LapisBt.BluetoothState) {
         config.bluetoothState = newState
@@ -50,12 +48,12 @@ public class FakeBluetoothDevice internal constructor(
     }
 
     internal fun launchPairingProcess(targetAddress: String) {
-        scope.launch {
+        environment.scope.launch {
             // Simulate pairing request delay
             delay(250)
             
             val pairingResult = config.pairingResult
-            if (pairingResult is FakeBluetoothConfiguration.PairingResult.Failure) {
+            if (pairingResult is SimulatedBluetoothConfiguration.PairingResult.Failure) {
                 events.emitUnbondReason(
                     LapisBluetoothEvents.UnbondReasonEvent(
                         androidDevice = environment.getScannableDevices(address.value).first { it.address == targetAddress },

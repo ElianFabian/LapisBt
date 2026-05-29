@@ -518,7 +518,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.pairedDevices) { device ->
+				items(
+					items = state.pairedDevices,
+					key = {
+						it.address.toString()
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,
@@ -561,7 +566,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.scannedDevices) { device ->
+				items(
+					items = state.scannedDevices,
+					key = {
+						it.address.toString()
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,
@@ -604,7 +614,12 @@ private fun BluetoothDeviceList(
 				}
 			}
 			else {
-				items(state.connectedDevices) { device ->
+				items(
+					items = state.connectedDevices,
+					key = {
+						it.address.toString()
+					},
+				) { device ->
 					BluetoothDeviceItem(
 						name = device.name,
 						address = device.address.value,

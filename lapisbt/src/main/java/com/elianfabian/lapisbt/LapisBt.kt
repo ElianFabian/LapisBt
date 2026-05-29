@@ -8,6 +8,8 @@ import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
+import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -190,8 +192,7 @@ public interface LapisBt {
 	/**
 	 * Unpairs a device.
 	 *
-	 * NOTES:
-	 * - Calling this function will force the disconnection with the given device.
+	 * Calling this function will force the disconnection with the given device.
 	 *
 	 * @return true on success, false on error.
 	 *
@@ -201,7 +202,7 @@ public interface LapisBt {
 	public fun unpairDevice(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
-	 * Cancel a current pairing attempt for the given device.ç
+	 * Cancel a current pairing attempt for the given device.
 	 *
 	 * @return true on success, false on error
 	 *
@@ -266,24 +267,27 @@ public interface LapisBt {
 
 	public sealed interface Event {
 
+		public val device: BluetoothDevice
+
+
 		public data class OnDeviceConnected(
-			val connectedDevice: BluetoothDevice,
+			override val device: BluetoothDevice,
 			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
 			val connectedLocally: Boolean,
 		) : Event
 
 		public data class OnDeviceDisconnected(
-			val disconnectedDevice: BluetoothDevice,
+			override val device: BluetoothDevice,
 			// This indicates if was the current user who intentionally disconnected the device
 			// In the case the user intentionally disconnects from the device, but it was the other device
 			// who disconnected from us, it will count as not manually disconnected
-			val disconnectedLocally: Boolean,
+			public val disconnectedLocally: Boolean,
 		) : Event
 
-		public data class OnDeviceScanned(val scannedDevice: BluetoothDevice) : Event
+		public data class OnDeviceScanned(override val device: BluetoothDevice) : Event
 
 		public data class OnPairingRequest(
-			val device: BluetoothDevice,
+			override val device: BluetoothDevice,
 			val pairingKey: Int,
 			val pairingVariant: PairingVariant,
 			val initiatedLocally: Boolean,
@@ -312,9 +316,10 @@ public interface LapisBt {
 		// but the pairing just randomly failed, the dialog didn't even show up.
 		// - Value Removed (9) was received by the remote device when it canceled the request and also
 		// when a device unbonded another device.
-		@NotReliableBluetoothApi
 		public data class OnPairingFailed(
-			val device: BluetoothDevice,
+			override val device: BluetoothDevice,
+
+			@NotReliableBluetoothApi
 			val reason: Reason,
 		) : Event {
 			public enum class Reason {
@@ -341,7 +346,7 @@ public interface LapisBt {
 		 * * Subsequent connection/pairing attempts will likely fail.
 		 */
 		public data class OnUnexpectedDevicePaired(
-			val device: BluetoothDevice,
+			override val device: BluetoothDevice,
 		) : Event
 	}
 
@@ -362,6 +367,18 @@ public interface LapisBt {
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
 				androidHelper = AndroidHelperImpl(appContext),
 				bluetoothEvents = LapisBluetoothEventsImpl(appContext),
+			)
+		}
+
+		public fun newSimulatedBluetoothEnvironment(
+			seed: Long = 1L,
+			context: Context? = null,
+			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
+		): SimulatedBluetoothEnvironment {
+			return SimulatedBluetoothEnvironment(
+				context = context,
+				seed = seed,
+				globalConfig = globalConfig,
 			)
 		}
 

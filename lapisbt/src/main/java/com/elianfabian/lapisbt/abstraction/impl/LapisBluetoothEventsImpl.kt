@@ -128,6 +128,8 @@ internal class LapisBluetoothEventsImpl(
 
 			val device = LapisBluetoothDeviceImpl(androidDevice)
 
+			println("$$$$ DeviceBondStateChangeBroadcastReceiver(old: $oldState, new: $newState, reason: $reason, device: $device")
+
 			if (reason > 0) {
 				_unbondReasonFlow.tryEmit(
 					LapisBluetoothEvents.UnbondReasonEvent(
@@ -178,7 +180,7 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _scanModeChangeReceiver = ScanModeChangeBroadcastReceiver(
-		onScanModeChanged = { previousScanMode, newScanMode ->
+		onScanModeChanged = { _, newScanMode ->
 			_scanModeFlow.tryEmit(newScanMode)
 		}
 	)
