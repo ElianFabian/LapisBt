@@ -1,8 +1,31 @@
-$appPackageName = 'com.elianfabian.bluetooth_testing'
+param (
+    [Parameter(Mandatory)]
+    [string] $PackageName,
+
+    [Parameter(Mandatory)]
+    [string] $BroadcastReceiver,
+
+    [Parameter(Mandatory)]
+    [string] $Activity
+)
+
+# For now we'll add the checks here
+if (-not (Get-Command 'adb' -ErrorAction SilentlyContinue))
+{
+    Write-Error "Could not find adb"
+    Read-Host "Press enter to exit"
+    exit
+}
+if (-not (Test-Path 'gradlew'))
+{
+    Write-Error "Could not find gradlew"
+    Read-Host "Press enter to exit"
+    exit
+}
 
 
-
-function Get-LapisState {
+function Get-LapisState
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
@@ -13,27 +36,29 @@ function Get-LapisState {
         [scriptblock] $Extras = $null
     )
 
-    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .TestingBroadcastReceiver -Action $Name -Extras $Extras
+    $intent = New-AdbIntent -PackageName $PackageName -ComponentClassName $BroadcastReceiver -Action $Name -Extras $Extras
     return (Send-AdbBroadcast -SerialNumber $SerialNumber -Intent $intent).Data
 }
 
-function Invoke-LapisAction {
+function Invoke-LapisAction
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
 
         [Parameter(Mandatory)]
-        [string] $Action, 
+        [string] $Action,
 
         [scriptblock] $Extras = $null
     )
 
-    $intent = New-AdbIntent -PackageName $appPackageName -ComponentClassName .MainTestingActivity -Action $Action -Extras $Extras
+    $intent = New-AdbIntent -PackageName $PackageName -ComponentClassName $Activity -Action $Action -Extras $Extras
     Start-AdbActivity -SerialNumber $SerialNumber -Intent $intent
 }
 
 
-function Get-LapisBluetoothState {
+function Get-LapisBluetoothState
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -42,7 +67,8 @@ function Get-LapisBluetoothState {
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-state'
 }
 
-function Get-LapisIsScanning {
+function Get-LapisIsScanning
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -51,7 +77,8 @@ function Get-LapisIsScanning {
     return [bool]::Parse((Get-LapisState -SerialNumber $SerialNumber -Name 'get-isScanning'))
 }
 
-function Get-LapisScanMode {
+function Get-LapisScanMode
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -60,7 +87,8 @@ function Get-LapisScanMode {
     return [bool]::Parse((Get-LapisState -SerialNumber $SerialNumber -Name 'get-scanMode'))
 }
 
-function Get-LapisActiveBluetoothServersUuids {
+function Get-LapisActiveBluetoothServersUuids
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -69,7 +97,8 @@ function Get-LapisActiveBluetoothServersUuids {
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-activeBluetoothServersUuids' | ConvertFrom-Json
 }
 
-function Get-LapisScannedDevices {
+function Get-LapisScannedDevices
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -78,7 +107,8 @@ function Get-LapisScannedDevices {
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-scannedDevices' | ConvertFrom-Json
 }
 
-function Get-LapisPairedDevices {
+function Get-LapisPairedDevices
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -87,7 +117,8 @@ function Get-LapisPairedDevices {
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-pairedDevices' | ConvertFrom-Json
 }
 
-function Get-LapisConnectedDevices {
+function Get-LapisConnectedDevices
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -96,7 +127,8 @@ function Get-LapisConnectedDevices {
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-connectedDevices' | ConvertFrom-Json
 }
 
-function Start-LapisScan {
+function Start-LapisScan
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
@@ -105,16 +137,18 @@ function Start-LapisScan {
     Invoke-LapisAction -SerialNumber $SerialNumber -Action 'start-scan'
 }
 
-function Stop-LapisScan {
+function Stop-LapisScan
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber
     )
-    
+
     Invoke-LapisAction -SerialNumber $SerialNumber -Action 'stop-scan'
 }
 
-function Start-LapisServer {
+function Start-LapisServer
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
@@ -128,7 +162,8 @@ function Start-LapisServer {
     }
 }
 
-function Start-LapisServerWithoutPairing {
+function Start-LapisServerWithoutPairing
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
@@ -142,7 +177,8 @@ function Start-LapisServerWithoutPairing {
     }
 }
 
-function Stop-LapisServer {
+function Stop-LapisServer
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
@@ -156,11 +192,12 @@ function Stop-LapisServer {
     }
 }
 
-function Connect-LapisDevice {
+function Connect-LapisDevice
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address,
 
@@ -174,7 +211,8 @@ function Connect-LapisDevice {
     }
 }
 
-function Connect-LapisDeviceWithoutPairing {
+function Connect-LapisDeviceWithoutPairing
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
@@ -192,11 +230,12 @@ function Connect-LapisDeviceWithoutPairing {
     }
 }
 
-function Disconnect-LapisDevice {
+function Disconnect-LapisDevice
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address
     )
@@ -206,11 +245,12 @@ function Disconnect-LapisDevice {
     }
 }
 
-function Invoke-LapisCancellingConnectionAttempt {
+function Invoke-LapisCancellingConnectionAttempt
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address
     )
@@ -220,11 +260,12 @@ function Invoke-LapisCancellingConnectionAttempt {
     }
 }
 
-function Invoke-LapisDevicePairing {
+function Invoke-LapisDevicePairing
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address
     )
@@ -234,11 +275,12 @@ function Invoke-LapisDevicePairing {
     }
 }
 
-function Invoke-LapisDeviceUnpairing {
+function Invoke-LapisDeviceUnpairing
+{
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address
     )
@@ -248,12 +290,13 @@ function Invoke-LapisDeviceUnpairing {
     }
 }
 
-function Send-LapisData {
+function Send-LapisData
+{
 
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address,
 
@@ -267,12 +310,13 @@ function Send-LapisData {
     }
 }
 
-function Receive-LapisData {
+function Receive-LapisData
+{
 
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Address,
 
@@ -286,12 +330,13 @@ function Receive-LapisData {
     } | ConvertFrom-Json
 }
 
-function Set-LapisBluetoothName {
+function Set-LapisBluetoothName
+{
 
     param (
         [Parameter(Mandatory)]
         [string] $SerialNumber,
-        
+
         [Parameter(Mandatory)]
         [string] $Name
     )
@@ -301,7 +346,8 @@ function Set-LapisBluetoothName {
     }
 }
 
-function Get-LapisBluetoothName {
+function Get-LapisBluetoothName
+{
 
     param (
         [Parameter(Mandatory)]
@@ -314,7 +360,8 @@ function Get-LapisBluetoothName {
     Get-LapisState -SerialNumber $SerialNumber -Action 'get-bluetoothName'
 }
 
-function Get-LapisRemoteDevice {
+function Get-LapisRemoteDevice
+{
 
     param (
         [Parameter(Mandatory)]

@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -68,11 +69,13 @@ internal class BluetoothDeviceRpc(
 
 	private val _pendingClientMethodByRequestId = ConcurrentHashMap<Int, Method>()
 	private val _pendingServerMethodByRequestId = ConcurrentHashMap<Int, Method>()
+
 	// Force to fully process the response before being able to process the method execution end
 	private val _responseProcessingGates = ConcurrentHashMap<Int, CompletableDeferred<Unit>>()
 	private val _pendingFlowParameterChannelsById = ConcurrentHashMap<Int, SendChannel<Any?>>()
 	private val _pendingFlowParameterById = ConcurrentHashMap<Int, Flow<Any?>>()
 	private val _pendingFlowParameterJobById = ConcurrentHashMap<Int, Job>()
+	private val _flowEnd = Any()
 	private val _nextId = AtomicInteger(0)
 
 
@@ -129,22 +132,20 @@ internal class BluetoothDeviceRpc(
 		_scope.launch {
 			for (completePacket in packetProcessor.remoteCompletePackets) {
 				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
-				launch {
-					ensureActive()
-					val packet = LapisPacketSerializer.deserialize(completePacket.type, completePacket.payloadStream)
-					processPacket(packet)
-				}
+				ensureActive()
+				val packet = LapisPacketSerializer.deserialize(completePacket.type, completePacket.payloadStream)
+				processPacket(packet)
 			}
 		}
 	}
 
-	private suspend fun processPacket(packet: LapisRpcPacket) {
+	private fun processPacket(packet: LapisRpcPacket) {
 		when (packet) {
-			is LapisRpcPacket.Request -> processRequest(packet)
-			is LapisRpcPacket.Response -> processResponse(packet)
-			is LapisRpcPacket.ErrorResponse -> processErrorResponse(packet)
-			is LapisRpcPacket.Cancellation -> processCancellation(packet)
-			is LapisRpcPacket.Completion -> processMethodExecutionEnd(packet)
+			is LapisRpcPacket.Request -> _scope.launch { processRequest(packet) }
+			is LapisRpcPacket.Response -> _scope.launch { processResponse(packet) }
+			is LapisRpcPacket.ErrorResponse -> _scope.launch { processErrorResponse(packet) }
+			is LapisRpcPacket.Cancellation -> _scope.launch { processCancellation(packet) }
+			is LapisRpcPacket.Completion -> _scope.launch { processMethodExecutionEnd(packet) }
 			is LapisRpcPacket.FlowParameter.Collection -> processFlowParameterCollection(packet)
 			is LapisRpcPacket.FlowParameter.Emission -> processFlowParameterEmission(packet)
 			is LapisRpcPacket.FlowParameter.Cancellation -> processFlowParameterCancellation(packet)
@@ -374,8 +375,9 @@ internal class BluetoothDeviceRpc(
 						println("$$$ Flow for parameter '$name' of method '${method.name}' is being cancelled locally")
 
 						_pendingFlowParameterChannelsById.remove(flowId)
+						_pendingFlowParameterJobById.remove(flowId)?.cancel()
 
-						launch {
+						_scope.launch {
 							println("$$$$ sendFlowParameterCancellation for flow $flowId")
 							sendPacket(
 								LapisRpcPacket.FlowParameter.Cancellation(
@@ -390,7 +392,15 @@ internal class BluetoothDeviceRpc(
 					scope = _scope,
 					started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
 					replay = 0,
-				)
+				).transformWhile { value ->
+					if (value === _flowEnd) {
+						false
+					}
+					else {
+						emit(value)
+						true
+					}
+				}
 
 				name to flow
 			}
@@ -530,7 +540,9 @@ internal class BluetoothDeviceRpc(
 	private fun processCancellation(cancellation: LapisRpcPacket.Cancellation) {
 		println("$$$$ process cancellation for request id ${cancellation.requestId}")
 
-		val method = _pendingServerMethodByRequestId.remove(cancellation.requestId) ?: error("No pending method found for cancellation id: ${cancellation.requestId}")
+		val method = _pendingServerMethodByRequestId.remove(cancellation.requestId) ?: return run {
+			Log.i(TAG, "No pending method found for cancellation id: ${cancellation.requestId}")
+		}
 
 		println("$$$$ process cancellation for request id ${cancellation.requestId}: $method")
 
@@ -614,6 +626,7 @@ internal class BluetoothDeviceRpc(
 			}
 			finally {
 				_pendingFlowParameterJobById.remove(flowCollection.flowId)
+				_pendingFlowParameterChannelsById.remove(flowCollection.flowId)
 			}
 		}
 	}
@@ -652,6 +665,8 @@ internal class BluetoothDeviceRpc(
 		val serializer = serializationStrategy.serializerForClass(flowGenericType) ?: error("No serializer found for argument flow emission for value type $flowGenericType with id: ${emission.flowId}")
 		val deserializedValue = serializer.deserialize(ByteArrayInputStream(emission.rawData))
 
+		println("$$$ processFlowParameterEmission(id: ${emission.flowId}, value: $deserializedValue)")
+
 		channel.trySend(deserializedValue)
 	}
 
@@ -665,7 +680,9 @@ internal class BluetoothDeviceRpc(
 	private fun processFlowParameterCompletion(completion: LapisRpcPacket.FlowParameter.Completion) {
 		println("$$$ process argument flow completion for flow id ${completion.flowId}")
 
-		_pendingFlowParameterChannelsById.remove(completion.flowId)?.close()
+		val channel = _pendingFlowParameterChannelsById.remove(completion.flowId) ?: return
+		channel.trySend(_flowEnd)
+		channel.close()
 	}
 
 	private fun processFlowParameterError(error: LapisRpcPacket.FlowParameter.Error) {
@@ -674,7 +691,7 @@ internal class BluetoothDeviceRpc(
 		_pendingFlowParameterChannelsById.remove(error.flowId)?.close(LapisRemoteException(error.message))
 	}
 
-	private fun sendFlowParameterEmission(
+	private suspend fun sendFlowParameterEmission(
 		requestId: Int,
 		flowId: Int,
 		parameterName: String,
@@ -696,9 +713,7 @@ internal class BluetoothDeviceRpc(
 			rawData = serializedValue,
 		)
 
-		_scope.launch {
-			sendPacket(emission)
-		}
+		sendPacket(emission)
 	}
 
 	private suspend fun sendPacket(

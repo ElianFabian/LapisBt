@@ -1,56 +1,24 @@
-# TODO: we should probably use Pester for this, but it's kind of harder to do things like check if gradlew exists
-
-
+# --- Infrastructure ---
 $PowerAdbPath = $env:PowerAdbPath
 Import-Module -Name $PowerAdbPath -Force
 
-Set-Location $PSScriptRoot
+$appPackageName = 'com.elianfabian.bluetooth_testing'
 
-if (-not (Test-Path 'BluetoothBridge.ps1'))
-{
-    Write-Error "Could not find BluetoothBridge.ps1"
-    Read-Host "Press enter to exit"
-    exit
-}
-if (-not (Test-Path 'TestFunctions.ps1'))
-{
-    Write-Error "Could not find BluetoothBridge.ps1"
-    Read-Host "Press enter to exit"
-    exit
-}
-
-
-. ./BluetoothBridge.ps1
-. ./TestFunctions.ps1
-
-
-Set-Location "../.." # Change to root directoy
-
-if (-not (Get-Command 'adb' -ErrorAction SilentlyContinue))
-{
-    Write-Error "Could not find adb"
-    Read-Host "Press enter to exit"
-    exit
-}
-if (-not (Test-Path 'gradlew'))
-{
-    Write-Error "Could not find gradlew"
-    Read-Host "Press enter to exit"
-    exit
-}
-
-
+# Reusing common logic
+. "$PSScriptRoot/../scripts/TestFunctions.ps1"
+. "$PSScriptRoot/../scripts/BluetoothBridge.ps1" `
+    -PackageName $appPackageName `
+    -BroadcastReceiver '.TestingBroadcastReceiver' `
+    -Activity '.MainTestingActivity'
 
 $realDevices = Get-AdbDevice | Where-Object { -not (Test-AdbEmulator -SerialNumber $_) }
 if ($realDevices.Count -lt 2)
 {
-    Write-Error "This test requieres 2 real devices connected"
+    Write-Error "This test requires 2 real devices connected"
     Show-AdbDevice
     Read-Host "Press enter to exit"
     exit
 }
-
-
 
 $device1 = New-DeviceObject $realDevices[0]
 $device2 = New-DeviceObject $realDevices[1]
@@ -70,10 +38,13 @@ else
 Write-Host "client device: $clientDevice" -ForegroundColor Green
 Write-Host "server device: $serverDevice" -ForegroundColor Green
 
+$location = Get-Location
+Set-Location "$PSScriptRoot/.."
 ./gradlew :bluetooth-testing:assembleDebug
-
 $apkPath = 'bluetooth-testing/build/outputs/apk/debug/bluetooth-testing-debug.apk'
-$appPackageName = 'com.elianfabian.bluetooth_testing'
+Set-Location $location
+
+
 
 foreach ($device in @($clientDevice, $serverDevice))
 {
@@ -129,6 +100,7 @@ Test "scannedDevices should be empty by now" {
 
 Test "startScan sets isScanning to true" {
     Start-LapisScan -SerialNumber $clientDevice.SerialNumber
+    Start-Sleep -Seconds 1
     $clientIsScanning = Get-LapisIsScanning -SerialNumber $clientDevice.SerialNumber
     Assert-That $clientIsScanning -IsTrue
 

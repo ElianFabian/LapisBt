@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.lang.reflect.Method
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
+// TODO: it would be nice to be able to reuse this logic for flow parameters
 internal class FlowMethodAdapter(
 	private val deviceAddress: BluetoothDevice.Address,
 	private val bluetoothDeviceRpc: BluetoothDeviceRpc,
@@ -41,6 +43,8 @@ internal class FlowMethodAdapter(
 	private val _activeServerJobs = ConcurrentHashMap<Int, Job>()
 
 	private val _nextId = AtomicInteger(0)
+
+	private val _flowEnd = Any()
 
 
 	override fun onRegister() {
@@ -94,7 +98,7 @@ internal class FlowMethodAdapter(
 			)
 
 			awaitClose {
-				println("$$$ Flow($isActive) del requestId $requestId recolectado/cancelado localmente")
+				println("$$$ Flow($isActive) del requestId $requestId await close: ${method.name}")
 				_pendingChannelsByRequestId.remove(requestId)
 				_scope.launch {
 					println("$$$$ cancel callbackFlow")
@@ -105,7 +109,15 @@ internal class FlowMethodAdapter(
 			scope = _scope,
 			started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
 			replay = 0,
-		)
+		).transformWhile { value ->
+			if (value === _flowEnd) {
+				false
+			}
+			else {
+				emit(value)
+				true
+			}
+		}
 	}
 
 	override suspend fun onReceiveRequest(request: LapisRequest, server: LapisServerService) {
@@ -156,7 +168,10 @@ internal class FlowMethodAdapter(
 
 	override fun onEnd(requestId: Int) {
 		println("$$$ onEnd: $requestId")
-		_pendingChannelsByRequestId.remove(requestId)?.close()
+
+		val channel = _pendingChannelsByRequestId.remove(requestId)
+		channel?.trySend(_flowEnd)
+		channel?.close()
 	}
 
 	override fun onCancel(requestId: Int) {
@@ -171,10 +186,7 @@ internal class FlowMethodAdapter(
 
 	override fun onResult(requestId: Int, result: Any?) {
 		println("$$$ onResult($requestId) = $result")
-		_scope.launch {
-			// maybe we should use trySend instead of send
-			_pendingChannelsByRequestId[requestId]?.send(result)
-		}
+		_pendingChannelsByRequestId[requestId]?.trySend(result)
 	}
 
 	override fun onErrorMessage(requestId: Int, throwable: Throwable) {
