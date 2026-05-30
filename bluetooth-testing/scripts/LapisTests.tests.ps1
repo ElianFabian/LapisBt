@@ -255,8 +255,8 @@ Test "disconnecting a device should make it disappear from connectedDevices" {
     Get-AdbLogcat -SerialNumber $serverDevice.SerialNumber -FilteredTag 'MainTestingActivity' `
         -Pattern 'event: OnDeviceDisconnected' -StopAtMatchCount 1 > $null
 
-    $clientConnectedDevices = Get-LapisConnectedDevices -SerialNumber $clientDevice.SerialNumber | ForEach-Object { $_.Address }
-    $serverConnectedDevices = Get-LapisConnectedDevices -SerialNumber $serverDevice.SerialNumber | ForEach-Object { $_.Address }
+    $clientConnectedDevices = Get-LapisConnectedDevices -SerialNumber $clientDevice.SerialNumber | Select-Object -ExpandProperty Address
+    $serverConnectedDevices = Get-LapisConnectedDevices -SerialNumber $serverDevice.SerialNumber | Select-Object -ExpandProperty Address
 
     Assert-That $clientConnectedDevices -NotContain $serverDevice.Address
     Assert-That $serverConnectedDevices -NotContain $clientDevice.Address
