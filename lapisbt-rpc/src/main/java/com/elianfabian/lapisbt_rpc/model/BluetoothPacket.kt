@@ -1,6 +1,5 @@
 package com.elianfabian.lapisbt_rpc.model
 
-// The fragments are all of fixed size of 256 bytes
 internal sealed interface BluetoothPacket {
 
 	val packetId: Int
@@ -46,7 +45,6 @@ internal sealed interface BluetoothPacket {
 
 	data class Fragment(
 		override val packetId: Int,
-		// For the index is a relevant data for the logic, but we might change it to get rid of it and save some space
 		val index: Int,
 		val payload: ByteArray,
 	) : BluetoothPacket {
