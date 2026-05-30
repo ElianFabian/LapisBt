@@ -19,8 +19,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.reflect.Method
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
@@ -37,8 +37,10 @@ internal class SuspendMethodAdapter(
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-	private val _pendingContinuationsByRequestId = ConcurrentHashMap<UUID, Continuation<Any?>>()
-	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
+	private val _pendingContinuationsByRequestId = ConcurrentHashMap<Int, Continuation<Any?>>()
+	private val _activeServerJobs = ConcurrentHashMap<Int, Job>()
+
+	private val _nextId = AtomicInteger(0)
 
 
 	override fun onRegister() {
@@ -71,14 +73,14 @@ internal class SuspendMethodAdapter(
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-		onGenerateRequestId: (requestId: UUID) -> Unit,
+		onGenerateRequestId: (requestId: Int) -> Unit,
 	): Any {
 		@Suppress("UNCHECKED_CAST")
 		val continuation = args.orEmpty().last() as Continuation<Any?>
 		return try {
 
 			val rpcBlock = suspend {
-				val requestId = UUID.randomUUID()
+				val requestId = generateId()
 
 				onGenerateRequestId(requestId)
 
@@ -156,23 +158,23 @@ internal class SuspendMethodAdapter(
 		job.join()
 	}
 
-	override fun onEnd(requestId: UUID) {
+	override fun onEnd(requestId: Int) {
 		println("$$$ onEnd: $requestId")
 		_pendingContinuationsByRequestId.remove(requestId)
 	}
 
-	override fun onCancel(requestId: UUID) {
+	override fun onCancel(requestId: Int) {
 		println("$$$ onCancel: $requestId")
 		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
-	override fun onResult(requestId: UUID, result: Any?) {
+	override fun onResult(requestId: Int, result: Any?) {
 		println("$$$ onResult($requestId) = $result | ${_pendingContinuationsByRequestId[requestId]}")
 		_pendingContinuationsByRequestId[requestId]?.resume(result)
 	}
 
-	override fun onErrorMessage(requestId: UUID, throwable: Throwable) {
+	override fun onErrorMessage(requestId: Int, throwable: Throwable) {
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(throwable)
 	}
 
@@ -187,6 +189,9 @@ internal class SuspendMethodAdapter(
 		}
 		_activeServerJobs.clear()
 	}
+
+
+	private fun generateId() = _nextId.getAndIncrement()
 
 
 	companion object {

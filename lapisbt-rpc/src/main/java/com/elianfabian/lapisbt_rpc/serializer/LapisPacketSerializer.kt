@@ -12,7 +12,7 @@ internal object LapisPacketSerializer {
 
 	fun serialize(stream: OutputStream, packet: LapisRpcPacket) {
 		val output = DataOutputStream(stream)
-		output.writeUUID(packet.requestId)
+		output.writeInt(packet.requestId)
 
 		when (packet) {
 			is LapisRpcPacket.Request -> {
@@ -34,7 +34,7 @@ internal object LapisPacketSerializer {
 				output.writeUTF(packet.message)
 			}
 			is LapisRpcPacket.FlowParameter -> {
-				output.writeUUID(packet.flowId)
+				output.writeInt(packet.flowId)
 				output.writeUTF(packet.parameterName)
 
 				when (packet) {
@@ -58,7 +58,7 @@ internal object LapisPacketSerializer {
 
 	fun deserialize(type: CompleteBluetoothPacket.Type, stream: InputStream): LapisRpcPacket {
 		val input = DataInputStream(stream)
-		val requestId = input.readUUID()
+		val requestId = input.readInt()
 
 		return when (type) {
 			CompleteBluetoothPacket.Type.Request -> {
@@ -100,14 +100,14 @@ internal object LapisPacketSerializer {
 			CompleteBluetoothPacket.Type.FlowParameterCollection -> {
 				LapisRpcPacket.FlowParameter.Collection(
 					requestId = requestId,
-					flowId = input.readUUID(),
+					flowId = input.readInt(),
 					parameterName = input.readUTF(),
 				)
 			}
 			CompleteBluetoothPacket.Type.FlowParameterEmission -> {
 				LapisRpcPacket.FlowParameter.Emission(
 					requestId = requestId,
-					flowId = input.readUUID(),
+					flowId = input.readInt(),
 					parameterName = input.readUTF(),
 					rawData = input.readByteArray(),
 				)
@@ -115,21 +115,21 @@ internal object LapisPacketSerializer {
 			CompleteBluetoothPacket.Type.FlowParameterCompletion -> {
 				LapisRpcPacket.FlowParameter.Completion(
 					requestId = requestId,
-					flowId = input.readUUID(),
+					flowId = input.readInt(),
 					parameterName = input.readUTF(),
 				)
 			}
 			CompleteBluetoothPacket.Type.FlowParameterCancellation -> {
 				LapisRpcPacket.FlowParameter.Cancellation(
 					requestId = requestId,
-					flowId = input.readUUID(),
+					flowId = input.readInt(),
 					parameterName = input.readUTF(),
 				)
 			}
 			CompleteBluetoothPacket.Type.FlowParameterError -> {
 				LapisRpcPacket.FlowParameter.Error(
 					requestId = requestId,
-					flowId = input.readUUID(),
+					flowId = input.readInt(),
 					parameterName = input.readUTF(),
 					message = input.readUTF(),
 				)
@@ -137,12 +137,6 @@ internal object LapisPacketSerializer {
 		}
 	}
 
-	private fun DataOutputStream.writeUUID(uuid: UUID) {
-		writeLong(uuid.mostSignificantBits)
-		writeLong(uuid.leastSignificantBits)
-	}
-
-	private fun DataInputStream.readUUID(): UUID = UUID(readLong(), readLong())
 
 	private fun DataOutputStream.writeByteArray(bytes: ByteArray) {
 		writeInt(bytes.size)

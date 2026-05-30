@@ -7,7 +7,7 @@ public interface LapisMetadataProvider<out T> {
 
 	public suspend fun createMetadataForOutgoingRequest(
 		deviceAddress: BluetoothDevice.Address,
-		requestId: UUID,
+		requestId: Int,
 		serviceName: String,
 		methodName: String,
 		arguments: Map<String, Any?>,
@@ -23,7 +23,7 @@ internal object NoOpLapisMetadataProvider : LapisMetadataProvider<Nothing?> {
 
 	override suspend fun createMetadataForOutgoingRequest(
 		deviceAddress: BluetoothDevice.Address,
-		requestId: UUID,
+		requestId: Int,
 		serviceName: String,
 		methodName: String,
 		arguments: Map<String, Any?>,

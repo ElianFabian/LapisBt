@@ -28,6 +28,7 @@ import com.elianfabian.lapisbt_rpc.serializer.LapisPacketSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import com.elianfabian.lapisbt_rpc.util.extractFirstGenericArgument
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,10 +38,8 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,11 +48,10 @@ import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.lang.reflect.Method
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 
-// TODO: test this
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: BluetoothDevice.Address,
 	private val lapisBt: LapisBt,
@@ -68,12 +66,14 @@ internal class BluetoothDeviceRpc(
 
 	private var _isDisposed = false
 
-	private val _pendingClientMethodByRequestId = ConcurrentHashMap<UUID, Method>()
-	private val _pendingServerMethodByRequestId = ConcurrentHashMap<UUID, Method>()
-	private val _canSendEndByRequestId = ConcurrentHashMap<UUID, MutableStateFlow<Boolean>>()
-	private val _pendingFlowParameterChannelsById = ConcurrentHashMap<UUID, SendChannel<Any?>>()
-	private val _pendingFlowParameterById = ConcurrentHashMap<UUID, Flow<Any?>>()
-	private val _pendingFlowParameterJobById = ConcurrentHashMap<UUID, Job>()
+	private val _pendingClientMethodByRequestId = ConcurrentHashMap<Int, Method>()
+	private val _pendingServerMethodByRequestId = ConcurrentHashMap<Int, Method>()
+	// Force to fully process the response before being able to process the method execution end
+	private val _responseProcessingGates = ConcurrentHashMap<Int, CompletableDeferred<Unit>>()
+	private val _pendingFlowParameterChannelsById = ConcurrentHashMap<Int, SendChannel<Any?>>()
+	private val _pendingFlowParameterById = ConcurrentHashMap<Int, Flow<Any?>>()
+	private val _pendingFlowParameterJobById = ConcurrentHashMap<Int, Job>()
+	private val _nextId = AtomicInteger(0)
 
 
 	private val _returnTypeAdapters = mutableSetOf(
@@ -195,7 +195,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	suspend fun sendRequest(
-		requestId: UUID,
+		requestId: Int,
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
@@ -229,7 +229,7 @@ internal class BluetoothDeviceRpc(
 			methodName = methodName,
 			rawArguments = argumentsByName.mapValues { (parameterName, value) ->
 				if (value != null && Flow::class.isInstance(value)) {
-					val flowId = UUID.randomUUID()
+					val flowId = generateId()
 
 					_scope.launch {
 						val flow = value as? Flow<Any?> ?: error("Only Flow<*> is supported for Flow parameters, but got ${value::class}")
@@ -238,8 +238,7 @@ internal class BluetoothDeviceRpc(
 
 					val byteArrayOutputStream = ByteArrayOutputStream()
 					val dataStream = DataOutputStream(byteArrayOutputStream)
-					dataStream.writeLong(flowId.mostSignificantBits)
-					dataStream.writeLong(flowId.leastSignificantBits)
+					dataStream.writeInt(flowId)
 					byteArrayOutputStream.toByteArray()
 				}
 				else {
@@ -265,7 +264,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	suspend fun sendResult(
-		requestId: UUID,
+		requestId: Int,
 		result: Any?,
 	) {
 		@Suppress("UNCHECKED_CAST")
@@ -282,12 +281,12 @@ internal class BluetoothDeviceRpc(
 		sendPacket(response)
 	}
 
-	suspend fun sendEnd(requestId: UUID) {
+	suspend fun sendEnd(requestId: Int) {
 		sendPacket(LapisRpcPacket.Completion(requestId))
 	}
 
 	suspend fun sendErrorMessage(
-		requestId: UUID,
+		requestId: Int,
 		message: String,
 	) {
 		println("$$$ sendErrorMessage($requestId) = $message")
@@ -295,7 +294,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	suspend fun cancel(
-		requestId: UUID,
+		requestId: Int,
 	) {
 		println("$$$$ cancel: $requestId")
 		sendPacket(LapisRpcPacket.Cancellation(requestId))
@@ -360,9 +359,7 @@ internal class BluetoothDeviceRpc(
 			if (valueType == Flow::class) {
 				val flowId = ByteArrayInputStream(valueBytes).use { stream ->
 					val dataStream = DataInputStream(stream)
-					val mostSigBits = dataStream.readLong()
-					val leastSigBits = dataStream.readLong()
-					UUID(mostSigBits, leastSigBits)
+					dataStream.readInt()
 				}
 
 				println("$$$ Creating flow for parameter '$name' of method '${method.name}' with flow id $flowId")
@@ -481,37 +478,39 @@ internal class BluetoothDeviceRpc(
 	private suspend fun processResponse(response: LapisRpcPacket.Response) {
 		println("$$$$ process response for request id ${response.requestId}")
 
-		// We need to make sure the response is fully processed before processing the method execution end
-		// I'm not sure if this is the best solution, but this should work for now
-		val canProcessEnd = _canSendEndByRequestId.getOrPut(response.requestId) {
-			MutableStateFlow(false)
+		val gate = _responseProcessingGates.getOrPut(response.requestId) {
+			CompletableDeferred()
 		}
 
-		val method = _pendingClientMethodByRequestId[response.requestId] ?: error("No pending method found for response id: ${response.requestId}")
+		try {
+			val method = _pendingClientMethodByRequestId[response.requestId] ?: error("No pending method found for response id: ${response.requestId}")
 
-		val adapter = getMethodAdapter(method)
+			val adapter = getMethodAdapter(method)
 
-		println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+			println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
-		val outputType = adapter.getOutputType(method)
+			val outputType = adapter.getOutputType(method)
 
-		val serializer = serializationStrategy.serializerForClass(outputType) ?: error("No serializer found for return type: ${method.returnType.kotlin}")
+			val serializer = serializationStrategy.serializerForClass(outputType) ?: error("No serializer found for return type: ${method.returnType.kotlin}")
 
-		val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.rawData))
+			val deserializedResult = serializer.deserialize(ByteArrayInputStream(response.rawData))
 
-		val lapisResponse = LapisResponse(
-			requestId = response.requestId,
-			data = deserializedResult,
-		)
+			val lapisResponse = LapisResponse(
+				requestId = response.requestId,
+				data = deserializedResult,
+			)
 
-		adapter.onResult(
-			requestId = response.requestId,
-			result = deserializedResult,
-		)
+			adapter.onResult(
+				requestId = response.requestId,
+				result = deserializedResult,
+			)
 
-		interceptor.interceptIncomingResponse(deviceAddress = deviceAddress, response = lapisResponse)
+			interceptor.interceptIncomingResponse(deviceAddress = deviceAddress, response = lapisResponse)
 
-		canProcessEnd.value = true
+		}
+		finally {
+			gate.complete(Unit)
+		}
 	}
 
 	private fun processErrorResponse(errorResponse: LapisRpcPacket.ErrorResponse) {
@@ -543,10 +542,16 @@ internal class BluetoothDeviceRpc(
 	private suspend fun processMethodExecutionEnd(completion: LapisRpcPacket.Completion) {
 		println("$$$$ process method execution end for request id ${completion.requestId}")
 
-		val canProcessEndFlow = _canSendEndByRequestId[completion.requestId] ?: error("Couldn't check whether we should process the method execution end: ${completion.requestId}")
-		canProcessEndFlow.first { canProcessEnd -> canProcessEnd }
+		val gate = _responseProcessingGates.getOrPut(completion.requestId) {
+			CompletableDeferred()
+		}
 
-		_canSendEndByRequestId.remove(completion.requestId)
+		gate.await()
+
+		if (_responseProcessingGates.remove(completion.requestId) == null) {
+			println("$$$$ [Warning] The method execution end for request id ${completion.requestId} was already processed")
+			return
+		}
 
 		val method = _pendingClientMethodByRequestId.remove(completion.requestId) ?: error("No pending method found for method execution end id: ${completion.requestId}")
 
@@ -670,8 +675,8 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun sendFlowParameterEmission(
-		requestId: UUID,
-		flowId: UUID,
+		requestId: Int,
+		flowId: Int,
 		parameterName: String,
 		value: Any?,
 	) {
@@ -745,8 +750,10 @@ internal class BluetoothDeviceRpc(
 		_pendingFlowParameterChannelsById.clear()
 		_pendingFlowParameterById.clear()
 		_pendingFlowParameterJobById.clear()
-		_canSendEndByRequestId.clear()
+		_responseProcessingGates.clear()
 	}
+
+	private fun generateId() = _nextId.getAndIncrement()
 
 	companion object {
 		private val TAG = this::class.qualifiedName!!

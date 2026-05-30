@@ -25,8 +25,8 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.lang.reflect.Method
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
@@ -37,8 +37,10 @@ internal class FlowMethodAdapter(
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-	private val _pendingChannelsByRequestId = ConcurrentHashMap<UUID, SendChannel<Any?>>()
-	private val _activeServerJobs = ConcurrentHashMap<UUID, Job>()
+	private val _pendingChannelsByRequestId = ConcurrentHashMap<Int, SendChannel<Any?>>()
+	private val _activeServerJobs = ConcurrentHashMap<Int, Job>()
+
+	private val _nextId = AtomicInteger(0)
 
 
 	override fun onRegister() {
@@ -68,7 +70,7 @@ internal class FlowMethodAdapter(
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-		onGenerateRequestId: (requestId: UUID) -> Unit,
+		onGenerateRequestId: (requestId: Int) -> Unit,
 	): Any {
 
 		// We convert it to a SharedFlow so that we don't waste resources creating multiple requests
@@ -78,7 +80,7 @@ internal class FlowMethodAdapter(
 		// The user of this library can call the "shareIn(...)" operator again and set the parameters
 		// according to their needs
 		return callbackFlow {
-			val requestId = UUID.randomUUID()
+			val requestId = generateId()
 
 			onGenerateRequestId(requestId)
 
@@ -152,12 +154,12 @@ internal class FlowMethodAdapter(
 		job.join()
 	}
 
-	override fun onEnd(requestId: UUID) {
+	override fun onEnd(requestId: Int) {
 		println("$$$ onEnd: $requestId")
 		_pendingChannelsByRequestId.remove(requestId)?.close()
 	}
 
-	override fun onCancel(requestId: UUID) {
+	override fun onCancel(requestId: Int) {
 		println("$$$ onCancel: $requestId")
 
 		// We force it to be a local exception so that we don't send a cancellation message to the client
@@ -167,7 +169,7 @@ internal class FlowMethodAdapter(
 		_pendingChannelsByRequestId.remove(requestId)?.close(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
-	override fun onResult(requestId: UUID, result: Any?) {
+	override fun onResult(requestId: Int, result: Any?) {
 		println("$$$ onResult($requestId) = $result")
 		_scope.launch {
 			// maybe we should use trySend instead of send
@@ -175,7 +177,7 @@ internal class FlowMethodAdapter(
 		}
 	}
 
-	override fun onErrorMessage(requestId: UUID, throwable: Throwable) {
+	override fun onErrorMessage(requestId: Int, throwable: Throwable) {
 		println("$$$ onErrorMessage($requestId): $throwable")
 		_pendingChannelsByRequestId.remove(requestId)?.close(throwable)
 	}
@@ -192,4 +194,7 @@ internal class FlowMethodAdapter(
 		}
 		_activeServerJobs.clear()
 	}
+
+
+	private fun generateId() = _nextId.getAndIncrement()
 }
