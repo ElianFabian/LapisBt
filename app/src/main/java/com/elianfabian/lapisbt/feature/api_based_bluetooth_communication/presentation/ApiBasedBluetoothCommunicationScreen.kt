@@ -701,7 +701,6 @@ private fun BluetoothDeviceItem(
 //					BluetoothDevice.ConnectionState.Connected -> Color.Green
 //					BluetoothDevice.ConnectionState.Connecting -> Color.Yellow
 //					BluetoothDevice.ConnectionState.Disconnected -> Color.LightGray
-//					BluetoothDevice.ConnectionState.Disconnecting -> Color.Red
 //				}
 //			)
 			.background(
@@ -709,7 +708,6 @@ private fun BluetoothDeviceItem(
 					BluetoothDevice.ConnectionState.Connected -> Color(0xFFA5D6A7)
 					BluetoothDevice.ConnectionState.Connecting -> Color(0xFFFFF59D)
 					BluetoothDevice.ConnectionState.Disconnected -> MaterialTheme.colorScheme.surfaceVariant
-					BluetoothDevice.ConnectionState.Disconnecting -> Color(0xFFEF9A9A)
 				}
 			)
 			.padding(12.dp)

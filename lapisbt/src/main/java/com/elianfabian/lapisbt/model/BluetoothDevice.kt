@@ -41,7 +41,6 @@ public data class BluetoothDevice(
 		Connected,
 		Connecting,
 		Disconnected,
-		Disconnecting,
 	}
 
 	public sealed interface AddressType {

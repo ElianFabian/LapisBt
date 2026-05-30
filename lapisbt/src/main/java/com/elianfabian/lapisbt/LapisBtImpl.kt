@@ -290,31 +290,6 @@ internal class LapisBtImpl(
 		// TODO: I think this should solve disconnection event issues, we have to test it
 		_skipDisconnectionEventForDevices.add(deviceAddress)
 
-		_pairedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnecting)
-				}
-				else device
-			}
-		}
-		_scannedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnecting)
-				}
-				else device
-			}
-		}
-		_connectedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnecting)
-				}
-				else device
-			}
-		}
-
 		val disconnectedLocally = try {
 			println("$$$ disconnectFromDevice($deviceAddress): try1")
 			withContext(Dispatchers.IO) {
