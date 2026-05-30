@@ -81,7 +81,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	}
 
 
-	override suspend fun sendData(stream: OutputStream) {
+	override suspend fun sendData(stream: OutputStream) = withContext(Dispatchers.IO) {
 		for (packetToSend in _pendingPacketToSendChannel) {
 			serializePacket(
 				stream = stream,
