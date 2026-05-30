@@ -52,6 +52,7 @@ internal class LapisBtImpl(
 	private var _isDisposed = false
 
 	private val _isConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
+	private val _isScanPermissionGranted = MutableStateFlow(androidHelper.isBluetoothScanGranted())
 
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
@@ -648,6 +649,7 @@ internal class LapisBtImpl(
 				updateDevices()
 
 				_isConnectPermissionGranted.value = androidHelper.isBluetoothConnectGranted()
+				_isScanPermissionGranted.value = androidHelper.isBluetoothScanGranted()
 
 				if (androidHelper.isBluetoothConnectGranted()) {
 					_bluetoothDeviceName.value = lapisAdapter.name
@@ -1090,14 +1092,17 @@ internal class LapisBtImpl(
 			combine(
 				_bluetoothState.map { it.isOn },
 				_isConnectPermissionGranted,
-			) { isBluetoothOn, isBluetoothConnectPermissionGranted ->
+				_isScanPermissionGranted,
+			) { isBluetoothOn, isBluetoothConnectPermissionGranted, isBluetoothScanPermissionGranted ->
 				if (isBluetoothOn) {
 					updateDevices()
 				}
 				if (isBluetoothConnectPermissionGranted) {
 					_bluetoothDeviceName.value = lapisAdapter.name
 				}
-				_scanMode.value = convertToScanMode(lapisAdapter.scanMode)
+				if (isBluetoothScanPermissionGranted) {
+					_scanMode.value = convertToScanMode(lapisAdapter.scanMode)
+				}
 			}.collect()
 		}
 	}
