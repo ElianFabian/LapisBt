@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -99,7 +100,7 @@ class MainTestingActivity : AppCompatActivity() {
 			"connectTo-device" -> {
 				lifecycleScope.launch {
 					logAction(action) {
-						val address = intent.getStringExtra("address") ?: return@launch
+						val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return@launch)
 						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
 						lapisBt.connectToDevice(
@@ -112,7 +113,7 @@ class MainTestingActivity : AppCompatActivity() {
 			"connectTo-deviceWithoutPairing" -> {
 				lifecycleScope.launch {
 					logAction(action) {
-						val address = intent.getStringExtra("address") ?: return@launch
+						val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return@launch)
 						val uuid = intent.getStringExtra("uuid") ?: return@launch
 
 						lapisBt.connectToDeviceWithoutPairing(
@@ -125,7 +126,7 @@ class MainTestingActivity : AppCompatActivity() {
 			"disconnectFrom-device" -> {
 				lifecycleScope.launch {
 					logAction(action) {
-						val address = intent.getStringExtra("address") ?: return@launch
+						val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return@launch)
 
 						lapisBt.disconnectFromDevice(
 							deviceAddress = address,
@@ -136,7 +137,7 @@ class MainTestingActivity : AppCompatActivity() {
 			"cancel-connectionAttempt" -> {
 				lifecycleScope.launch {
 					logAction(action) {
-						val address = intent.getStringExtra("address") ?: return@launch
+						val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return@launch)
 
 						lapisBt.cancelConnectionAttempt(
 							deviceAddress = address,
@@ -146,14 +147,14 @@ class MainTestingActivity : AppCompatActivity() {
 			}
 			"pair-device" -> {
 				logAction(action) {
-					val address = intent.getStringExtra("address") ?: return
+					val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return)
 
 					lapisBt.startDevicePairing(address)
 				}
 			}
 			"unpair-device" -> {
 				logAction(action) {
-					val address = intent.getStringExtra("address") ?: return
+					val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return)
 
 					lapisBt.unpairDevice(address)
 				}
@@ -168,7 +169,7 @@ class MainTestingActivity : AppCompatActivity() {
 			"send-data" -> {
 				lifecycleScope.launch {
 					logAction(action) {
-						val address = intent.getStringExtra("address") ?: return@launch
+						val address = BluetoothDevice.Address(intent.getStringExtra("address") ?: return@launch)
 						val byteArray = intent.getIntArrayExtra("bytes")?.map { it.toByte() }?.toByteArray() ?: return@launch
 
 						lapisBt.sendData(address) { stream ->

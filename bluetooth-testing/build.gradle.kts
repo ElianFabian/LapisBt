@@ -40,6 +40,7 @@ android {
 dependencies {
 	implementation(project(":lapisbt"))
 
+	implementation(libs.kotlinReflect)
 	implementation(libs.gson)
 	//implementation(libs.kotlinxSerializationJson)
 	implementation(libs.androidx.coreKtx)

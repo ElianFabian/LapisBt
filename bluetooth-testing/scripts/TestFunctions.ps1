@@ -9,7 +9,7 @@ function Ensure-BluetoothOn {
         [PSCustomObject] $Device
     )
 
-    if (-not (Test-AdbBluetooth -SerialNumber $Device.SerialNumber)) {
+    if (-not (Test-AdbBluetoothState -SerialNumber $Device.SerialNumber)) {
         if ($Device.ApiLevel -ge 33) {
             Enable-AdbBluetooth -SerialNumber $Device.SerialNumber
         }

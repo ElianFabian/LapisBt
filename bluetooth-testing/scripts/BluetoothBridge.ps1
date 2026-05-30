@@ -51,6 +51,15 @@ function Get-LapisIsScanning {
     return [bool]::Parse((Get-LapisState -SerialNumber $SerialNumber -Name 'get-isScanning'))
 }
 
+function Get-LapisScanMode {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber
+    )
+
+    return [bool]::Parse((Get-LapisState -SerialNumber $SerialNumber -Name 'get-scanMode'))
+}
+
 function Get-LapisActiveBluetoothServersUuids {
     param (
         [Parameter(Mandatory)]
@@ -76,6 +85,15 @@ function Get-LapisPairedDevices {
     )
 
     return Get-LapisState -SerialNumber $SerialNumber -Name 'get-pairedDevices' | ConvertFrom-Json
+}
+
+function Get-LapisConnectedDevices {
+    param (
+        [Parameter(Mandatory)]
+        [string] $SerialNumber
+    )
+
+    return Get-LapisState -SerialNumber $SerialNumber -Name 'get-connectedDevices' | ConvertFrom-Json
 }
 
 function Start-LapisScan {

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlinx.coroutines.runBlocking
 import java.io.DataInputStream
 import java.io.InputStream
@@ -29,6 +30,9 @@ class TestingBroadcastReceiver : BroadcastReceiver() {
 			"get-isScanning" -> {
 				lapisBt.isScanning.value.toString()
 			}
+			"get-scanMode" -> {
+				lapisBt.scanMode.value.toString()
+			}
 			"get-activeBluetoothServersUuids" -> {
 				lapisBt.activeBluetoothServersUuids.value.toJson()
 			}
@@ -38,12 +42,15 @@ class TestingBroadcastReceiver : BroadcastReceiver() {
 			"get-pairedDevices" -> {
 				lapisBt.pairedDevices.value.toJson()
 			}
+			"get-connectedDevices" -> {
+				lapisBt.connectedDevices.value.toJson()
+			}
 			"get-remoteDevice" -> {
-				val address = intent.getStringExtra("address")!!
-				lapisBt.getRemoteDevice(address)?.toJson() ?: ""
+				val address = BluetoothDevice.Address(intent.getStringExtra("address")!!)
+				lapisBt.getRemoteDevice(address).toJson()
 			}
 			"receive-data" -> {
-				val address = intent.getStringExtra("address")!!
+				val address = BluetoothDevice.Address(intent.getStringExtra("address")!!)
 				val bytesLength = intent.getIntExtra("bytesLength", -1)
 				require(bytesLength > 0)
 
