@@ -1,10 +1,9 @@
 package com.elianfabian.lapisbt_rpc.model
 
 import java.io.InputStream
-import java.util.UUID
 
 public data class CompleteBluetoothPacket(
-	val packetId: UUID,
+	val packetId: Int,
 	val type: Type,
 	val payloadStream: InputStream,
 ) {

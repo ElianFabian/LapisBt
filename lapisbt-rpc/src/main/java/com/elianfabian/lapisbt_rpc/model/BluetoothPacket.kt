@@ -1,14 +1,12 @@
 package com.elianfabian.lapisbt_rpc.model
 
-import java.util.UUID
-
 // The fragments are all of fixed size of 256 bytes
 internal sealed interface BluetoothPacket {
 
-	val packetId: UUID // We may use an Int here later if we want to save some space
+	val packetId: Int
 
 	data class FirstFragment(
-		override val packetId: UUID,
+		override val packetId: Int,
 		val type: Byte,
 		val length: Int,
 		val compressed: Boolean,
@@ -35,19 +33,19 @@ internal sealed interface BluetoothPacket {
 		}
 
 		override fun hashCode(): Int {
-			var result = type.hashCode()
+			var result = packetId
+			result = 31 * result + type.hashCode()
 			result = 31 * result + length
 			result = 31 * result + compressed.hashCode()
 			result = 31 * result + originalPayloadSize
 			result = 31 * result + actualPayloadSize
-			result = 31 * result + packetId.hashCode()
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}
 	}
 
 	data class Fragment(
-		override val packetId: UUID,
+		override val packetId: Int,
 		// For the index is a relevant data for the logic, but we might change it to get rid of it and save some space
 		val index: Int,
 		val payload: ByteArray,
@@ -67,8 +65,8 @@ internal sealed interface BluetoothPacket {
 		}
 
 		override fun hashCode(): Int {
-			var result = index
-			result = 31 * result + packetId.hashCode()
+			var result = packetId
+			result = 31 * result + index
 			result = 31 * result + payload.contentHashCode()
 			return result
 		}

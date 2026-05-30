@@ -19,8 +19,8 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 public interface LapisPacketProcessor {
 
@@ -47,15 +47,15 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 		const val BLUETOOTH_PACKET_LENGTH = 256
 
-		const val UUID_METADATA_SIZE = Long.SIZE_BYTES * 2
+		const val PACKET_ID_SIZE = Int.SIZE_BYTES
 		const val INDEX_METADATA_SIZE = Int.SIZE_BYTES
 
-		// FirstFragment: UUID (16) + type (1) + length (4) + compressed (1) + originalPayloadSize (4) + actualPayloadSize (4) = 30
-		const val FIRST_FRAGMENT_METADATA_SIZE = UUID_METADATA_SIZE + 1 + 4 + 1 + 4 + 4
+		// FirstFragment: packetId (4) + type (1) + length (4) + compressed (1) + originalPayloadSize (4) + actualPayloadSize (4) = 18
+		const val FIRST_FRAGMENT_METADATA_SIZE = PACKET_ID_SIZE + 1 + 4 + 1 + 4 + 4
 		const val FIRST_FRAGMENT_PAYLOAD_CAPACITY = BLUETOOTH_PACKET_LENGTH - FIRST_FRAGMENT_METADATA_SIZE
 
-		// Fragment: UUID (16) + index (4) = 20
-		const val FRAGMENT_METADATA_SIZE = UUID_METADATA_SIZE + INDEX_METADATA_SIZE
+		// Fragment: packetId (4) + index (4) = 8
+		const val FRAGMENT_METADATA_SIZE = PACKET_ID_SIZE + INDEX_METADATA_SIZE
 		const val FRAGMENT_PAYLOAD_CAPACITY = BLUETOOTH_PACKET_LENGTH - FRAGMENT_METADATA_SIZE
 
 		val TAG = this::class.qualifiedName!!
@@ -64,7 +64,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-	private val _remotePacketsById = ConcurrentHashMap<UUID, MutableList<BluetoothPacket>>()
+	private val _remotePacketsById = ConcurrentHashMap<Int, MutableList<BluetoothPacket>>()
 
 	private val _remotePacketChannel = Channel<BluetoothPacket>(capacity = Channel.UNLIMITED)
 	override val remoteCompletePackets get() = _remoteCompletePacketChannel
@@ -72,6 +72,8 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	private val _remoteCompletePacketChannel = Channel<CompleteBluetoothPacket>(capacity = Channel.UNLIMITED)
 
 	private val _pendingPacketToSendChannel = Channel<BluetoothPacket>(capacity = 1)
+
+	private val _nextPacketId = AtomicInteger(0)
 
 
 	init {
@@ -95,9 +97,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 			val dataStream = DataInputStream(ByteArrayInputStream(bytes))
 
-			val mostSignificantBits = dataStream.readLong()
-			val leastSignificantBits = dataStream.readLong()
-			val id = UUID(mostSignificantBits, leastSignificantBits)
+			val id = dataStream.readInt()
 
 			println("$$$$ Received raw data with size ${bytes.size} = $id")
 			val packets = _remotePacketsById.getOrPut(id) {
@@ -137,7 +137,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 			}
 			else (remainingPayloadSize + FRAGMENT_PAYLOAD_CAPACITY - 1) / FRAGMENT_PAYLOAD_CAPACITY
 
-			val packetId = UUID.randomUUID()
+			val packetId = generateId()
 
 			val firstFragment = BluetoothPacket.FirstFragment(
 				packetId = packetId,
@@ -188,8 +188,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 		when (packet) {
 			is BluetoothPacket.FirstFragment -> {
-				packetStream.writeLong(packet.packetId.mostSignificantBits)
-				packetStream.writeLong(packet.packetId.leastSignificantBits)
+				packetStream.writeInt(packet.packetId)
 				packetStream.writeByte(packet.type.toInt())
 				packetStream.writeInt(packet.length)
 				packetStream.writeBoolean(packet.compressed)
@@ -198,8 +197,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				packetStream.write(packet.payload)
 			}
 			is BluetoothPacket.Fragment -> {
-				packetStream.writeLong(packet.packetId.mostSignificantBits)
-				packetStream.writeLong(packet.packetId.leastSignificantBits)
+				packetStream.writeInt(packet.packetId)
 				packetStream.writeInt(packet.index)
 				packetStream.write(packet.payload)
 			}
@@ -222,7 +220,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 	private fun deserializePacket(
 		stream: InputStream,
-		id: UUID,
+		id: Int,
 		index: Int,
 	): BluetoothPacket {
 		if (index == -1) {
@@ -238,7 +236,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 		)
 	}
 
-	private fun deserializeFirstFragment(stream: InputStream, id: UUID): BluetoothPacket.FirstFragment {
+	private fun deserializeFirstFragment(stream: InputStream, id: Int): BluetoothPacket.FirstFragment {
 		val dataStream = DataInputStream(stream)
 
 		val type = dataStream.readByte()
@@ -324,4 +322,6 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 			}
 		}
 	}
+
+	private fun generateId(): Int = _nextPacketId.getAndIncrement()
 }
