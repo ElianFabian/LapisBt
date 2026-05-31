@@ -113,8 +113,77 @@ class LapisBtRpcEncryptionTest {
 		peripheralRpc.dispose()
 		environment.dispose()
 	}
+
+	@Test
+	fun `rpc works after handshake key exchange`() = runTest(timeout = 10.seconds) {
+		val environment = LapisBt.newSimulatedBluetoothEnvironment()
+		val phone = environment.createDevice()
+		val peripheral = environment.createDevice()
+
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt)
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt)
+
+		val clientRandomKey = ByteArray(16) { (it + 1).toByte() }
+		val serverRandomKey = ByteArray(16) { (it + 100).toByte() }
+
+		val handshakeServiceImpl = HandshakeServiceImpl(serverRandomKey)
+		peripheralRpc.registerBluetoothServerService<HandshakeService>(phone.address, handshakeServiceImpl)
+
+		val serverJob = launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("SecureService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+
+		// 1. Plaintext Handshake
+		val handshakeClient = phoneRpc.getOrCreateBluetoothClientService<HandshakeService>(peripheral.address)
+		val receivedServerKey = handshakeClient.exchangeKey(clientRandomKey)
+
+		assertThat(handshakeServiceImpl.receivedClientKey).isEqualTo(clientRandomKey)
+		assertThat(receivedServerKey).isEqualTo(serverRandomKey)
+
+		// 2. Derive Session Key (simple XOR for test)
+		val sessionKey = ByteArray(16) { i ->
+			(clientRandomKey[i].toInt() xor receivedServerKey[i].toInt()).toByte()
+		}
+
+		// 3. Enable Encryption
+		phoneRpc.setEncryption(peripheral.address, LapisEncryption.aesGcm(sessionKey))
+		peripheralRpc.setEncryption(phone.address, LapisEncryption.aesGcm(sessionKey))
+
+		// 4. Encrypted Call
+		peripheralRpc.registerBluetoothServerService<SecureService>(phone.address, SecureServiceImpl())
+		val secureClient = phoneRpc.getOrCreateBluetoothClientService<SecureService>(peripheral.address)
+
+		val message = "Handshake Successful"
+		assertThat(secureClient.echo(message)).isEqualTo(message)
+
+		serverJob.cancel()
+		phoneRpc.dispose()
+		peripheralRpc.dispose()
+		environment.dispose()
+	}
 }
 
+
+@LapisRpc(name = "HandshakeService")
+interface HandshakeService {
+
+	@LapisMethod(name = "exchangeKey")
+	suspend fun exchangeKey(
+		@LapisParam(name = "clientKey")
+		clientKey: ByteArray,
+	): ByteArray
+}
+
+class HandshakeServiceImpl(private val serverKey: ByteArray) : HandshakeService {
+	var receivedClientKey: ByteArray? = null
+
+	override suspend fun exchangeKey(clientKey: ByteArray): ByteArray {
+		receivedClientKey = clientKey
+		return serverKey
+	}
+}
 
 @LapisRpc("SecureService")
 interface SecureService {
