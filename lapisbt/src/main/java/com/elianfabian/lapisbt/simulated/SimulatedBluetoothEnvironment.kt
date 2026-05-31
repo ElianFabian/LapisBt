@@ -5,16 +5,16 @@ import com.elianfabian.lapisbt.LapisBtImpl
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
-import com.elianfabian.lapisbt.util.BidirectionalStreamPipe
-import java.util.Collections
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import java.util.Collections
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
+// TODO: dedicate more time to fully understand this code
 public class SimulatedBluetoothEnvironment internal constructor(
 	seed: Long = 1L,
 	private val context: Context? = null,
@@ -135,6 +135,14 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		_activeServers[deviceAddress]?.remove(uuid)
 	}
 
+	internal fun getServer(deviceAddress: String, uuid: UUID): ServerEntry? {
+		return _activeServers[deviceAddress]?.get(uuid)
+	}
+
+	internal fun getDeviceName(address: String): String? {
+		return _devices[address]?.device?.name
+	}
+
 	public fun onActivityResumed() {
 		_devices.values.forEach { it.device.onActivityResumed() }
 	}
@@ -220,34 +228,10 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		uuid: UUID,
 		isSecureRequest: Boolean,
 	): SimulatedLapisBluetoothSocket? {
-		println("$$$ request connection1: $requesterAddress, $targetAddress, $uuid, $isSecureRequest")
-		val serverEntry = _activeServers[targetAddress]?.get(uuid) ?: return null
-		println("$$$ request connection2: $requesterAddress, $targetAddress, $uuid, $isSecureRequest")
-
-		val isSecure = isSecureRequest || serverEntry.isSecure
-
-		// If either side is secure, pairing is required.
-		// For testing, we automatically pair them if not already bonded.
-		if (isSecure && !isBonded(requesterAddress, targetAddress)) {
-			println("Secure connection requested: automatically initiating pairing between $requesterAddress and $targetAddress")
-			initiatePairing(requesterAddress, targetAddress)
-		}
-
 		val requesterEntry = _devices[requesterAddress] ?: return null
-		println("$$$ request connection3: $requesterAddress, $targetAddress, $uuid, $isSecureRequest")
 		val targetEntry = _devices[targetAddress] ?: return null
-		println("$$$ request connection4: $requesterAddress, $targetAddress, $uuid, $isSecureRequest")
 
-		// Forced failure
-		val forcedResult = requesterEntry.config.connectionResult
-		if (forcedResult is SimulatedBluetoothConfiguration.ConnectionResult.CouldNotConnect) {
-			println("Simulating forced connection failure")
-			return null
-		}
-
-		val pipe = BidirectionalStreamPipe()
-
-		val clientSocket = SimulatedLapisBluetoothSocket(
+		return SimulatedLapisBluetoothSocket(
 			remoteDevice = SimulatedLapisBluetoothDevice(
 				address = targetAddress,
 				name = targetEntry.device.name,
@@ -255,30 +239,10 @@ public class SimulatedBluetoothEnvironment internal constructor(
 				environment = this,
 				requesterAddress = requesterAddress
 			),
-			inputStream = pipe.sideA.inputStream,
-			outputStream = pipe.sideA.outputStream,
-			isSecure = isSecure,
+			serviceUuid = uuid,
+			isSecure = isSecureRequest,
+			isClient = true
 		)
-
-		val serverSideSocket = SimulatedLapisBluetoothSocket(
-			remoteDevice = SimulatedLapisBluetoothDevice(
-				address = requesterAddress,
-				name = requesterEntry.device.name,
-				bluetoothEvents = targetEntry.events,
-				environment = this,
-				requesterAddress = targetAddress
-			),
-			inputStream = pipe.sideB.inputStream,
-			outputStream = pipe.sideB.outputStream,
-			isSecure = isSecure,
-		)
-
-		clientSocket.twin = serverSideSocket
-		serverSideSocket.twin = clientSocket
-
-		serverEntry.socket.enqueueIncomingConnection(serverSideSocket)
-
-		return clientSocket
 	}
 
 	internal fun registerSocket(socket: SimulatedLapisBluetoothSocket) {

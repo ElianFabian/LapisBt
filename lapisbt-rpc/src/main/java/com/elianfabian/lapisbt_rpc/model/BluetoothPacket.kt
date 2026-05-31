@@ -9,6 +9,7 @@ internal sealed interface BluetoothPacket {
 		val type: Byte,
 		val length: Int,
 		val compressed: Boolean,
+		val encrypted: Boolean,
 		val originalPayloadSize: Int,
 		val actualPayloadSize: Int,
 		val payload: ByteArray,
@@ -24,6 +25,7 @@ internal sealed interface BluetoothPacket {
 			if (type != other.type) return false
 			if (length != other.length) return false
 			if (compressed != other.compressed) return false
+			if (encrypted != other.encrypted) return false
 			if (originalPayloadSize != other.originalPayloadSize) return false
 			if (actualPayloadSize != other.actualPayloadSize) return false
 			if (!payload.contentEquals(other.payload)) return false
@@ -36,6 +38,7 @@ internal sealed interface BluetoothPacket {
 			result = 31 * result + type.hashCode()
 			result = 31 * result + length
 			result = 31 * result + compressed.hashCode()
+			result = 31 * result + encrypted.hashCode()
 			result = 31 * result + originalPayloadSize
 			result = 31 * result + actualPayloadSize
 			result = 31 * result + payload.contentHashCode()

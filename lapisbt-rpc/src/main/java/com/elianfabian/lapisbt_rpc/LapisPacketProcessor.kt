@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -36,6 +37,8 @@ public interface LapisPacketProcessor {
 		methodMetadataAnnotations: List<Annotation>,
 	)
 
+	public var encryption: LapisEncryption?
+
 	public fun dispose()
 }
 
@@ -43,15 +46,15 @@ public interface LapisPacketProcessor {
 // TODO: we may change the compression implementation by using DeflateOutputStream and DeflateInputStream
 internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
-	private companion object {
+	internal companion object {
 
 		const val BLUETOOTH_PACKET_LENGTH = 256
 
 		const val PACKET_ID_SIZE = Int.SIZE_BYTES
 		const val INDEX_METADATA_SIZE = Int.SIZE_BYTES
 
-		// FirstFragment: packetId (4) + type (1) + length (4) + compressed (1) + originalPayloadSize (4) + actualPayloadSize (4) = 18
-		const val FIRST_FRAGMENT_METADATA_SIZE = PACKET_ID_SIZE + 1 + 4 + 1 + 4 + 4
+		// FirstFragment: packetId (4) + type (1) + length (4) + compressed (1) + encrypted (1) + originalPayloadSize (4) + actualPayloadSize (4) = 19
+		const val FIRST_FRAGMENT_METADATA_SIZE = PACKET_ID_SIZE + 1 + 4 + 1 + 1 + 4 + 4
 		const val FIRST_FRAGMENT_PAYLOAD_CAPACITY = BLUETOOTH_PACKET_LENGTH - FIRST_FRAGMENT_METADATA_SIZE
 
 		// Fragment: packetId (4) + index (4) = 8
@@ -75,6 +78,8 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 	private val _nextPacketId = AtomicInteger(0)
 
+	override var encryption: LapisEncryption? = null
+
 
 	init {
 		launchPacketProcessing()
@@ -93,7 +98,22 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	override suspend fun receiveData(stream: InputStream) = withContext(Dispatchers.IO) {
 		println("$$$ Start receiving data")
 		while (true) {
-			val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
+			val bytes = try {
+				stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
+			}
+			catch (e: IOException) {
+				println("$$$ receiveData: IOException during read: ${e.message}")
+				break
+			}
+
+			if (bytes.isEmpty()) {
+				println("$$$ receiveData: EOF reached")
+				break
+			}
+			if (bytes.size < BLUETOOTH_PACKET_LENGTH) {
+				println("$$$ receiveData: partial packet received (${bytes.size} bytes), ignoring.")
+				break
+			}
 
 			val dataStream = DataInputStream(ByteArrayInputStream(bytes))
 
@@ -123,12 +143,17 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	) {
 		val packets = sequence {
 			val compressed = CompressionUtil.shouldCompress(payload)
-			val actualPayload = if (compressed) {
+			var actualPayload = if (compressed) {
 				CompressionUtil.compress(payload)!!
 			}
 			else payload
 
-			println("$$$ original: ${payload.size}, actual: ${actualPayload.size}")
+			val encrypted = encryption != null
+			if (encrypted) {
+				actualPayload = encryption!!.encrypt(actualPayload)
+			}
+
+			println("$$$ original: ${payload.size}, actual: ${actualPayload.size}, encrypted: $encrypted")
 
 			val firstFragmentPayloadSize = minOf(actualPayload.size, FIRST_FRAGMENT_PAYLOAD_CAPACITY)
 			val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
@@ -144,6 +169,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				type = type,
 				length = numberOfFragments,
 				compressed = compressed,
+				encrypted = encrypted,
 				originalPayloadSize = payload.size,
 				actualPayloadSize = actualPayload.size,
 				payload = actualPayload.sliceArray(0 until firstFragmentPayloadSize)
@@ -192,6 +218,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				packetStream.writeByte(packet.type.toInt())
 				packetStream.writeInt(packet.length)
 				packetStream.writeBoolean(packet.compressed)
+				packetStream.writeBoolean(packet.encrypted)
 				packetStream.writeInt(packet.originalPayloadSize)
 				packetStream.writeInt(packet.actualPayloadSize)
 				packetStream.write(packet.payload)
@@ -242,6 +269,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 		val type = dataStream.readByte()
 		val length = dataStream.readInt()
 		val compressed = dataStream.readBoolean()
+		val encrypted = dataStream.readBoolean()
 		val originalPayloadSize = dataStream.readInt()
 		val actualPayloadSize = dataStream.readInt()
 
@@ -253,6 +281,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 			type = type,
 			length = length,
 			compressed = compressed,
+			encrypted = encrypted,
 			originalPayloadSize = originalPayloadSize,
 			actualPayloadSize = actualPayloadSize,
 			payload = payload,
@@ -268,7 +297,11 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 					is BluetoothPacket.FirstFragment -> {
 						println("$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, original payload size: ${packet.originalPayloadSize}")
 						if (packet.length == 0) {
-							val actualPayload = packet.payload
+							var actualPayload = packet.payload
+
+							if (packet.encrypted) {
+								actualPayload = encryption?.decrypt(actualPayload) ?: error("Received encrypted packet but no encryption is set")
+							}
 
 							val decompressedPayload = if (packet.compressed) {
 								CompressionUtil.decompress(actualPayload, packet.originalPayloadSize) ?: error("Failed to decompress payload")
@@ -300,7 +333,11 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 								.forEach { fullPayloadBaos.write(it.payload) }
 
 							val fullPayload = fullPayloadBaos.toByteArray()
-							val actualPayload = fullPayload.copyOfRange(0, firstPacket.actualPayloadSize)
+							var actualPayload = fullPayload.copyOfRange(0, firstPacket.actualPayloadSize)
+
+							if (firstPacket.encrypted) {
+								actualPayload = encryption?.decrypt(actualPayload) ?: error("Received encrypted packet but no encryption is set")
+							}
 
 							val decompressedPayload = if (firstPacket.compressed) {
 								CompressionUtil.decompress(actualPayload, firstPacket.originalPayloadSize) ?: error("Failed to decompress payload")

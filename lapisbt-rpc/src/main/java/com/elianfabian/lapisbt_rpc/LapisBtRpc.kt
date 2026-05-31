@@ -56,6 +56,17 @@ public interface LapisBtRpc {
 	public fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: BluetoothDevice.Address)
 
 	/**
+	 * Sets the encryption to be used for communication with the specified [deviceAddress].
+	 *
+	 * Once set, all outgoing packets will be encrypted and all incoming packets marked as
+	 * encrypted will be decrypted using the provided [encryption].
+	 *
+	 * @param deviceAddress The MAC address of the remote device.
+	 * @param encryption The encryption implementation to use, or null to disable encryption.
+	 */
+	public fun setEncryption(deviceAddress: BluetoothDevice.Address, encryption: LapisEncryption?)
+
+	/**
 	 * Releases all resources held by this instance.
 	 *
 	 * Once called, this instance is no longer usable.

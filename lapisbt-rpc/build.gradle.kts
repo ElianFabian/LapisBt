@@ -32,6 +32,11 @@ android {
 			jvmTarget = JvmTarget.JVM_11
 		}
 	}
+	testOptions {
+		unitTests {
+			isReturnDefaultValues = true
+		}
+	}
 }
 
 dependencies {
@@ -45,6 +50,8 @@ dependencies {
 	implementation(libs.androidx.appcompat)
 	implementation(libs.material)
 	testImplementation(libs.junit)
+	testImplementation(libs.truth)
+	testImplementation(libs.kotlinxCoroutinesTest)
 	androidTestImplementation(libs.androidx.junit)
 	androidTestImplementation(libs.androidx.espressoCore)
 }

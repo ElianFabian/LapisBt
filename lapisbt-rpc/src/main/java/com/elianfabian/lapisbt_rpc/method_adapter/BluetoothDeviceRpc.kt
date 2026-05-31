@@ -4,6 +4,7 @@ import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
+import com.elianfabian.lapisbt_rpc.LapisEncryption
 import com.elianfabian.lapisbt_rpc.LapisInterceptor
 import com.elianfabian.lapisbt_rpc.LapisMetadataProvider
 import com.elianfabian.lapisbt_rpc.LapisPacketProcessor
@@ -28,6 +29,7 @@ import com.elianfabian.lapisbt_rpc.serializer.LapisPacketSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import com.elianfabian.lapisbt_rpc.util.extractFirstGenericArgument
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
+import com.elianfabian.lapisbt_rpc.util.isSuspend
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,12 +38,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.transformWhile
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -120,13 +125,43 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 		_scope.launch {
-			lapisBt.sendData(deviceAddress) { stream ->
-				packetProcessor.sendData(stream)
+			while (isActive) {
+				val success = lapisBt.sendData(deviceAddress) { stream ->
+					packetProcessor.sendData(stream)
+				}
+				if (success) {
+					Log.w(TAG, "sendData returned true")
+					break
+				}
+
+				println("$$$ BluetoothDeviceRpc: sendData failed for $deviceAddress, waiting for connection...")
+				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
+					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
+				}
+				else {
+					// small delay to avoid a busy loop
+					delay(100)
+				}
 			}
 		}
 		_scope.launch {
-			lapisBt.receiveData(deviceAddress) { stream ->
-				packetProcessor.receiveData(stream)
+			while (isActive) {
+				val success = lapisBt.receiveData(deviceAddress) { stream ->
+					packetProcessor.receiveData(stream)
+				}
+				if (success) {
+					Log.w(TAG, "receiveData returned true")
+					break
+				}
+
+				println("$$$ BluetoothDeviceRpc: receiveData failed for $deviceAddress, waiting for connection...")
+				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
+					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
+				}
+				else {
+					// small delay to avoid a busy loop
+					delay(100)
+				}
 			}
 		}
 		_scope.launch {
@@ -139,13 +174,13 @@ internal class BluetoothDeviceRpc(
 		}
 	}
 
-	private fun processPacket(packet: LapisRpcPacket) {
+	private suspend fun processPacket(packet: LapisRpcPacket) {
 		when (packet) {
 			is LapisRpcPacket.Request -> _scope.launch { processRequest(packet) }
-			is LapisRpcPacket.Response -> _scope.launch { processResponse(packet) }
+			is LapisRpcPacket.Response -> processResponse(packet)
 			is LapisRpcPacket.ErrorResponse -> _scope.launch { processErrorResponse(packet) }
-			is LapisRpcPacket.Cancellation -> _scope.launch { processCancellation(packet) }
-			is LapisRpcPacket.Completion -> _scope.launch { processMethodExecutionEnd(packet) }
+			is LapisRpcPacket.Cancellation -> processCancellation(packet)
+			is LapisRpcPacket.Completion -> processMethodExecutionEnd(packet)
 			is LapisRpcPacket.FlowParameter.Collection -> processFlowParameterCollection(packet)
 			is LapisRpcPacket.FlowParameter.Emission -> processFlowParameterEmission(packet)
 			is LapisRpcPacket.FlowParameter.Cancellation -> processFlowParameterCancellation(packet)
@@ -209,7 +244,15 @@ internal class BluetoothDeviceRpc(
 
 		val valueArgs = args.orEmpty().toList()
 
-		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
+		// We have to remove the continuation parameter for suspend functions
+		val methodParameterAnnotations = if (method.isSuspend()) {
+			method.parameterAnnotations.dropLast(1)
+		}
+		else {
+			method.parameterAnnotations.toList()
+		}
+
+		val parametersNames = methodParameterAnnotations.map { annotations ->
 			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
 			paramAnnotation.name
 		}
@@ -223,6 +266,8 @@ internal class BluetoothDeviceRpc(
 			methodName = methodName,
 			arguments = argumentsByName,
 		)
+
+		println("$$$ sendRequest($serviceName, $methodName) = ${argumentsByName}")
 
 		val request = LapisRpcPacket.Request(
 			requestId = requestId,
@@ -253,6 +298,7 @@ internal class BluetoothDeviceRpc(
 			},
 			rawMetadata = metadataProvider.serializeMetadata(metadata),
 		)
+
 		// TODO: we should rethink it to see if it actually makes sense
 		val methodMetadataAnnotations = method.annotations.filter { it.javaClass.getAnnotation(LapisMetadata::class.java) != null }
 
@@ -305,6 +351,10 @@ internal class BluetoothDeviceRpc(
 		internalDispose()
 	}
 
+	fun setEncryption(encryption: LapisEncryption?) {
+		packetProcessor.encryption = encryption
+	}
+
 
 	private suspend fun processRequest(rawRequest: LapisRpcPacket.Request) {
 		println("$$$$ process request with id ${rawRequest.requestId}, service: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
@@ -343,12 +393,20 @@ internal class BluetoothDeviceRpc(
 
 		_pendingServerMethodByRequestId[rawRequest.requestId] = method
 
-		val parametersNames = method.parameterAnnotations.dropLast(1).map { annotations ->
+		// We have to remove the last continuation parameter in suspend functions
+		val methodParameterAnnotations = if (method.isSuspend()) {
+			method.parameterAnnotations.dropLast(1)
+		}
+		else {
+			method.parameterAnnotations.toList()
+		}
+		val parametersNames = methodParameterAnnotations.map { annotations ->
 			val paramAnnotation = annotations.filterIsInstance<LapisParam>().firstOrNull() ?: error("All parameters of method ${method.name} must have ${LapisParam::class.simpleName} annotation")
 			paramAnnotation.name
 		}
 
 		val missingParameters = mutableListOf<String>()
+		println("$$$$ processRequest.parameterNames: $parametersNames | ${rawRequest.rawArguments.map { it.key to it.value.contentToString() }.toMap()}")
 		val orderedArgsByName = parametersNames.mapIndexedNotNull { index, name ->
 			val valueBytes = rawRequest.rawArguments[name]
 			if (valueBytes == null) {
@@ -406,6 +464,7 @@ internal class BluetoothDeviceRpc(
 			}
 			else {
 				val serializer = serializationStrategy.serializerForClass(valueType)
+				println("$$$ processRequest.valueType: $valueType, $serializer, name: $name")
 				val valueStream = ByteArrayInputStream(valueBytes)
 
 				name to serializer?.deserialize(valueStream)
@@ -440,6 +499,8 @@ internal class BluetoothDeviceRpc(
 			arguments = orderedArgsByName,
 			metadata = metadata,
 		)
+
+		println("$$$$ processRequest: $request")
 
 		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 

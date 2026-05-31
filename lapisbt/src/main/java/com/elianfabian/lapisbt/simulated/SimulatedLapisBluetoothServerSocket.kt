@@ -41,7 +41,9 @@ internal class SimulatedLapisBluetoothServerSocket(
 	}
 
 	override fun close() {
-		if (isClosed) return
+		if (isClosed) {
+			return
+		}
 		isClosed = true
 		pendingConnections.clear()
 		environment.unregisterServer(address, serviceUuid)

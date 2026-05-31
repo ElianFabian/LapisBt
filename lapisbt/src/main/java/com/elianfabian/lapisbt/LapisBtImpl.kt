@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
@@ -40,6 +41,7 @@ import java.io.OutputStream
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.resume
 
 internal class LapisBtImpl(
 	private val lapisAdapter: LapisBluetoothAdapter,
@@ -1334,6 +1336,34 @@ internal class LapisBtImpl(
 			return@withContext clientSocket
 		}
 	}
+
+//	private suspend fun LapisBluetoothServerSocket.tryAccept(): LapisBluetoothSocket? {
+//		return try {
+//			suspendCancellableCoroutine<LapisBluetoothSocket?> { continuation ->
+//				// This hook triggers INSTANTLY when cancelled, breaking the blocking accept()
+//				continuation.invokeOnCancellation {
+//					try {
+//						this@tryAccept.close()
+//					} catch (_: IOException) { }
+//				}
+//
+//				// Move the blocking work to the IO thread pool
+//				try {
+//					// Since accept() is blocking, we still execute it on IO
+//					val socket = this@tryAccept.accept()
+//					continuation.resume(socket)
+//				} catch (e: IOException) {
+//					// If closed via invokeOnCancellation, accept() throws IOException
+//					if (continuation.isCancelled) return@suspendCancellableCoroutine
+//					continuation.resume(null)
+//				}
+//			}
+//		} catch (e: CancellationException) {
+//			null
+//		}?.also { clientSocket ->
+//			_clientSocketByAddress[BluetoothDevice.Address(clientSocket.remoteDevice.address)] = clientSocket
+//		}
+//	}
 
 	private suspend fun LapisBluetoothSocket.tryConnect(): Boolean {
 		return withContext(Dispatchers.IO) {

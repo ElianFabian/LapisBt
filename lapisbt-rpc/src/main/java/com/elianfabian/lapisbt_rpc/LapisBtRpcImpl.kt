@@ -46,6 +46,8 @@ internal class LapisBtRpcImpl(
 		}
 
 		val bluetoothDeviceRpc = _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			val packetProcessor = createPacketProcessor(deviceAddress)
+
 			BluetoothDeviceRpc(
 				deviceAddress = deviceAddress,
 				lapisBt = lapisBt,
@@ -53,7 +55,7 @@ internal class LapisBtRpcImpl(
 				serializationStrategy = serializationStrategy,
 				interceptor = interceptor,
 				metadataProvider = metadataProvider,
-				packetProcessor = createPacketProcessor(deviceAddress),
+				packetProcessor = packetProcessor,
 			)
 		}
 
@@ -135,6 +137,8 @@ internal class LapisBtRpcImpl(
 		}
 
 		_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			val packetProcessor = createPacketProcessor(deviceAddress)
+
 			BluetoothDeviceRpc(
 				deviceAddress = deviceAddress,
 				lapisBt = lapisBt,
@@ -142,7 +146,7 @@ internal class LapisBtRpcImpl(
 				serializationStrategy = serializationStrategy,
 				interceptor = interceptor,
 				metadataProvider = metadataProvider,
-				packetProcessor = createPacketProcessor(deviceAddress),
+				packetProcessor = packetProcessor,
 			)
 		}
 	}
@@ -186,6 +190,11 @@ internal class LapisBtRpcImpl(
 		}
 
 		tryCleanupResources(deviceAddress)
+	}
+
+	override fun setEncryption(deviceAddress: BluetoothDevice.Address, encryption: LapisEncryption?) {
+		checkIsNotDisposed()
+		_bluetoothDeviceRpcByAddress[deviceAddress]?.setEncryption(encryption)
 	}
 
 	override fun dispose() {
