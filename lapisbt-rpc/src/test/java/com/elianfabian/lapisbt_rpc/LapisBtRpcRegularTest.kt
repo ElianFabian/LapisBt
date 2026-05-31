@@ -27,72 +27,6 @@ import org.junit.Test
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
-@LapisRpc(name = "RegularService")
-interface RegularService {
-	@LapisMethod(name = "noParamNoReturn")
-	suspend fun noParamNoReturn()
-
-	@LapisMethod(name = "noParamWithReturn")
-	suspend fun noParamWithReturn(): String
-
-	@LapisMethod(name = "withParams")
-	suspend fun withParams(@LapisParam(name = "a") a: Int, @LapisParam(name = "b") b: String): Int
-
-	@LapisMethod(name = "withFlowParam")
-	suspend fun withFlowParam(@LapisParam(name = "flow") flow: Flow<Int>): Int
-
-	@LapisMethod(name = "withMixedParams")
-	suspend fun withMixedParams(@LapisParam(name = "a") a: String, @LapisParam(name = "flow") flow: Flow<Int>): String
-
-	@LapisMethod(name = "streamReturn")
-	fun streamReturn(@LapisParam(name = "count") count: Int): Flow<Int>
-
-	@LapisMethod(name = "checkMetadata")
-	suspend fun checkMetadata(): String?
-}
-
-class RegularServiceImpl : RegularService {
-	var noParamNoReturnCalled = false
-
-	override suspend fun noParamNoReturn() {
-		noParamNoReturnCalled = true
-	}
-
-	override suspend fun noParamWithReturn(): String = "Hello"
-
-	override suspend fun withParams(a: Int, b: String): Int = a + b.length
-
-	override suspend fun withFlowParam(flow: Flow<Int>): Int {
-		return flow.toList().sum()
-	}
-
-	override suspend fun withMixedParams(a: String, flow: Flow<Int>): String {
-		val sum = flow.toList().sum()
-		return "$a: $sum"
-	}
-
-	override fun streamReturn(count: Int): Flow<Int> = (0 until count).toList().asFlow()
-
-	override suspend fun checkMetadata(): String? {
-		val info = getLapisRequestInfo()
-		return info.request.metadata as? String
-	}
-}
-
-class StringMetadataProvider(private val metadataToReturn: String) : LapisMetadataProvider<String> {
-	override suspend fun createMetadataForOutgoingRequest(
-		deviceAddress: BluetoothDevice.Address,
-		requestId: Int,
-		serviceName: String,
-		methodName: String,
-		arguments: Map<String, Any?>,
-	): String = metadataToReturn
-
-	override fun serializeMetadata(metadata: String): ByteArray = metadata.toByteArray()
-
-	override fun deserializeMetadata(rawMetadata: ByteArray): String = String(rawMetadata)
-}
-
 @OptIn(ExperimentalCoroutinesApi::class, InternalBluetoothReflectionApi::class)
 class LapisBtRpcRegularTest {
 
@@ -103,6 +37,7 @@ class LapisBtRpcRegularTest {
 	private lateinit var phoneRpc: LapisBtRpc
 	private lateinit var peripheralRpc: LapisBtRpc
 	private val serviceImpl = RegularServiceImpl()
+
 
 	@Before
 	fun setUp() {
@@ -207,4 +142,89 @@ class LapisBtRpcRegularTest {
 		val receivedMetadata = client.checkMetadata()
 		assertThat(receivedMetadata).isEqualTo(testMetadata)
 	}
+}
+
+
+@LapisRpc(name = "RegularService")
+interface RegularService {
+
+	@LapisMethod("noParamNoReturn")
+	suspend fun noParamNoReturn()
+
+	@LapisMethod("noParamWithReturn")
+	suspend fun noParamWithReturn(): String
+
+	@LapisMethod("withParams")
+	suspend fun withParams(
+		@LapisParam("a")
+		a: Int,
+		@LapisParam("b")
+		b: String,
+	): Int
+
+	@LapisMethod("withFlowParam")
+	suspend fun withFlowParam(
+		@LapisParam("flow")
+		flow: Flow<Int>,
+	): Int
+
+	@LapisMethod("withMixedParams")
+	suspend fun withMixedParams(
+		@LapisParam("a")
+		a: String,
+		@LapisParam("flow")
+		flow: Flow<Int>,
+	): String
+
+	@LapisMethod("streamReturn")
+	fun streamReturn(
+		@LapisParam("count")
+		count: Int,
+	): Flow<Int>
+
+	@LapisMethod("checkMetadata")
+	suspend fun checkMetadata(): String?
+}
+
+class RegularServiceImpl : RegularService {
+
+	var noParamNoReturnCalled = false
+
+	override suspend fun noParamNoReturn() {
+		noParamNoReturnCalled = true
+	}
+
+	override suspend fun noParamWithReturn(): String = "Hello"
+
+	override suspend fun withParams(a: Int, b: String): Int = a + b.length
+
+	override suspend fun withFlowParam(flow: Flow<Int>): Int {
+		return flow.toList().sum()
+	}
+
+	override suspend fun withMixedParams(a: String, flow: Flow<Int>): String {
+		val sum = flow.toList().sum()
+		return "$a: $sum"
+	}
+
+	override fun streamReturn(count: Int): Flow<Int> = (0 until count).toList().asFlow()
+
+	override suspend fun checkMetadata(): String? {
+		val info = getLapisRequestInfo()
+		return info.request.metadata as? String
+	}
+}
+
+class StringMetadataProvider(private val metadataToReturn: String) : LapisMetadataProvider<String> {
+	override suspend fun createMetadataForOutgoingRequest(
+		deviceAddress: BluetoothDevice.Address,
+		requestId: Int,
+		serviceName: String,
+		methodName: String,
+		arguments: Map<String, Any?>,
+	): String = metadataToReturn
+
+	override fun serializeMetadata(metadata: String): ByteArray = metadata.toByteArray()
+
+	override fun deserializeMetadata(rawMetadata: ByteArray): String = String(rawMetadata)
 }

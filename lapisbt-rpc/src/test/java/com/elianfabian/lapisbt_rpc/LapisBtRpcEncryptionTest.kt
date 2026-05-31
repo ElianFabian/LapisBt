@@ -28,6 +28,7 @@ class LapisBtRpcEncryptionTest {
 	private val serviceUuid = UUID.randomUUID()
 	private val aesKey = ByteArray(32) { it.toByte() }
 
+
 	@Before
 	fun setUp() {
 		Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -166,12 +167,12 @@ class LapisBtRpcEncryptionTest {
 }
 
 
-@LapisRpc(name = "HandshakeService")
+@LapisRpc("HandshakeService")
 interface HandshakeService {
 
-	@LapisMethod(name = "exchangeKey")
+	@LapisMethod("exchangeKey")
 	suspend fun exchangeKey(
-		@LapisParam(name = "clientKey")
+		@LapisParam("clientKey")
 		clientKey: ByteArray,
 	): ByteArray
 }
