@@ -5,7 +5,6 @@ import com.elianfabian.lapisbt_rpc.model.LapisRequest
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
-// TODO: I have to rethink interceptors
 internal interface LapisMethodAdapter {
 
 	fun getOutputType(method: Method): KClass<*>
