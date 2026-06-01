@@ -17,21 +17,30 @@ interface SimpleBluetoothRpc {
 	@LapisMethod(name = "getMyOwnAddress")
 	suspend fun getMyOwnAddress(): String
 
-	 @LapisMethod(name = "openAppSettings")
-	 suspend fun openAppSettings()
+	 @LapisMethod(name = "startVibration")
+	 suspend fun startVibration()
 
-	 @LapisMethod("naturalNumbers")
-	 fun naturalNumbers(): Flow<Int>
+	 @LapisMethod(name = "stopVibration")
+	 suspend fun stopVibration()
 
-	 @LapisMethod("brightnessFlow")
-	 fun brightnessFlow(): Flow<Int>
+	 @LapisMethod(name = "setFlashlight")
+	 suspend fun setFlashlight(
+		 @LapisParam("enabled")
+		 enabled: Boolean,
+	 )
 
 	 @LapisMethod("lightSensor")
 	 fun lightSensor(): Flow<Float>
 
-	 @LapisMethod("sendLargeData")
-	 suspend fun sendLargeData(
-		 @LapisParam("data")
-		 data: Flow<String>
-	 )
+	 @LapisMethod("randomNumbers")
+	 fun randomNumbers(
+		 @LapisParam("intervalMillis")
+		 intervalMillis: Long,
+	 ): Flow<Int>
+
+	 @LapisMethod("processDataStream")
+	 fun processDataStream(
+		 @LapisParam("input")
+		 input: Flow<Int>,
+	 ): Flow<Int>
 }

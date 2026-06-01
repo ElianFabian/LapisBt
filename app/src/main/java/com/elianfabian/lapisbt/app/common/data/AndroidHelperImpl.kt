@@ -11,11 +11,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
@@ -328,6 +331,32 @@ class AndroidHelperImpl(
 			sensorManager.unregisterListener(listener)
 		}
 	}.distinctUntilChanged()
+
+	override fun startVibration() {
+		val vibrator = context.getSystemService<Vibrator>() ?: return
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			// Continuous vibration (pattern: 0ms wait, 1000ms vibrate, repeat from index 0)
+			vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000), 0))
+		} else {
+			@Suppress("DEPRECATION")
+			vibrator.vibrate(longArrayOf(0, 1000), 0)
+		}
+	}
+
+	override fun stopVibration() {
+		val vibrator = context.getSystemService<Vibrator>() ?: return
+		vibrator.cancel()
+	}
+
+	override fun setFlashlight(enabled: Boolean) {
+		val cameraManager = context.getSystemService<CameraManager>() ?: return
+		try {
+			val cameraId = cameraManager.cameraIdList.firstOrNull() ?: return
+			cameraManager.setTorchMode(cameraId, enabled)
+		} catch (e: Exception) {
+			e.printStackTrace()
+		}
+	}
 }
 
 

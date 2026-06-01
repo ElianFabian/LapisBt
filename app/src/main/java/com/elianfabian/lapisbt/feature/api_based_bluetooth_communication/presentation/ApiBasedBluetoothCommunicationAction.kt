@@ -11,8 +11,7 @@ sealed interface ApiBasedBluetoothCommunicationAction {
 	data object OpenBluetoothSettings : ApiBasedBluetoothCommunicationAction
 	data object OpenDeviceInfoSettings : ApiBasedBluetoothCommunicationAction
 	data object MakeDeviceDiscoverable : ApiBasedBluetoothCommunicationAction
-//	data object SendMessage : ApiBasedBluetoothCommunicationAction
-//	data class EnterMessage(val message: String) : ApiBasedBluetoothCommunicationAction
+
 	data class ClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class ClickPairedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class PairDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
@@ -27,7 +26,21 @@ sealed interface ApiBasedBluetoothCommunicationAction {
 	data object SelectAllDevicesToMessage : ApiBasedBluetoothCommunicationAction
 	data object EnableBluetooth : ApiBasedBluetoothCommunicationAction
 
-	data object ClickGetMyOwnAddress : ApiBasedBluetoothCommunicationAction
-	data object ClickOpenAppSettingsRemotely : ApiBasedBluetoothCommunicationAction
+	// RPC Actions
 	data class ClickShowToastRemotely(val message: String) : ApiBasedBluetoothCommunicationAction
+	data object ClickGetMyOwnAddress : ApiBasedBluetoothCommunicationAction
+	data object StartRemoteVibration : ApiBasedBluetoothCommunicationAction
+	data object StopRemoteVibration : ApiBasedBluetoothCommunicationAction
+	data class ToggleFlashlight(val enabled: Boolean) : ApiBasedBluetoothCommunicationAction
+	
+	data object StartLightSensor : ApiBasedBluetoothCommunicationAction
+	data object StopLightSensor : ApiBasedBluetoothCommunicationAction
+	
+	data class StartRandomNumbers(val intervalMillis: Long) : ApiBasedBluetoothCommunicationAction
+	data object StopRandomNumbers : ApiBasedBluetoothCommunicationAction
+	
+	data object StartProcessDataStream : ApiBasedBluetoothCommunicationAction
+	data object StopProcessDataStream : ApiBasedBluetoothCommunicationAction
+	
+	data object ClickClearLogs : ApiBasedBluetoothCommunicationAction
 }

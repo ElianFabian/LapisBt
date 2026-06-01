@@ -17,6 +17,7 @@ data class ApiBasedBluetoothCommunicationState(
 	val connectedDevices: List<BluetoothDevice> = emptyList(),
 	val selectedDevice: SelectedDevice = SelectedDevice.None,
 	val permissionDialog: PermissionDialogState? = null,
+	val rpcTestState: RpcTestState = RpcTestState(),
 ) {
 	data class PermissionDialogState(
 		val title: String,
@@ -24,6 +25,13 @@ data class ApiBasedBluetoothCommunicationState(
 		val actionName: String,
 		val onAction: () -> Unit,
 		val onDismissRequest: () -> Unit,
+	)
+
+	data class RpcTestState(
+		val logs: List<String> = emptyList(),
+		val activeFlows: Set<String> = emptySet(),
+		val latestValues: Map<String, String> = emptyMap(),
+		val flashlightEnabled: Boolean = false,
 	)
 
 	sealed interface SelectedDevice {

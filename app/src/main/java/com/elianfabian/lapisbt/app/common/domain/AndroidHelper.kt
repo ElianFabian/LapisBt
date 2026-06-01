@@ -24,4 +24,10 @@ interface AndroidHelper {
 	fun brightnessFlow(): Flow<Int>
 
 	fun lightSensorFlow(): Flow<Float>
+
+	fun startVibration()
+
+	fun stopVibration()
+
+	fun setFlashlight(enabled: Boolean)
 }
