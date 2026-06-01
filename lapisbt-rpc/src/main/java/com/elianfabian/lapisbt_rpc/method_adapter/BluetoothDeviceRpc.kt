@@ -211,7 +211,7 @@ internal class BluetoothDeviceRpc(
 			throw DeviceNotConnectedException(deviceAddress)
 		}
 
-		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
+		val adapter = getMethodAdapter(method)
 
 		val result = adapter.functionCall(
 			serviceInterface = serviceInterface,
@@ -529,7 +529,7 @@ internal class BluetoothDeviceRpc(
 
 		println("$$$$ processRequest: $request")
 
-		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
+		val adapter = getMethodAdapter(method)
 
 		try {
 			val requestInfo = LapisRequestInfo(
