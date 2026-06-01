@@ -211,11 +211,6 @@ internal class BluetoothDeviceRpc(
 			throw DeviceNotConnectedException(deviceAddress)
 		}
 
-		if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
-			// TODO: Maybe we could add a configuration so we can choose to whether suspend or throw an exception
-			throw DeviceNotConnectedException(deviceAddress)
-		}
-
 		val adapter = _returnTypeAdapters.firstOrNull { it.shouldIntercept(method) } ?: error("No adapter found for method: $method")
 
 		val result = adapter.functionCall(
@@ -819,7 +814,7 @@ internal class BluetoothDeviceRpc(
 
 		_scope.cancel()
 
-		_returnTypeAdapters.forEach { it.onUnregister() }
+		_returnTypeAdapters.forEach { it.dispose() }
 		_returnTypeAdapters.clear()
 		_pendingClientMethodByRequestId.clear()
 		_pendingServerMethodByRequestId.clear()

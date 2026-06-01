@@ -6,7 +6,6 @@ import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
 // TODO: I have to rethink interceptors
-// TODO: for now this will be an internal API, but maybe this will be public any time soon
 internal interface LapisMethodAdapter {
 
 	fun getOutputType(method: Method): KClass<*>
@@ -33,10 +32,7 @@ internal interface LapisMethodAdapter {
 
 	fun onErrorMessage(requestId: Int, throwable: Throwable)
 
-	// TODO: I have to test this
 	fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address)
 
-	fun onRegister()
-
-	fun onUnregister()
+	fun dispose()
 }

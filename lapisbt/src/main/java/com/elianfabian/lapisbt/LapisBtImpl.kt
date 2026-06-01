@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
@@ -41,8 +40,8 @@ import java.io.OutputStream
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.resume
 
+// TODO: add a better logging system
 internal class LapisBtImpl(
 	private val lapisAdapter: LapisBluetoothAdapter,
 	private val androidHelper: AndroidHelper,
@@ -108,7 +107,6 @@ internal class LapisBtImpl(
 	)
 	override val isScanning = _isScanning.asStateFlow()
 
-	// TODO: probably we should set this again in onResume when the permission is granted
 	private val _scanMode = MutableStateFlow(
 		if (androidHelper.isBluetoothConnectGranted()) {
 			convertToScanMode(lapisAdapter.scanMode)
@@ -289,7 +287,6 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		// TODO: I think this should solve disconnection event issues, we have to test it
 		_skipDisconnectionEventForDevices.add(deviceAddress)
 
 		val disconnectedLocally = try {

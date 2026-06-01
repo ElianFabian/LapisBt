@@ -43,11 +43,7 @@ internal class SuspendMethodAdapter(
 	private val _nextId = AtomicInteger(0)
 
 
-	override fun onRegister() {
-		// no-op
-	}
-
-	override fun onUnregister() {
+	override fun dispose() {
 		val message = "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
 
 		_scope.cancel(CancellationException(message))

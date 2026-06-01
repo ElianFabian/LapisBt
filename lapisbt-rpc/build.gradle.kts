@@ -43,7 +43,6 @@ dependencies {
 
 	api(project(":lapisbt"))
 
-	// TODO: see if we should add this in the rpc library
 	//implementation(libs.kotlinReflect)
 	implementation(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.androidx.coreKtx)

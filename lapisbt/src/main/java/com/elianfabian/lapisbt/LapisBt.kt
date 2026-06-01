@@ -36,6 +36,7 @@ public interface LapisBt {
 
 	public val scannedDevices: StateFlow<List<BluetoothDevice>>
 
+	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
 	public val connectedDevices: StateFlow<List<BluetoothDevice>>
 
 	public val bluetoothDeviceName: StateFlow<String?>

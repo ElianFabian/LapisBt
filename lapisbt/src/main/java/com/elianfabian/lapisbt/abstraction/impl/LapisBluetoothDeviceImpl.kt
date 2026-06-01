@@ -117,7 +117,6 @@ internal class LapisBluetoothDeviceImpl(
 		}
 	}
 
-	// TODO: Test this method
 	@InternalBluetoothReflectionApi
 	override fun isEncrypted(): Boolean {
 		try {

@@ -47,13 +47,7 @@ internal class FlowMethodAdapter(
 	private val _flowEnd = Any()
 
 
-	override fun onRegister() {
-		// no-op
-	}
-
-	override fun onUnregister() {
-		// TODO: think of cancellation messages, since dispose implies a forced disconnection
-		//  maybe all messages should just be the refers to the disconnection itself
+	override fun dispose() {
 		val message = "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
 
 		_scope.cancel(CancellationException(message))
