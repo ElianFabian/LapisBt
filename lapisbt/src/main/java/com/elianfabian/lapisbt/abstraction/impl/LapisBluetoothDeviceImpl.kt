@@ -69,6 +69,10 @@ internal class LapisBluetoothDeviceImpl(
 		return device.setPin(pin)
 	}
 
+	override fun fetchUuidsWithSdp(): Boolean {
+		return device.fetchUuidsWithSdp()
+	}
+
 	@InternalBluetoothReflectionApi
 	override fun removeBond(): Boolean {
 		try {

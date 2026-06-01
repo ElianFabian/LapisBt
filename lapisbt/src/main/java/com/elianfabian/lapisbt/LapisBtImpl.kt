@@ -592,6 +592,10 @@ internal class LapisBtImpl(
 		}
 	}
 
+	override fun fetchUuidsWithSdp(deviceAddress: BluetoothDevice.Address): Boolean {
+		val lapisDevice = lapisAdapter.getRemoteDevice(deviceAddress.value)
+		return lapisDevice.fetchUuidsWithSdp()
+	}
 
 	// TODO: check if everything in this class was garbage-collected
 	override fun dispose() {

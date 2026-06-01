@@ -14,7 +14,7 @@ internal class DeviceUuidsChangeBroadcastReceiver(
 	override fun onReceive(context: Context, intent: Intent) {
 		if (intent.action == AndroidBluetoothDevice.ACTION_UUID) {
 			val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
-			val uuids = intent.extras?.getParcelableArray(AndroidBluetoothDevice.EXTRA_UUID).orEmpty().map { UUID.fromString(it.toString()) }
+			val uuids = intent.extras?.getParcelableArray(AndroidBluetoothDevice.EXTRA_UUID)?.map { UUID.fromString(it.toString()) }
 
 			onUuidsChange(device, uuids)
 		}

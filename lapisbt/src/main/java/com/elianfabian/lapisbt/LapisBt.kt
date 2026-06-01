@@ -237,6 +237,14 @@ public interface LapisBt {
 	 */
 	public suspend fun receiveData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: InputStream) -> Unit): Boolean
 
+	// TODO: We may convert this to a suspend function that returns the list of UUIDs instead of just returning a boolean, but for now this is enough
+	/**
+	 * Perform a service discovery on the remote device to get the UUIDs supported.
+	 *
+	 * @return False if the check fails, True if the process of initiating an ACL connection to the
+	 * remote device was started or cached UUIDs will be broadcast.
+	 */
+	public fun fetchUuidsWithSdp(deviceAddress: BluetoothDevice.Address): Boolean
 
 	/**
 	 * Releases all resources held by this instance.

@@ -25,6 +25,8 @@ public interface LapisBluetoothDevice {
 
 	public fun setPin(pin: ByteArray): Boolean
 
+	public fun fetchUuidsWithSdp(): Boolean
+
 	@InternalBluetoothReflectionApi
 	public fun removeBond(): Boolean
 

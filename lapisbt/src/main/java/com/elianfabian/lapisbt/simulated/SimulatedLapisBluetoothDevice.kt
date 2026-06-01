@@ -41,6 +41,11 @@ internal data class SimulatedLapisBluetoothDevice(
 		return false
 	}
 
+	override fun fetchUuidsWithSdp(): Boolean {
+		// I'm not sure how to fake this or if it's actually needed for testing, so for now it just does nothing and returns false to indicate failure.
+		return false
+	}
+
 	override fun removeBond(): Boolean {
 		environment.unpairDeviceLocally(requesterAddress, address)
 		bondState = AndroidBluetoothDevice.BOND_NONE
