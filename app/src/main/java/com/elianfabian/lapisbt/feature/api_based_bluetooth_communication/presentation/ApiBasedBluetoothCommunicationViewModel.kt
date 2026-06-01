@@ -82,28 +82,28 @@ class ApiBasedBluetoothCommunicationViewModel(
 				println("$$$ Received Bluetooth event: $event")
 				when (event) {
 					is LapisBt.Event.OnDeviceConnected -> {
-						println("$$$ Device connected event received for device: ${event.connectedDevice}")
+						println("$$$ Device connected event received for device: ${event.device}")
 						if (_selectedDevice.value == ApiBasedBluetoothCommunicationState.SelectedDevice.None) {
-							_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(event.connectedDevice)
+							_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(event.device)
 						}
 
 						val bluetoothRpcServer = SimpleBluetoothRpcServer(
-							deviceAddress = event.connectedDevice.address,
+							deviceAddress = event.device.address,
 							androidHelper = androidHelper,
 						)
 
 						println("$$$$$ Register bluetooth rpc server: $bluetoothRpcServer")
 
 						lapisBtRpc.registerBluetoothServerService<SimpleBluetoothRpc>(
-							deviceAddress = event.connectedDevice.address,
+							deviceAddress = event.device.address,
 							server = bluetoothRpcServer,
 						)
-						//lapisBtRpc.getOrCreateBluetoothClientApi<SimpleBluetoothRpc>(event.connectedDevice.address)
+						//lapisBtRpc.getOrCreateBluetoothClientApi<SimpleBluetoothRpc>(event.device.address)
 					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
-						lapisBtRpc.unregisterBluetoothServerService<SimpleBluetoothRpc>(event.disconnectedDevice.address)
+						lapisBtRpc.unregisterBluetoothServerService<SimpleBluetoothRpc>(event.device.address)
 
-						androidHelper.showToast("Device disconnected: '${event.disconnectedDevice.name}'")
+						androidHelper.showToast("Device disconnected: '${event.device.name}'")
 
 						_selectedDevice.update { selection ->
 							when (selection) {
