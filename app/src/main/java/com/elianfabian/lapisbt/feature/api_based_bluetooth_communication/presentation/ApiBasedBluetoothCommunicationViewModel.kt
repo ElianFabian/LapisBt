@@ -8,6 +8,8 @@ import com.elianfabian.lapisbt.app.common.domain.PermissionController
 import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
+import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelection
+import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialogState
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpc
 import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.data.SimpleBluetoothRpcServer
 import com.elianfabian.lapisbt.model.BluetoothDevice
@@ -25,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -73,8 +74,8 @@ class ApiBasedBluetoothCommunicationViewModel(
 				when (event) {
 					is LapisBt.Event.OnDeviceConnected -> {
 						println("$$$ Device connected event received for device: ${event.device}")
-						if (_selectedDevice.value == ApiBasedBluetoothCommunicationState.SelectedDevice.None) {
-							_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(event.device)
+						if (_deviceSelection.value == DeviceSelection.None) {
+							_deviceSelection.value = DeviceSelection.Device(event.device)
 						}
 
 						val bluetoothRpcServer = SimpleBluetoothRpcServer(
@@ -91,22 +92,22 @@ class ApiBasedBluetoothCommunicationViewModel(
 
 						androidHelper.showToast("Device disconnected: '${event.device.name}'")
 
-						_selectedDevice.update { selection ->
+						_deviceSelection.update { selection ->
 							when (selection) {
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
+								is DeviceSelection.AllDevices -> {
 									val connectedDevices = lapisBt.pairedDevices.value.filter {
 										it.connectionState == BluetoothDevice.ConnectionState.Connected
 									}
 									if (connectedDevices.isNotEmpty()) {
-										ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices
+										DeviceSelection.AllDevices
 									}
-									else ApiBasedBluetoothCommunicationState.SelectedDevice.None
+									else DeviceSelection.None
 								}
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
-									ApiBasedBluetoothCommunicationState.SelectedDevice.None
+								is DeviceSelection.Device -> {
+									DeviceSelection.None
 								}
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
-									ApiBasedBluetoothCommunicationState.SelectedDevice.None
+								is DeviceSelection.None -> {
+									DeviceSelection.None
 								}
 							}
 						}
@@ -118,10 +119,10 @@ class ApiBasedBluetoothCommunicationViewModel(
 	}
 
 	private val _currentDeviceAddress = MutableStateFlow<String?>(null)
-	private val _permissionDialog = MutableStateFlow<ApiBasedBluetoothCommunicationState.PermissionDialogState?>(null)
+	private val _permissionDialog = MutableStateFlow<PermissionDialogState?>(null)
 	private val _enteredBluetoothDeviceName = MutableStateFlow<String?>(null)
 	private val _useSecureConnection = MutableStateFlow(false)
-	private val _selectedDevice = MutableStateFlow<ApiBasedBluetoothCommunicationState.SelectedDevice>(ApiBasedBluetoothCommunicationState.SelectedDevice.None)
+	private val _deviceSelection = MutableStateFlow<DeviceSelection>(DeviceSelection.None)
 	private val _rpcTestState = MutableStateFlow(ApiBasedBluetoothCommunicationState.RpcTestState())
 
 	private val _activeFlowJobs = mutableMapOf<String, Job>()
@@ -135,7 +136,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 		lapisBt.activeBluetoothServersUuids.map { it.isNotEmpty() },
 		_enteredBluetoothDeviceName,
 		_useSecureConnection,
-		_selectedDevice,
+		_deviceSelection,
 		_currentDeviceAddress,
 		lapisBt.scannedDevices,
 		lapisBt.connectedDevices,
@@ -164,7 +165,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			isWaitingForConnection = isWaitingForConnection,
 			enteredBluetoothDeviceName = enteredBluetoothDeviceName,
 			useSecureConnection = useSecureConnection,
-			selectedDevice = selectedDevice,
+			deviceSelection = selectedDevice,
 			currentDeviceAddress = currentDeviceAddress,
 			scannedDevices = scannedDevices,
 			connectedDevices = connectedDevices,
@@ -190,7 +191,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 					if (Build.VERSION.SDK_INT < 31) {
 						val result = accessFineLocationPermissionController.request()
 						if (result == PermissionState.PermanentlyDenied) {
-							_permissionDialog.value = ApiBasedBluetoothCommunicationState.PermissionDialogState(
+							_permissionDialog.value = PermissionDialogState(
 								title = "Permission Denied",
 								message = "Please, enable location permissions in settings to allow scanning.",
 								actionName = "Settings",
@@ -211,7 +212,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 					}
 					requestPermissionsBeforeExecuting {
 						if (!lapisBt.startScan()) {
-							if (androidHelper.showEnableLocationDialog()) {
+							if (androidHelper.openLocationSettings()) {
 								lapisBt.clearScannedDevices()
 								lapisBt.startScan()
 							}
@@ -269,7 +270,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			}
 			is ApiBasedBluetoothCommunicationAction.ClickPairedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.device)
+					_deviceSelection.value = DeviceSelection.Device(action.device)
 					return
 				}
 				_scope.launch {
@@ -301,7 +302,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 			is ApiBasedBluetoothCommunicationAction.ClickScannedDevice -> {
 				val device = action.scannedDevice.device
 				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(device)
+					_deviceSelection.value = DeviceSelection.Device(device)
 					return
 				}
 				_scope.launch {
@@ -368,10 +369,10 @@ class ApiBasedBluetoothCommunicationViewModel(
 				_useSecureConnection.value = action.enabled
 			}
 			is ApiBasedBluetoothCommunicationAction.SelectTargetDeviceToMessage -> {
-				_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.connectedDevice)
+				_deviceSelection.value = DeviceSelection.Device(action.connectedDevice)
 			}
 			is ApiBasedBluetoothCommunicationAction.SelectAllDevicesToMessage -> {
-				_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices
+				_deviceSelection.value = DeviceSelection.AllDevices
 			}
 			is ApiBasedBluetoothCommunicationAction.EnableBluetooth -> {
 				_scope.launch {
@@ -461,8 +462,8 @@ class ApiBasedBluetoothCommunicationViewModel(
 	}
 
 	private fun performRpcAction(block: suspend (SimpleBluetoothRpc) -> Unit) {
-		val selectedDevice = _selectedDevice.value
-		if (selectedDevice is ApiBasedBluetoothCommunicationState.SelectedDevice.Device) {
+		val selectedDevice = _deviceSelection.value
+		if (selectedDevice is DeviceSelection.Device) {
 			val apiClient = lapisBtRpc.getOrCreateBluetoothClientService(
 				deviceAddress = selectedDevice.device.address,
 				serviceInterface = SimpleBluetoothRpc::class,
@@ -481,8 +482,8 @@ class ApiBasedBluetoothCommunicationViewModel(
 	}
 
 	private fun startFlowRpc(key: String, block: (SimpleBluetoothRpc) -> Flow<Any>) {
-		val selectedDevice = _selectedDevice.value
-		if (selectedDevice is ApiBasedBluetoothCommunicationState.SelectedDevice.Device) {
+		val selectedDevice = _deviceSelection.value
+		if (selectedDevice is DeviceSelection.Device) {
 			if (_activeFlowJobs.containsKey(key)) return
 
 			val apiClient = lapisBtRpc.getOrCreateBluetoothClientService(
@@ -530,7 +531,7 @@ class ApiBasedBluetoothCommunicationViewModel(
 	) {
 		val result = bluetoothPermissionController.request()
 		if (result.allArePermanentlyDenied) {
-			_permissionDialog.value = ApiBasedBluetoothCommunicationState.PermissionDialogState(
+			_permissionDialog.value = PermissionDialogState(
 				title = "Permission Denied",
 				message = "Please, enable bluetooth permissions in settings.",
 				actionName = "Settings",

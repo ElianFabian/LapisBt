@@ -1,5 +1,7 @@
 package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation
 
+import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelection
+import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialogState
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
@@ -16,22 +18,8 @@ data class ManualBluetoothCommunicationState(
 	val pairedDevices: List<BluetoothDevice> = emptyList(),
 	val scannedDevices: List<ScannedBluetoothDevice> = emptyList(),
 	val connectedDevices: List<BluetoothDevice> = emptyList(),
-	val selectedDevice: SelectedDevice = SelectedDevice.None,
+	val deviceSelection: DeviceSelection = DeviceSelection.None,
 	val permissionDialog: PermissionDialogState? = null,
 	val messages: List<BluetoothMessage> = emptyList(),
 	val enteredMessage: String = "",
-) {
-	data class PermissionDialogState(
-		val title: String,
-		val message: String,
-		val actionName: String,
-		val onAction: () -> Unit,
-		val onDismissRequest: () -> Unit,
-	)
-
-	sealed interface SelectedDevice {
-		data class Device(val device: BluetoothDevice): SelectedDevice
-		data object AllDevices : SelectedDevice
-		data object None : SelectedDevice
-	}
-}
+)

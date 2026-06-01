@@ -5,13 +5,13 @@ import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
-import android.content.IntentSender
 import android.database.ContentObserver
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.camera2.CameraManager
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -23,7 +23,6 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.getSystemService
@@ -32,13 +31,6 @@ import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
-import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.ResolvableApiException
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.LocationSettingsRequest
-import com.google.android.gms.location.LocationSettingsStatusCodes
-import com.google.android.gms.location.Priority
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,93 +82,78 @@ class AndroidHelperImpl(
 	}
 
 	override fun showToast(message: String) {
-		applicationScope.launch(Dispatchers.Main) {
+		mainActivityHolder.mainActivity.runOnUiThread {
 			Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 		}
 	}
 
-	private fun openNotificationSettings() {
-		val intent = Intent().apply {
-			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-			action = if (Build.VERSION.SDK_INT >= 26) {
-				Settings.ACTION_APP_NOTIFICATION_SETTINGS
-			}
-			else Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-
-			if (Build.VERSION.SDK_INT >= 26) {
+	fun openNotificationSettings() {
+		val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
 				putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 			}
-			else {
-				data = "package:${context.packageName}".toUri()
+		} else {
+			Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
+				putExtra("app_package", context.packageName)
+				putExtra("app_uid", context.applicationInfo.uid)
 			}
 		}
-		context.startActivity(intent)
+		try {
+			activity.startActivity(intent)
+		} catch (e: Exception) {
+			e.printStackTrace()
+		}
 	}
 
 	override fun openAppSettings() {
-		val intent = Intent().apply {
-			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-			action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+		val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
 			data = "package:${context.packageName}".toUri()
 		}
-		context.startActivity(intent)
+		try {
+			activity.startActivity(intent)
+		} catch (e: Exception) {
+			e.printStackTrace()
+		}
 	}
 
 	override fun openBluetoothSettings() {
-		val intent = Intent().apply {
-			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-			action = Settings.ACTION_BLUETOOTH_SETTINGS
+		val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+		try {
+			activity.startActivity(intent)
+		} catch (e: Exception) {
+			e.printStackTrace()
 		}
-		context.startActivity(intent)
 	}
 
 	override fun openDeviceInfoSettings() {
-		val intent = Intent().apply {
-			addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-			action = Settings.ACTION_DEVICE_INFO_SETTINGS
+		val intent = Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)
+		try {
+			activity.startActivity(intent)
+		} catch (e: Exception) {
+			e.printStackTrace()
 		}
-		context.startActivity(intent)
 	}
 
-	override suspend fun showMakeDeviceDiscoverableDialog(seconds: Int) = suspendCancellableCoroutine { continuation ->
-		require(seconds in 1..300) {
-			"Seconds must be between 1 and 300"
-		}
-
+	override suspend fun showMakeDeviceDiscoverableDialog(seconds: Int): Boolean = suspendCancellableCoroutine { continuation ->
 		val launcher = createLauncher(
 			contract = ActivityResultContracts.StartActivityForResult(),
 			callback = { result ->
-				continuation.resume(result.resultCode == Activity.RESULT_OK)
+				continuation.resume(result.resultCode != Activity.RESULT_CANCELED)
 			},
 		)
+
 		val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
 			putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, seconds)
 		}
 
-//		context.getSharedPreferences("Bluetooth", Context.MODE_PRIVATE).edit {
-//			putInt("discoverable.seconds", seconds)
-//			putLong("discoverable.timestamp", System.currentTimeMillis())
-//		}
-
-		continuation.invokeOnCancellation {
-			launcher.unregister()
+		try {
+			launcher.launch(intent)
 		}
-		launcher.launch(intent)
+		catch (e: Exception) {
+			e.printStackTrace()
+			continuation.resume(false)
+		}
 	}
-
-//	private fun isDeviceDiscoverable(context: Context): Boolean {
-//		val prefs = context.getSharedPreferences("Bluetooth", Context.MODE_PRIVATE)
-//		val seconds = prefs.getInt("discoverable.seconds", 0)
-//		val timestamp = prefs.getLong("discoverable.timestamp", 0L)
-//		if (seconds <= 0) {
-//			return false
-//		}
-//
-//		val elapsedSeconds = (System.currentTimeMillis() - timestamp) / 1000
-//		return elapsedSeconds < seconds && seconds <= 300
-//	}
-
 
 	override suspend fun showEnableBluetoothDialog(): Boolean = suspendCancellableCoroutine { continuation ->
 		val launcher = createLauncher(
@@ -185,105 +162,49 @@ class AndroidHelperImpl(
 				continuation.resume(result.resultCode == Activity.RESULT_OK)
 			},
 		)
-		continuation.invokeOnCancellation {
-			launcher.unregister()
-		}
 		launcher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
 	}
 
-	override suspend fun showEnableLocationDialog(): Boolean = suspendCancellableCoroutine { continuation ->
-		// Source: https://developers.google.com/android/reference/com/google/android/gms/location/SettingsClient
-
-		val locationRequest = LocationRequest.Builder(Long.MAX_VALUE)
-			.setPriority(Priority.PRIORITY_LOW_POWER)
-			.build()
-
-		val client = LocationServices.getSettingsClient(activity)
-
-		val settingsRequest = LocationSettingsRequest.Builder()
-			.addLocationRequest(locationRequest)
-			.setAlwaysShow(true)
-			.build()
-
-		client.checkLocationSettings(settingsRequest)
-			.addOnCompleteListener { task ->
-				try {
-					@Suppress("unused", "UNUSED_VARIABLE")
-					val response = task.getResult(ApiException::class.java)
-				}
-				catch (exception: ApiException) {
-					when (exception.statusCode) {
-						LocationSettingsStatusCodes.RESOLUTION_REQUIRED -> {
-							try {
-								// Cast to a resolvable exception
-								val resolvable = exception as ResolvableApiException
-
-								// Show the dialog by calling startResolutionForResult(),
-								// and check the result in onActivityResult().
-								val launcher = createLauncher(
-									contract = ActivityResultContracts.StartIntentSenderForResult(),
-									callback = { result ->
-										continuation.resume(result.resultCode == Activity.RESULT_OK)
-									},
-								)
-
-								val intentSenderRequest = IntentSenderRequest.Builder(resolvable.resolution)
-									.build()
-								launcher.launch(intentSenderRequest)
-							}
-							catch (_: IntentSender.SendIntentException) {
-								// Ignore the error.
-							}
-							catch (_: ClassCastException) {
-								// Ignore, should be an impossible error.
-							}
-						}
-						LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE -> {
-							// Location settings are not satisfied. However, we have no way to fix the
-							// settings so we won't show the dialog.
-							continuation.resume(false)
-						}
-					}
-				}
-			}
+	override suspend fun openLocationSettings(): Boolean = suspendCancellableCoroutine { continuation ->
+		val launcher = createLauncher(
+			contract = ActivityResultContracts.StartActivityForResult(),
+			callback = {
+				val locationManager = context.getSystemService<LocationManager>()
+				val isLocationEnabled = locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+						locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+				continuation.resume(isLocationEnabled)
+			},
+		)
+		launcher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
 	}
 
 	override fun closeKeyboard() {
-		activity.currentFocus?.also { focus ->
-			val inputMethodManager = context.getSystemService<InputMethodManager>() ?: return
-			inputMethodManager.hideSoftInputFromWindow(focus.windowToken, 0)
-		}
+		val imm = context.getSystemService<InputMethodManager>()
+		imm?.hideSoftInputFromWindow(activity.currentFocus?.windowToken, 0)
 	}
 
-	override fun isAppInBackground() = _isAppInBackground
+	override fun isAppInBackground(): Boolean = _isAppInBackground
 
-	override fun isAppClosed() = _isAppClosed
+	override fun isAppClosed(): Boolean = _isAppClosed
 
-	private fun <I, O> createLauncher(
+	fun <I, O> createLauncher(
 		contract: ActivityResultContract<I, O>,
 		callback: (result: O) -> Unit,
 	): ActivityResultLauncher<I> {
-		var cleanerCallback: (() -> Unit)? = null
-
-		val launcher = activity.activityResultRegistry.register(
-			key = generateLauncherKey(),
-			contract = contract,
-			callback = { result ->
-				callback(result)
-				cleanerCallback?.invoke()
-				cleanerCallback = null
-			}
-		)
-
-		cleanerCallback = {
-			launcher.unregister()
+		var launcher: ActivityResultLauncher<I>? = null
+		launcher = activity.activityResultRegistry.register(
+			generateLauncherKey(),
+			contract,
+		) { result ->
+			callback(result)
+			launcher?.unregister()
 		}
-
 		return launcher
 	}
 
-	// This only needs to persist across configuration changes
-	private fun generateLauncherKey() = UUID.randomUUID().toString()
+	private fun generateLauncherKey(): String {
+		return UUID.randomUUID().toString()
+	}
 
 	override fun onAppEnteredForeground() {
 		_isAppInBackground = false
@@ -294,12 +215,7 @@ class AndroidHelperImpl(
 	}
 
 	override fun brightnessFlow(): Flow<Int> {
-		val flow by settingFlow(
-			context = context,
-			key = Settings.System.SCREEN_BRIGHTNESS,
-			type = SettingFlowDelegate.Type.System,
-			scope = applicationScope,
-		)
+		val flow by settingFlow(context, Settings.System.SCREEN_BRIGHTNESS, applicationScope, SettingFlowDelegate.Type.System)
 
 		return flow.map { it.toIntOrNull() ?: 0 }
 	}

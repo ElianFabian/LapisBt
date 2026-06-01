@@ -67,7 +67,6 @@ dependencies {
 	implementation(libs.androidx.ui.toolingPreview)
 	implementation(libs.androidx.material3)
 	implementation(libs.androidx.composeMaterialIconsExtended)
-	implementation(libs.googlePlayServicesLocation)
 
 //	testImplementation(libs.junit)
 //	androidTestImplementation(libs.androidx.junit)

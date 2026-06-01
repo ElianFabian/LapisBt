@@ -1,12 +1,8 @@
 package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presentation
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,10 +32,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,55 +57,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothControlPanel
+import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothDeviceItem
+import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelector
+import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialog
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
-import com.elianfabian.lapisbt.model.BluetoothDevice
-import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
-import kotlin.random.Random
 
 @Composable
 fun ApiBasedBluetoothCommunicationScreen(
 	state: ApiBasedBluetoothCommunicationState,
 	onAction: (action: ApiBasedBluetoothCommunicationAction) -> Unit,
 ) {
-	if (state.permissionDialog != null) {
-		val dialogState = state.permissionDialog
-		Dialog(
-			properties = DialogProperties(
-				dismissOnBackPress = true,
-				usePlatformDefaultWidth = true,
-			),
-			onDismissRequest = {
-				dialogState.onDismissRequest()
-			}
-		) {
-			Card {
-				Column(
-					modifier = Modifier.padding(16.dp)
-				) {
-					Text(
-						text = dialogState.title,
-						fontSize = 18.sp,
-						fontWeight = FontWeight.SemiBold,
-					)
-					Spacer(Modifier.height(8.dp))
-					Text(
-						text = dialogState.message,
-					)
-					Spacer(modifier = Modifier.height(16.dp))
-					Button(
-						onClick = {
-							dialogState.onAction()
-						},
-						modifier = Modifier
-							.fillMaxWidth()
-					) {
-						Text(dialogState.actionName)
-					}
-				}
-			}
-		}
+	state.permissionDialog?.let { dialogState ->
+		PermissionDialog(
+			state = dialogState
+		)
 	}
 
 	if (!state.isBluetoothSupported) {
@@ -132,16 +88,11 @@ fun ApiBasedBluetoothCommunicationScreen(
 				fontWeight = FontWeight.Bold,
 			)
 		}
-	}
-	else {
-		val haptics = LocalHapticFeedback.current
+	} else {
 		Column(
 			modifier = Modifier
 				.fillMaxSize()
-				.padding(
-					WindowInsets.statusBars
-						.asPaddingValues()
-				)
+				.padding(WindowInsets.statusBars.asPaddingValues())
 		) {
 			BluetoothDeviceList(
 				state = state,
@@ -158,149 +109,28 @@ fun ApiBasedBluetoothCommunicationScreen(
 					.padding(horizontal = 8.dp)
 					.padding(top = 8.dp, bottom = 3.dp)
 			) {
-				var isDeviceSelectorExpanded by remember {
-					mutableStateOf(false)
-				}
+				DeviceSelector(
+					connectedDevices = state.connectedDevices,
+					deviceSelection = state.deviceSelection,
+					onSelectDevice = { onAction(ApiBasedBluetoothCommunicationAction.SelectTargetDeviceToMessage(it)) },
+					modifier = Modifier.padding(bottom = 8.dp)
+				)
 
-				if (state.connectedDevices.isEmpty()) {
-					Text(text = "No connected devices", modifier = Modifier.padding(8.dp))
-				}
-				else {
-					Card(
-						onClick = {
-							isDeviceSelectorExpanded = true
-						},
-					) {
-						Column(
-							verticalArrangement = Arrangement.Center,
-							modifier = Modifier
-								.fillMaxWidth()
-								.padding(8.dp)
-						) {
-							when (state.selectedDevice) {
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.AllDevices -> {
-									Text(
-										text = "All devices (not recommended for RPC)",
-										fontWeight = FontWeight.Bold,
-									)
-								}
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.Device -> {
-									val device = state.selectedDevice.device
-
-									Text(text = device.name ?: "(No name)")
-									Spacer(Modifier.height(4.dp))
-									Text(text = device.address.value, fontSize = 12.sp)
-								}
-
-								is ApiBasedBluetoothCommunicationState.SelectedDevice.None -> {
-									Text(text = "No selected device (Select for RPC)")
-								}
-							}
-						}
-					}
-				}
-				DropdownMenu(
-					expanded = isDeviceSelectorExpanded,
-					onDismissRequest = {
-						isDeviceSelectorExpanded = false
+				BluetoothControlPanel(
+					isScanning = state.isScanning,
+					isWaitingForConnection = state.isWaitingForConnection,
+					useSecureConnection = state.useSecureConnection,
+					onToggleScan = {
+						if (state.isScanning) onAction(ApiBasedBluetoothCommunicationAction.StopScan)
+						else onAction(ApiBasedBluetoothCommunicationAction.StartScan)
 					},
-					modifier = Modifier.fillMaxWidth()
-				) {
-					state.connectedDevices.forEach { device ->
-						DropdownMenuItem(
-							text = {
-								Text(text = device.name ?: device.address.value)
-							},
-							onClick = {
-								onAction(ApiBasedBluetoothCommunicationAction.SelectTargetDeviceToMessage(device))
-								isDeviceSelectorExpanded = false
-							},
-						)
-					}
-				}
-
-				Spacer(Modifier.height(8.dp))
-				Row(
-					horizontalArrangement = Arrangement.SpaceAround,
-					modifier = Modifier
-						.fillMaxWidth()
-						.padding(
-							WindowInsets.navigationBars
-								.asPaddingValues()
-						)
-				) {
-					Button(
-						onClick = {
-							if (state.isScanning) {
-								onAction(ApiBasedBluetoothCommunicationAction.StopScan)
-							}
-							else {
-								onAction(ApiBasedBluetoothCommunicationAction.StartScan)
-							}
-							haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-						}
-					) {
-						AnimatedVisibility(state.isScanning) {
-							Row {
-								CircularProgressIndicator(
-									color = MaterialTheme.colorScheme.onPrimary,
-									strokeWidth = 3.dp,
-									modifier = Modifier.size(20.dp)
-								)
-								Spacer(Modifier.width(8.dp))
-							}
-						}
-						Text(
-							text = if (state.isScanning) {
-								"Stop scan"
-							}
-							else "Start scan",
-							modifier = Modifier.animateContentSize()
-						)
-					}
-					Row(verticalAlignment = Alignment.CenterVertically) {
-						Button(
-							onClick = {
-								if (state.isWaitingForConnection) {
-									onAction(ApiBasedBluetoothCommunicationAction.StopServer)
-								}
-								else {
-									onAction(ApiBasedBluetoothCommunicationAction.StartServer)
-								}
-								haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-							},
-						) {
-							AnimatedVisibility(state.isWaitingForConnection) {
-								Row {
-									CircularProgressIndicator(
-										color = MaterialTheme.colorScheme.onPrimary,
-										strokeWidth = 3.dp,
-										modifier = Modifier.size(20.dp)
-									)
-									Spacer(Modifier.width(8.dp))
-								}
-							}
-							Text(
-								text = if (state.isWaitingForConnection) {
-									"Stop server"
-								}
-								else "Start server",
-							)
-						}
-						Checkbox(
-							checked = state.useSecureConnection,
-							onCheckedChange = { checked ->
-								haptics.performHapticFeedback(
-									if (checked) {
-										HapticFeedbackType.ToggleOn
-									}
-									else HapticFeedbackType.ToggleOff
-								)
-								onAction(ApiBasedBluetoothCommunicationAction.CheckUseSecureConnection(checked))
-							},
-						)
-					}
-				}
+					onToggleServer = {
+						if (state.isWaitingForConnection) onAction(ApiBasedBluetoothCommunicationAction.StopServer)
+						else onAction(ApiBasedBluetoothCommunicationAction.StartServer)
+					},
+					onCheckSecureConnection = { onAction(ApiBasedBluetoothCommunicationAction.CheckUseSecureConnection(it)) },
+					modifier = Modifier.padding(WindowInsets.navigationBars.asPaddingValues())
+				)
 			}
 		}
 	}
@@ -348,8 +178,7 @@ private fun BluetoothDeviceList(
 								)
 							}
 						}
-					}
-					else {
+					} else {
 						Row(
 							verticalAlignment = Alignment.CenterVertically,
 						) {
@@ -393,7 +222,9 @@ private fun BluetoothDeviceList(
 		if (!state.isBluetoothOn) {
 			item {
 				Column(
-					modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+					modifier = Modifier
+						.fillMaxWidth()
+						.padding(vertical = 32.dp),
 					horizontalAlignment = Alignment.CenterHorizontally
 				) {
 					Button(onClick = { onAction(ApiBasedBluetoothCommunicationAction.EnableBluetooth) }) {
@@ -418,24 +249,7 @@ private fun BluetoothDeviceList(
 				RpcCategory("Hardware Control") {
 					Row(verticalAlignment = Alignment.CenterVertically) {
 						Text("Continuous Vibrate", modifier = Modifier.weight(1f))
-						Button(
-							onClick = {
-								println("$$$ Button Clicked (Normal)")
-							},
-							modifier = Modifier.pointerInput(Unit) {
-								awaitEachGesture {
-									awaitFirstDown(requireUnconsumed = false)
-									println("$$$ Vibrate Press")
-									onAction(ApiBasedBluetoothCommunicationAction.StartRemoteVibration)
-
-									waitForUpOrCancellation()
-									println("$$$ Vibrate Release")
-									onAction(ApiBasedBluetoothCommunicationAction.StopRemoteVibration)
-								}
-							}
-						) {
-							Text("Hold")
-						}
+						VibrationButton(onAction)
 					}
 					Spacer(Modifier.height(8.dp))
 					Row(verticalAlignment = Alignment.CenterVertically) {
@@ -460,7 +274,9 @@ private fun BluetoothDeviceList(
 					Box(modifier = Modifier.fillMaxWidth()) {
 						Button(
 							onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely(toastMessage)) },
-							modifier = Modifier.align(Alignment.CenterEnd).padding(top = 4.dp)
+							modifier = Modifier
+								.align(Alignment.CenterEnd)
+								.padding(top = 4.dp)
 						) {
 							Text("Send Toast")
 						}
@@ -504,46 +320,8 @@ private fun BluetoothDeviceList(
 			}
 
 			item {
-				Column(
-					modifier = Modifier
-						.fillMaxWidth()
-						.clip(RoundedCornerShape(8.dp))
-						.background(Color.Black.copy(alpha = 0.05f))
-						.padding(8.dp)
-				) {
-					Row(
-						modifier = Modifier.fillMaxWidth(),
-						horizontalArrangement = Arrangement.SpaceBetween,
-						verticalAlignment = Alignment.CenterVertically
-					) {
-						Text("RPC Logs", fontWeight = FontWeight.SemiBold)
-						Button(
-							onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickClearLogs) },
-							colors = ButtonDefaults.textButtonColors(),
-							contentPadding = PaddingValues(0.dp)
-						) {
-							Text("Clear", fontSize = 12.sp)
-						}
-					}
-					val logState = rememberLazyListState()
-					LaunchedEffect(state.rpcTestState.logs.size) {
-						if (state.rpcTestState.logs.isNotEmpty()) {
-							logState.animateScrollToItem(state.rpcTestState.logs.size - 1)
-						}
-					}
-					LazyColumn(
-						state = logState,
-						modifier = Modifier.height(150.dp).fillMaxWidth()
-					) {
-						items(state.rpcTestState.logs) { log ->
-							Text(
-								text = log,
-								fontSize = 12.sp,
-								fontFamily = FontFamily.Monospace,
-								modifier = Modifier.padding(vertical = 1.dp)
-							)
-						}
-					}
+				RpcLogs(state.rpcTestState.logs) {
+					onAction(ApiBasedBluetoothCommunicationAction.ClickClearLogs)
 				}
 			}
 
@@ -602,7 +380,9 @@ private fun BluetoothDeviceList(
 @Composable
 private fun RpcCategory(title: String, content: @Composable ColumnScope.() -> Unit) {
 	Card(
-		modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(vertical = 4.dp),
 		colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
 	) {
 		Column(modifier = Modifier.padding(12.dp)) {
@@ -610,6 +390,23 @@ private fun RpcCategory(title: String, content: @Composable ColumnScope.() -> Un
 			Spacer(Modifier.height(8.dp))
 			content()
 		}
+	}
+}
+
+@Composable
+private fun VibrationButton(onAction: (ApiBasedBluetoothCommunicationAction) -> Unit) {
+	Button(
+		onClick = {},
+		modifier = Modifier.pointerInput(Unit) {
+			awaitEachGesture {
+				awaitFirstDown(requireUnconsumed = false)
+				onAction(ApiBasedBluetoothCommunicationAction.StartRemoteVibration)
+				waitForUpOrCancellation()
+				onAction(ApiBasedBluetoothCommunicationAction.StopRemoteVibration)
+			}
+		}
+	) {
+		Text("Hold")
 	}
 }
 
@@ -635,54 +432,52 @@ private fun FlowControl(label: String, isActive: Boolean, value: String?, onStar
 }
 
 @Composable
-private fun BluetoothDeviceItem(
-	name: String?,
-	address: String,
-	connectionState: BluetoothDevice.ConnectionState,
-	pairingState: BluetoothDevice.PairingState,
-	rssi: Short? = null,
-	onClick: () -> Unit,
-	onLongClick: () -> Unit,
-	onPair: () -> Unit,
-	onUnpair: () -> Unit,
-	modifier: Modifier = Modifier,
-) {
-	Row(
-		modifier = modifier
+fun RpcLogs(logs: List<String>, onClear: () -> Unit) {
+	Column(
+		modifier = Modifier
+			.fillMaxWidth()
 			.clip(RoundedCornerShape(8.dp))
-			.background(
-				when (connectionState) {
-					BluetoothDevice.ConnectionState.Connected -> Color(0xFFA5D6A7)
-					BluetoothDevice.ConnectionState.Connecting -> Color(0xFFFFF59D)
-					BluetoothDevice.ConnectionState.Disconnected -> MaterialTheme.colorScheme.surfaceVariant
-				}
-			)
-			.padding(12.dp)
-			.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+			.background(Color.Black.copy(alpha = 0.05f))
+			.padding(8.dp)
 	) {
-		Column {
-			Row(verticalAlignment = Alignment.CenterVertically) {
-				Column(modifier = Modifier.weight(1f)) {
-					Text(text = name ?: "(No name)", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-					Text(text = address, fontSize = 12.sp)
-				}
-				if (rssi != null) {
-					Text(text = "$rssi dBm", fontSize = 12.sp)
-				}
+		Row(
+			modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.SpaceBetween,
+			verticalAlignment = Alignment.CenterVertically
+		) {
+			Text("RPC Logs", fontWeight = FontWeight.SemiBold)
+			Button(
+				onClick = onClear,
+				colors = ButtonDefaults.textButtonColors(),
+				contentPadding = PaddingValues(0.dp)
+			) {
+				Text("Clear", fontSize = 12.sp)
 			}
-			Spacer(Modifier.height(4.dp))
-			Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-				when (pairingState) {
-					BluetoothDevice.PairingState.None -> Button(onClick = onPair, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(32.dp)) { Text("Pair", fontSize = 12.sp) }
-					BluetoothDevice.PairingState.Pairing -> Text("Pairing...", fontSize = 12.sp)
-					BluetoothDevice.PairingState.Paired -> Button(onClick = onUnpair, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(32.dp)) { Text("Unpair", fontSize = 12.sp) }
-				}
+		}
+		val logState = rememberLazyListState()
+		LaunchedEffect(logs.size) {
+			if (logs.isNotEmpty()) {
+				logState.animateScrollToItem(logs.size - 1)
+			}
+		}
+		LazyColumn(
+			state = logState,
+			modifier = Modifier
+				.height(150.dp)
+				.fillMaxWidth()
+		) {
+			items(logs) { log ->
+				Text(
+					text = log,
+					fontSize = 12.sp,
+					fontFamily = FontFamily.Monospace,
+					modifier = Modifier.padding(vertical = 1.dp)
+				)
 			}
 		}
 	}
 }
 
-// Minimal ColumnScope for RpcCategory
 @Preview(showBackground = true)
 @Composable
 private fun Preview() = BasePreview {
