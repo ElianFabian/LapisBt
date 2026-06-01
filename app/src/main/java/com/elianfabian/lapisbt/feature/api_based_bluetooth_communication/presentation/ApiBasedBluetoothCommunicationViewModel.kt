@@ -39,7 +39,6 @@ class ApiBasedBluetoothCommunicationViewModel(
 	private val lapisBtRpc: LapisBtRpc,
 	private val bluetoothPermissionController: MultiplePermissionController,
 	private val accessFineLocationPermissionController: PermissionController,
-	private val postNotificationsPermissionController: PermissionController,
 	private val androidHelper: AndroidHelper,
 	private val storageController: StorageController,
 ) : ScopedServices.Registered {
@@ -54,10 +53,6 @@ class ApiBasedBluetoothCommunicationViewModel(
 			storageController.getBluetoothAddress()?.also { address ->
 				_currentDeviceAddress.value = address
 			}
-		}
-
-		_scope.launch {
-			postNotificationsPermissionController.request()
 		}
 
 		_scope.launch {

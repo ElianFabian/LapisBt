@@ -19,13 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
@@ -59,7 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothControlPanel
 import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothDeviceItem
+import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelection
 import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelector
+import com.elianfabian.lapisbt.app.common.presentation.component.EnableBluetoothPlaceholder
 import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialog
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
 
@@ -94,14 +96,25 @@ fun ApiBasedBluetoothCommunicationScreen(
 				.fillMaxSize()
 				.padding(WindowInsets.statusBars.asPaddingValues())
 		) {
-			BluetoothDeviceList(
-				state = state,
-				onAction = onAction,
+			Box(
 				modifier = Modifier
 					.fillMaxSize()
 					.weight(1F)
-					.padding(horizontal = 16.dp)
-			)
+			) {
+				if (!state.isBluetoothOn) {
+					EnableBluetoothPlaceholder(
+						onEnableClick = { onAction(ApiBasedBluetoothCommunicationAction.EnableBluetooth) }
+					)
+				} else {
+					BluetoothDeviceList(
+						state = state,
+						onAction = onAction,
+						modifier = Modifier
+							.fillMaxSize()
+							.padding(horizontal = 16.dp)
+					)
+				}
+			}
 			Column(
 				modifier = Modifier
 					.clip(RoundedCornerShape(8.dp))
@@ -219,159 +232,142 @@ private fun BluetoothDeviceList(
 			}
 		}
 
-		if (!state.isBluetoothOn) {
-			item {
-				Column(
-					modifier = Modifier
-						.fillMaxWidth()
-						.padding(vertical = 32.dp),
-					horizontalAlignment = Alignment.CenterHorizontally
-				) {
-					Button(onClick = { onAction(ApiBasedBluetoothCommunicationAction.EnableBluetooth) }) {
-						Icon(Icons.Filled.Bluetooth, contentDescription = null)
-						Spacer(Modifier.width(8.dp))
-						Text("Enable Bluetooth")
-					}
-				}
-			}
-		} else {
-			// RPC PLAYGROUND
-			item {
-				Text(
-					text = "RPC Playground",
-					fontWeight = FontWeight.Bold,
-					fontSize = 22.sp,
-					modifier = Modifier.padding(top = 8.dp)
-				)
-			}
+		// RPC PLAYGROUND
+		item {
+			Text(
+				text = "RPC Playground",
+				fontWeight = FontWeight.Bold,
+				fontSize = 22.sp,
+				modifier = Modifier.padding(top = 8.dp)
+			)
+		}
 
-			item {
-				RpcCategory("Hardware Control") {
-					Row(verticalAlignment = Alignment.CenterVertically) {
-						Text("Continuous Vibrate", modifier = Modifier.weight(1f))
-						VibrationButton(onAction)
-					}
-					Spacer(Modifier.height(8.dp))
-					Row(verticalAlignment = Alignment.CenterVertically) {
-						Text("Flashlight", modifier = Modifier.weight(1f))
-						Switch(
-							checked = state.rpcTestState.flashlightEnabled,
-							onCheckedChange = { onAction(ApiBasedBluetoothCommunicationAction.ToggleFlashlight(it)) }
-						)
-					}
+		item {
+			RpcCategory("Hardware Control") {
+				Row(verticalAlignment = Alignment.CenterVertically) {
+					Text("Continuous Vibrate", modifier = Modifier.weight(1f))
+					VibrationButton(onAction)
 				}
-			}
-
-			item {
-				RpcCategory("Info & UI") {
-					var toastMessage by remember { mutableStateOf("Hello from RPC!") }
-					TextField(
-						value = toastMessage,
-						onValueChange = { toastMessage = it },
-						label = { Text("Toast Message") },
-						modifier = Modifier.fillMaxWidth()
+				Spacer(Modifier.height(8.dp))
+				Row(verticalAlignment = Alignment.CenterVertically) {
+					Text("Flashlight", modifier = Modifier.weight(1f))
+					Switch(
+						checked = state.rpcTestState.flashlightEnabled,
+						onCheckedChange = { onAction(ApiBasedBluetoothCommunicationAction.ToggleFlashlight(it)) }
 					)
-					Box(modifier = Modifier.fillMaxWidth()) {
-						Button(
-							onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely(toastMessage)) },
-							modifier = Modifier
-								.align(Alignment.CenterEnd)
-								.padding(top = 4.dp)
-						) {
-							Text("Send Toast")
-						}
-					}
-					Spacer(Modifier.height(8.dp))
+				}
+			}
+		}
+
+		item {
+			RpcCategory("Info & UI") {
+				var toastMessage by remember { mutableStateOf("Hello from RPC!") }
+				TextField(
+					value = toastMessage,
+					onValueChange = { toastMessage = it },
+					label = { Text("Toast Message") },
+					modifier = Modifier.fillMaxWidth()
+				)
+				Box(modifier = Modifier.fillMaxWidth()) {
 					Button(
-						onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickGetMyOwnAddress) },
-						modifier = Modifier.fillMaxWidth()
+						onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickShowToastRemotely(toastMessage)) },
+						modifier = Modifier
+							.align(Alignment.CenterEnd)
+							.padding(top = 4.dp)
 					) {
-						Text("Get Remote Address")
+						Text("Send Toast")
 					}
 				}
-			}
-
-			item {
-				RpcCategory("Sensors & Streams") {
-					FlowControl(
-						label = "Light Sensor",
-						isActive = state.rpcTestState.activeFlows.contains("lightSensor"),
-						value = state.rpcTestState.latestValues["lightSensor"],
-						onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartLightSensor) },
-						onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopLightSensor) }
-					)
-					Spacer(Modifier.height(8.dp))
-					FlowControl(
-						label = "Random Numbers (500ms)",
-						isActive = state.rpcTestState.activeFlows.contains("randomNumbers"),
-						value = state.rpcTestState.latestValues["randomNumbers"],
-						onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartRandomNumbers(500)) },
-						onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopRandomNumbers) }
-					)
-					Spacer(Modifier.height(8.dp))
-					FlowControl(
-						label = "Bidirectional (Doubling)",
-						isActive = state.rpcTestState.activeFlows.contains("processDataStream"),
-						value = state.rpcTestState.latestValues["processDataStream"],
-						onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartProcessDataStream) },
-						onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopProcessDataStream) }
-					)
+				Spacer(Modifier.height(8.dp))
+				Button(
+					onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickGetMyOwnAddress) },
+					modifier = Modifier.fillMaxWidth()
+				) {
+					Text("Get Remote Address")
 				}
 			}
+		}
 
-			item {
-				RpcLogs(state.rpcTestState.logs) {
-					onAction(ApiBasedBluetoothCommunicationAction.ClickClearLogs)
-				}
-			}
-
-			item {
-				HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-				Text(
-					text = "Devices",
-					fontWeight = FontWeight.Bold,
-					fontSize = 22.sp,
+		item {
+			RpcCategory("Sensors & Streams") {
+				FlowControl(
+					label = "Light Sensor",
+					isActive = state.rpcTestState.activeFlows.contains("lightSensor"),
+					value = state.rpcTestState.latestValues["lightSensor"],
+					onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartLightSensor) },
+					onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopLightSensor) }
+				)
+				Spacer(Modifier.height(8.dp))
+				FlowControl(
+					label = "Random Numbers (500ms)",
+					isActive = state.rpcTestState.activeFlows.contains("randomNumbers"),
+					value = state.rpcTestState.latestValues["randomNumbers"],
+					onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartRandomNumbers(500)) },
+					onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopRandomNumbers) }
+				)
+				Spacer(Modifier.height(8.dp))
+				FlowControl(
+					label = "Bidirectional (Doubling)",
+					isActive = state.rpcTestState.activeFlows.contains("processDataStream"),
+					value = state.rpcTestState.latestValues["processDataStream"],
+					onStart = { onAction(ApiBasedBluetoothCommunicationAction.StartProcessDataStream) },
+					onStop = { onAction(ApiBasedBluetoothCommunicationAction.StopProcessDataStream) }
 				)
 			}
+		}
 
-			item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
-			if (state.pairedDevices.isEmpty()) {
-				item { Text("No paired devices", color = Color.Gray) }
-			} else {
-				items(state.pairedDevices) { device ->
-					BluetoothDeviceItem(
-						name = device.name,
-						address = device.address.value,
-						connectionState = device.connectionState,
-						pairingState = device.pairingState,
-						onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickPairedDevice(device)) },
-						onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickPairedDevice(device)) },
-						onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device)) },
-						onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device)) },
-						modifier = Modifier.fillMaxWidth()
-					)
-				}
+		item {
+			RpcLogs(state.rpcTestState.logs) {
+				onAction(ApiBasedBluetoothCommunicationAction.ClickClearLogs)
 			}
+		}
 
-			item { Spacer(Modifier.height(8.dp)) }
-			item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
-			if (state.scannedDevices.isEmpty()) {
-				item { Text("No scanned devices", color = Color.Gray) }
-			} else {
-				items(state.scannedDevices) { scannedDevice ->
-					BluetoothDeviceItem(
-						name = scannedDevice.device.name,
-						address = scannedDevice.device.address.value,
-						connectionState = scannedDevice.device.connectionState,
-						pairingState = scannedDevice.device.pairingState,
-						rssi = scannedDevice.rssi,
-						onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickScannedDevice(scannedDevice)) },
-						onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice)) },
-						onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(scannedDevice.device)) },
-						onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(scannedDevice.device)) },
-						modifier = Modifier.fillMaxWidth()
-					)
-				}
+		item {
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+			Text(
+				text = "Devices",
+				fontWeight = FontWeight.Bold,
+				fontSize = 22.sp,
+			)
+		}
+
+		item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.pairedDevices.isEmpty()) {
+			item { Text("No paired devices", color = Color.Gray) }
+		} else {
+			items(state.pairedDevices) { device ->
+				BluetoothDeviceItem(
+					name = device.name,
+					address = device.address.value,
+					connectionState = device.connectionState,
+					pairingState = device.pairingState,
+					onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickPairedDevice(device)) },
+					onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickPairedDevice(device)) },
+					onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device)) },
+					onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device)) },
+					modifier = Modifier.fillMaxWidth()
+				)
+			}
+		}
+
+		item { Spacer(Modifier.height(8.dp)) }
+		item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.scannedDevices.isEmpty()) {
+			item { Text("No scanned devices", color = Color.Gray) }
+		} else {
+			items(state.scannedDevices) { scannedDevice ->
+				BluetoothDeviceItem(
+					name = scannedDevice.device.name,
+					address = scannedDevice.device.address.value,
+					connectionState = scannedDevice.device.connectionState,
+					pairingState = scannedDevice.device.pairingState,
+					rssi = scannedDevice.rssi,
+					onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickScannedDevice(scannedDevice)) },
+					onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice)) },
+					onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(scannedDevice.device)) },
+					onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(scannedDevice.device)) },
+					modifier = Modifier.fillMaxWidth()
+				)
 			}
 		}
 	}
@@ -436,41 +432,64 @@ fun RpcLogs(logs: List<String>, onClear: () -> Unit) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.clip(RoundedCornerShape(8.dp))
-			.background(Color.Black.copy(alpha = 0.05f))
-			.padding(8.dp)
+			.clip(RoundedCornerShape(12.dp))
+			.background(Color(0xFF1E1E1E)) // Dark professional background
+			.padding(12.dp)
 	) {
 		Row(
 			modifier = Modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.SpaceBetween,
 			verticalAlignment = Alignment.CenterVertically
 		) {
-			Text("RPC Logs", fontWeight = FontWeight.SemiBold)
+			Text(
+				text = "TERMINAL",
+				color = Color(0xFF4CAF50), // Console green
+				fontWeight = FontWeight.Black,
+				fontSize = 12.sp,
+				letterSpacing = 1.sp
+			)
 			Button(
 				onClick = onClear,
-				colors = ButtonDefaults.textButtonColors(),
-				contentPadding = PaddingValues(0.dp)
+				colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f)),
+				contentPadding = PaddingValues(horizontal = 8.dp),
+				modifier = Modifier.height(28.dp)
 			) {
-				Text("Clear", fontSize = 12.sp)
+				Text("CLEAR", fontSize = 10.sp, fontWeight = FontWeight.Bold)
 			}
 		}
+		
+		Spacer(Modifier.height(8.dp))
+		
 		val logState = rememberLazyListState()
 		LaunchedEffect(logs.size) {
 			if (logs.isNotEmpty()) {
 				logState.animateScrollToItem(logs.size - 1)
 			}
 		}
+		
 		LazyColumn(
 			state = logState,
 			modifier = Modifier
-				.height(150.dp)
+				.height(180.dp)
 				.fillMaxWidth()
+				.clip(RoundedCornerShape(4.dp))
+				.background(Color.Black.copy(alpha = 0.3f))
+				.padding(8.dp)
 		) {
 			items(logs) { log ->
+				val textColor = when {
+					log.startsWith("Error", ignoreCase = true) || log.contains("failed", ignoreCase = true) -> Color(0xFFEF5350) // Red
+					log.startsWith("Started", ignoreCase = true) -> Color(0xFF64B5F6) // Light Blue
+					log.startsWith("Stopped", ignoreCase = true) -> Color(0xFFFFB74D) // Orange
+					else -> Color(0xFFE0E0E0) // Off-white
+				}
+				
 				Text(
-					text = log,
-					fontSize = 12.sp,
+					text = "> $log",
+					color = textColor,
+					fontSize = 11.sp,
 					fontFamily = FontFamily.Monospace,
+					lineHeight = 14.sp,
 					modifier = Modifier.padding(vertical = 1.dp)
 				)
 			}

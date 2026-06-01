@@ -25,7 +25,6 @@ object ApiBasedBluetoothCommunicationModule : ServiceModule {
 		val androidHelper = serviceBinder.lookup<AndroidHelper>()
 		val bluetoothPermissionController = serviceBinder.lookup<BluetoothPermissionController>()
 		val accessFineLocationPermissionController = serviceBinder.lookup<AccessFineLocationPermissionController>()
-		val postNotificationsPermissionController = serviceBinder.lookup<PostNotificationsPermissionController>()
 		val storageController = serviceBinder.lookup<StorageController>()
 		val lapisBtRpc = LapisBtRpc.newInstance(lapisBt)
 
@@ -35,7 +34,6 @@ object ApiBasedBluetoothCommunicationModule : ServiceModule {
 			lapisBtRpc = lapisBtRpc,
 			bluetoothPermissionController = bluetoothPermissionController,
 			accessFineLocationPermissionController = accessFineLocationPermissionController,
-			postNotificationsPermissionController = postNotificationsPermissionController,
 			storageController = storageController,
 		)
 

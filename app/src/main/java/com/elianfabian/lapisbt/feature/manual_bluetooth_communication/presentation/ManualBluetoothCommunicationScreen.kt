@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
@@ -56,6 +56,7 @@ import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothContro
 import com.elianfabian.lapisbt.app.common.presentation.component.BluetoothDeviceItem
 import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelection
 import com.elianfabian.lapisbt.app.common.presentation.component.DeviceSelector
+import com.elianfabian.lapisbt.app.common.presentation.component.EnableBluetoothPlaceholder
 import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialog
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
@@ -92,14 +93,26 @@ fun ManualBluetoothCommunicationScreen(
 				.fillMaxSize()
 				.padding(WindowInsets.statusBars.asPaddingValues())
 		) {
-			BluetoothDeviceList(
-				state = state,
-				onAction = onAction,
+			Box(
 				modifier = Modifier
 					.fillMaxSize()
 					.weight(1F)
-					.padding(horizontal = 16.dp)
-			)
+			) {
+				if (!state.isBluetoothOn) {
+					EnableBluetoothPlaceholder(
+						onEnableClick = { onAction(ManualBluetoothCommunicationAction.EnableBluetooth) }
+					)
+				} else {
+					BluetoothDeviceList(
+						state = state,
+						onAction = onAction,
+						modifier = Modifier
+							.fillMaxSize()
+							.padding(horizontal = 16.dp)
+					)
+				}
+			}
+
 			Column(
 				modifier = Modifier
 					.clip(RoundedCornerShape(8.dp))
@@ -239,91 +252,74 @@ private fun BluetoothDeviceList(
 			}
 		}
 
-		if (!state.isBluetoothOn) {
-			item {
-				Column(
-					modifier = Modifier
-						.fillMaxWidth()
-						.padding(vertical = 32.dp),
-					horizontalAlignment = Alignment.CenterHorizontally
-				) {
-					Button(onClick = { onAction(ManualBluetoothCommunicationAction.EnableBluetooth) }) {
-						Icon(Icons.Filled.Bluetooth, contentDescription = null)
-						Spacer(Modifier.width(8.dp))
-						Text("Enable Bluetooth")
-					}
-				}
-			}
+		item {
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+			Text(
+				text = "Devices",
+				fontWeight = FontWeight.Bold,
+				fontSize = 24.sp,
+			)
+		}
+
+		item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.pairedDevices.isEmpty()) {
+			item { Text("No paired devices", color = Color.Gray) }
 		} else {
-			item {
-				HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-				Text(
-					text = "Devices",
-					fontWeight = FontWeight.Bold,
-					fontSize = 24.sp,
+			items(state.pairedDevices) { device ->
+				BluetoothDeviceItem(
+					name = device.name,
+					address = device.address.value,
+					connectionState = device.connectionState,
+					pairingState = device.pairingState,
+					onClick = { onAction(ManualBluetoothCommunicationAction.ClickPairedDevice(device)) },
+					onLongClick = { onAction(ManualBluetoothCommunicationAction.LongClickPairedDevice(device)) },
+					onPair = { onAction(ManualBluetoothCommunicationAction.PairDevice(device)) },
+					onUnpair = { onAction(ManualBluetoothCommunicationAction.UnpairDevice(device)) },
+					modifier = Modifier.fillMaxWidth()
 				)
 			}
+		}
 
-			item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
-			if (state.pairedDevices.isEmpty()) {
-				item { Text("No paired devices", color = Color.Gray) }
-			} else {
-				items(state.pairedDevices) { device ->
-					BluetoothDeviceItem(
-						name = device.name,
-						address = device.address.value,
-						connectionState = device.connectionState,
-						pairingState = device.pairingState,
-						onClick = { onAction(ManualBluetoothCommunicationAction.ClickPairedDevice(device)) },
-						onLongClick = { onAction(ManualBluetoothCommunicationAction.LongClickPairedDevice(device)) },
-						onPair = { onAction(ManualBluetoothCommunicationAction.PairDevice(device)) },
-						onUnpair = { onAction(ManualBluetoothCommunicationAction.UnpairDevice(device)) },
-						modifier = Modifier.fillMaxWidth()
-					)
-				}
-			}
-
-			item { Spacer(Modifier.height(8.dp)) }
-			item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
-			if (state.scannedDevices.isEmpty()) {
-				item { Text("No scanned devices", color = Color.Gray) }
-			} else {
-				items(state.scannedDevices) { scannedDevice ->
-					BluetoothDeviceItem(
-						name = scannedDevice.device.name,
-						address = scannedDevice.device.address.value,
-						connectionState = scannedDevice.device.connectionState,
-						pairingState = scannedDevice.device.pairingState,
-						rssi = scannedDevice.rssi,
-						onClick = { onAction(ManualBluetoothCommunicationAction.ClickScannedDevice(scannedDevice)) },
-						onLongClick = { onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice)) },
-						onPair = { onAction(ManualBluetoothCommunicationAction.PairDevice(scannedDevice.device)) },
-						onUnpair = { onAction(ManualBluetoothCommunicationAction.UnpairDevice(scannedDevice.device)) },
-						modifier = Modifier.fillMaxWidth()
-					)
-				}
-			}
-
-			item {
-				HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-				Text(
-					text = "Messages",
-					fontWeight = FontWeight.Bold,
-					fontSize = 24.sp,
+		item { Spacer(Modifier.height(8.dp)) }
+		item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.scannedDevices.isEmpty()) {
+			item { Text("No scanned devices", color = Color.Gray) }
+		} else {
+			items(state.scannedDevices) { scannedDevice ->
+				BluetoothDeviceItem(
+					name = scannedDevice.device.name,
+					address = scannedDevice.device.address.value,
+					connectionState = scannedDevice.device.connectionState,
+					pairingState = scannedDevice.device.pairingState,
+					rssi = scannedDevice.rssi,
+					onClick = { onAction(ManualBluetoothCommunicationAction.ClickScannedDevice(scannedDevice)) },
+					onLongClick = { onAction(ManualBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice)) },
+					onPair = { onAction(ManualBluetoothCommunicationAction.PairDevice(scannedDevice.device)) },
+					onUnpair = { onAction(ManualBluetoothCommunicationAction.UnpairDevice(scannedDevice.device)) },
+					modifier = Modifier.fillMaxWidth()
 				)
 			}
-			if (state.messages.isEmpty()) {
-				item { Text("No messages", color = Color.Gray) }
-			} else {
-				items(state.messages) { message ->
-					Message(
-						senderName = message.senderName,
-						isFromLocalUser = message.senderAddress == state.currentDeviceAddress,
-						content = message.content,
-						senderAddress = message.senderAddress,
-						onClick = { onAction(ManualBluetoothCommunicationAction.ClickMessage(message)) },
-					)
-				}
+		}
+
+		item {
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+			Text(
+				text = "Messages",
+				fontWeight = FontWeight.Bold,
+				fontSize = 24.sp,
+			)
+		}
+		if (state.messages.isEmpty()) {
+			item { Text("No messages", color = Color.Gray) }
+		} else {
+			items(state.messages) { message ->
+				Message(
+					senderName = message.senderName,
+					isFromLocalUser = message.senderAddress == state.currentDeviceAddress,
+					content = message.content,
+					senderAddress = message.senderAddress,
+					onClick = { onAction(ManualBluetoothCommunicationAction.ClickMessage(message)) },
+				)
 			}
 		}
 	}
