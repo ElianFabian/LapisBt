@@ -8,6 +8,7 @@ import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
@@ -34,7 +35,7 @@ public interface LapisBt {
 
 	public val pairedDevices: StateFlow<List<BluetoothDevice>>
 
-	public val scannedDevices: StateFlow<List<BluetoothDevice>>
+	public val scannedDevices: StateFlow<List<ScannedBluetoothDevice>>
 
 	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
 	public val connectedDevices: StateFlow<List<BluetoothDevice>>
@@ -285,7 +286,10 @@ public interface LapisBt {
 			public val disconnectedLocally: Boolean,
 		) : Event
 
-		public data class OnDeviceScanned(override val device: BluetoothDevice) : Event
+		public data class OnDeviceScanned(
+			override val device: BluetoothDevice,
+			val rssi: Short,
+		) : Event
 
 		public data class OnPairingRequest(
 			override val device: BluetoothDevice,

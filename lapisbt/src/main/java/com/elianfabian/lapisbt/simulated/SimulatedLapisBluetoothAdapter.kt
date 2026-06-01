@@ -77,7 +77,7 @@ internal class SimulatedLapisBluetoothAdapter(
 		bluetoothEvents.emitDiscovering(true)
 
 		environment.getScannableDevices(address).forEach { device ->
-			bluetoothEvents.emitDeviceFound(device)
+			bluetoothEvents.emitDeviceFound(device, rssi = -60)
 		}
 
 		return true

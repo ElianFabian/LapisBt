@@ -327,24 +327,25 @@ class ApiBasedBluetoothCommunicationViewModel(
 				}
 			}
 			is ApiBasedBluetoothCommunicationAction.ClickScannedDevice -> {
-				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(action.device)
+				val device = action.scannedDevice.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+					_selectedDevice.value = ApiBasedBluetoothCommunicationState.SelectedDevice.Device(device)
 					return
 				}
 				_scope.launch {
-					if (action.device.connectionState == BluetoothDevice.ConnectionState.Connecting) {
-						lapisBt.cancelConnectionAttempt(action.device.address)
+					if (device.connectionState == BluetoothDevice.ConnectionState.Connecting) {
+						lapisBt.cancelConnectionAttempt(device.address)
 						return@launch
 					}
 					val result = if (_useSecureConnection.value) {
 						lapisBt.connectToDevice(
-							deviceAddress = action.device.address,
+							deviceAddress = device.address,
 							serviceUuid = ConnectionUuid,
 						)
 					}
 					else {
 						lapisBt.connectToDeviceWithoutPairing(
-							deviceAddress = action.device.address,
+							deviceAddress = device.address,
 							serviceUuid = ConnectionUuid,
 						)
 					}
@@ -366,10 +367,11 @@ class ApiBasedBluetoothCommunicationViewModel(
 				}
 			}
 			is ApiBasedBluetoothCommunicationAction.LongClickScannedDevice -> {
-				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+				val device = action.scannedDevice.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 					_scope.launch {
-						if (!lapisBt.disconnectFromDevice(action.device.address)) {
-							androidHelper.showToast("Could not disconnect from: ${action.device.name}")
+						if (!lapisBt.disconnectFromDevice(device.address)) {
+							androidHelper.showToast("Could not disconnect from: ${device.name}")
 						}
 					}
 				}

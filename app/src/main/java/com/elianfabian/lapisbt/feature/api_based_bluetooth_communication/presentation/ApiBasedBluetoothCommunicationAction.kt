@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presentation
 
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 
 sealed interface ApiBasedBluetoothCommunicationAction {
 	data object StartScan : ApiBasedBluetoothCommunicationAction
@@ -12,12 +13,12 @@ sealed interface ApiBasedBluetoothCommunicationAction {
 	data object MakeDeviceDiscoverable : ApiBasedBluetoothCommunicationAction
 //	data object SendMessage : ApiBasedBluetoothCommunicationAction
 //	data class EnterMessage(val message: String) : ApiBasedBluetoothCommunicationAction
-	data class ClickScannedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
+	data class ClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class ClickPairedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class PairDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class UnpairDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class LongClickPairedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
-	data class LongClickScannedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
+	data class LongClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data object EditBluetoothDeviceName : ApiBasedBluetoothCommunicationAction
 	data object SaveBluetoothDeviceName : ApiBasedBluetoothCommunicationAction
 	data class EnterBluetoothDeviceName(val bluetoothDeviceName: String) : ApiBasedBluetoothCommunicationAction

@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentat
 
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 
 data class ManualBluetoothCommunicationState(
 	val isBluetoothSupported: Boolean,
@@ -13,7 +14,7 @@ data class ManualBluetoothCommunicationState(
 	val isWaitingForConnection: Boolean = false,
 	val isScanning: Boolean = false,
 	val pairedDevices: List<BluetoothDevice> = emptyList(),
-	val scannedDevices: List<BluetoothDevice> = emptyList(),
+	val scannedDevices: List<ScannedBluetoothDevice> = emptyList(),
 	val connectedDevices: List<BluetoothDevice> = emptyList(),
 	val selectedDevice: SelectedDevice = SelectedDevice.None,
 	val permissionDialog: PermissionDialogState? = null,

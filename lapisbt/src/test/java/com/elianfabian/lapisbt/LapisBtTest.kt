@@ -41,7 +41,7 @@ class LapisBtTest {
 		phone.lapisBt.startScan()
 
 		val discovered = phone.lapisBt.scannedDevices.first { it.isNotEmpty() }
-		assertThat(discovered.map { it.address }).contains(peripheral.address)
+		assertThat(discovered.map { it.device.address }).contains(peripheral.address)
 	}
 
 	@Test

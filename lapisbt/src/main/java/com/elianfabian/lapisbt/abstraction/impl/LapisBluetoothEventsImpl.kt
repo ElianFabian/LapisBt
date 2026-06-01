@@ -49,7 +49,7 @@ internal class LapisBluetoothEventsImpl(
 	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceUuidsChangeFlow = _deviceUuidsChangeFlow.asSharedFlow()
 
-	private val _deviceFoundFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
+	private val _deviceFoundFlow = MutableSharedFlow<LapisBluetoothEvents.DeviceFoundEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceFoundFlow = _deviceFoundFlow.asSharedFlow()
 
 	private val _isDiscoveringFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = Int.MAX_VALUE)
@@ -168,8 +168,13 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _deviceFoundReceiver = DeviceFoundBroadcastReceiver(
-		onDeviceFound = { androidDeviceFound ->
-			_deviceFoundFlow.tryEmit(LapisBluetoothDeviceImpl(androidDeviceFound))
+		onDeviceFound = { androidDeviceFound, rssi ->
+			_deviceFoundFlow.tryEmit(
+				LapisBluetoothEvents.DeviceFoundEvent(
+					androidDevice = LapisBluetoothDeviceImpl(androidDeviceFound),
+					rssi = rssi,
+				)
+			)
 		}
 	)
 

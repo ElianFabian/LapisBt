@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentat
 
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 
 sealed interface ManualBluetoothCommunicationAction {
 	data object StartScan : ManualBluetoothCommunicationAction
@@ -13,12 +14,14 @@ sealed interface ManualBluetoothCommunicationAction {
 	data object MakeDeviceDiscoverable : ManualBluetoothCommunicationAction
 	data object SendMessage : ManualBluetoothCommunicationAction
 	data class EnterMessage(val message: String) : ManualBluetoothCommunicationAction
-	data class ClickScannedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
+	data class ClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ManualBluetoothCommunicationAction
+	data class ClickConnectedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class ClickPairedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class PairDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class UnpairDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class LongClickPairedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
-	data class LongClickScannedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
+	data class LongClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ManualBluetoothCommunicationAction
+	data class LongClickConnectedDevice(val device: BluetoothDevice) : ManualBluetoothCommunicationAction
 	data class ClickMessage(val message: BluetoothMessage) : ManualBluetoothCommunicationAction
 	data object EditBluetoothDeviceName : ManualBluetoothCommunicationAction
 	data object SaveBluetoothDeviceName : ManualBluetoothCommunicationAction

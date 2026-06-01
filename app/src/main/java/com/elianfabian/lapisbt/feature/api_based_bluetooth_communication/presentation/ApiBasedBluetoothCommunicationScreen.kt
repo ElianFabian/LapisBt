@@ -58,6 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import kotlin.random.Random
 
 @Composable
@@ -606,25 +607,26 @@ private fun BluetoothDeviceList(
 				items(
 					items = state.scannedDevices,
 					key = {
-						it.address.toString() + "scanned"
+						it.device.address.toString() + "scanned"
 					},
-				) { device ->
+				) { scannedDevice ->
 					BluetoothDeviceItem(
-						name = device.name,
-						address = device.address.value,
-						connectionState = device.connectionState,
-						pairingState = device.pairingState,
+						name = scannedDevice.device.name,
+						address = scannedDevice.device.address.value,
+						connectionState = scannedDevice.device.connectionState,
+						pairingState = scannedDevice.device.pairingState,
+						rssi = scannedDevice.rssi,
 						onClick = {
-							onAction(ApiBasedBluetoothCommunicationAction.ClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.ClickScannedDevice(scannedDevice))
 						},
 						onLongClick = {
-							onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice))
 						},
 						onPair = {
-							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.PairDevice(scannedDevice.device))
 						},
 						onUnpair = {
-							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(device))
+							onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(scannedDevice.device))
 						},
 						modifier = Modifier
 							.fillMaxWidth()
@@ -687,6 +689,7 @@ private fun BluetoothDeviceItem(
 	address: String,
 	connectionState: BluetoothDevice.ConnectionState,
 	pairingState: BluetoothDevice.PairingState,
+	rssi: Short? = null,
 	onClick: () -> Unit,
 	onLongClick: () -> Unit,
 	onPair: () -> Unit,
@@ -728,43 +731,52 @@ private fun BluetoothDeviceItem(
 			)
 		}
 		Column {
-			if (name != null) {
-				Text(
-					text = name,
-					fontSize = 18.sp,
-					lineHeight = 30.sp,
-				)
-				Spacer(modifier = Modifier.height(4.dp))
+			Row(verticalAlignment = Alignment.CenterVertically) {
+				Column(modifier = Modifier.weight(1f)) {
+					if (name != null) {
+						Text(
+							text = name,
+							fontSize = 18.sp,
+							lineHeight = 30.sp,
+						)
+						Spacer(modifier = Modifier.height(4.dp))
+					}
+					Text(
+						text = address,
+						fontSize = 18.sp,
+						lineHeight = 30.sp,
+					)
+				}
+				if (rssi != null) {
+					Text(
+						text = "$rssi dBm",
+						fontSize = 14.sp,
+						color = MaterialTheme.colorScheme.onSurfaceVariant
+					)
+				}
 			}
-			Column {
-				Text(
-					text = address,
-					fontSize = 18.sp,
-					lineHeight = 30.sp,
-				)
-				Spacer(Modifier.width(8.dp))
-				Row {
-					when (pairingState) {
-						BluetoothDevice.PairingState.None -> {
-							Button(
-								onClick = {
-									onPair()
-								}
-							) {
-								Text("Pair")
+			Spacer(Modifier.height(8.dp))
+			Row {
+				when (pairingState) {
+					BluetoothDevice.PairingState.None -> {
+						Button(
+							onClick = {
+								onPair()
 							}
+						) {
+							Text("Pair")
 						}
-						BluetoothDevice.PairingState.Pairing -> {
-							Text("Pairing...")
-						}
-						BluetoothDevice.PairingState.Paired -> {
-							Button(
-								onClick = {
-									onUnpair()
-								}
-							) {
-								Text("Unpair")
+					}
+					BluetoothDevice.PairingState.Pairing -> {
+						Text("Pairing...")
+					}
+					BluetoothDevice.PairingState.Paired -> {
+						Button(
+							onClick = {
+								onUnpair()
 							}
+						) {
+							Text("Unpair")
 						}
 					}
 				}
@@ -807,11 +819,18 @@ private fun Preview() = BasePreview {
 		)
 	}
 
+	val scannedDevices = devices.map { device ->
+		ScannedBluetoothDevice(
+			device = device,
+			rssi = Random.nextInt(-100, -30).toShort()
+		)
+	}
+
 	ApiBasedBluetoothCommunicationScreen(
 		state = ApiBasedBluetoothCommunicationState(
 			bluetoothDeviceName = "Bluetooth Device",
 			pairedDevices = devices.filter { it.pairingState.isPaired },
-			scannedDevices = devices.filter { !it.pairingState.isPaired },
+			scannedDevices = scannedDevices.filter { !it.device.pairingState.isPaired },
 			isBluetoothSupported = true,
 			isScanning = true,
 			isBluetoothOn = true,

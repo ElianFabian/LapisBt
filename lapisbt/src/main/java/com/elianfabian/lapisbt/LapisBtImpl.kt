@@ -9,6 +9,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
@@ -58,7 +59,7 @@ internal class LapisBtImpl(
 	private val _pairedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val pairedDevices = _pairedDevices.asStateFlow()
 
-	private val _scannedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
+	private val _scannedDevices = MutableStateFlow(emptyList<ScannedBluetoothDevice>())
 	override val scannedDevices = _scannedDevices.asStateFlow()
 
 	private val _connectedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
@@ -141,7 +142,7 @@ internal class LapisBtImpl(
 	init {
 		_scope.launch {
 			_scannedDevices.collect { scannedDevices ->
-				println("$$$ scannedDevice: ${scannedDevices.groupingBy { it.address.value }.eachCount()}")
+				println("$$$ scannedDevice: ${scannedDevices.groupingBy { it.device.address.value }.eachCount()}")
 			}
 		}
 		_scope.launch {
@@ -370,11 +371,13 @@ internal class LapisBtImpl(
 				}
 			}
 			_scannedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+				devices.map { scannedDevice ->
+					if (scannedDevice.device.address == deviceAddress) {
+						scannedDevice.copy(
+							device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						)
 					}
-					else device
+					else scannedDevice
 				}
 			}
 		}
@@ -399,9 +402,9 @@ internal class LapisBtImpl(
 			return pairedDevice
 		}
 
-		val scannedDevice = _scannedDevices.value.find { it.address == deviceAddress }
+		val scannedDevice = _scannedDevices.value.find { it.device.address == deviceAddress }
 		if (scannedDevice != null) {
-			return scannedDevice
+			return scannedDevice.device
 		}
 
 		val connectedDevice = _connectedDevices.value.find { it.address == deviceAddress }
@@ -428,11 +431,13 @@ internal class LapisBtImpl(
 
 		if (device.createBond()) {
 			_scannedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
+				devices.map { scannedDevice ->
+					if (scannedDevice.device.address == deviceAddress) {
+						scannedDevice.copy(
+							device = scannedDevice.device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
+						)
 					}
-					else device
+					else scannedDevice
 				}
 			}
 			_connectedDevices.update { devices ->
@@ -659,11 +664,13 @@ internal class LapisBtImpl(
 					}
 				}
 				_scannedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address.value == lapisDevice.address) {
-							device.copy(alias = lapisDevice.alias)
+					devices.map { scannedDevice ->
+						if (scannedDevice.device.address.value == lapisDevice.address) {
+							scannedDevice.copy(
+								device = scannedDevice.device.copy(alias = lapisDevice.alias)
+							)
 						}
-						else device
+						else scannedDevice
 					}
 				}
 				_connectedDevices.update { devices ->
@@ -687,8 +694,9 @@ internal class LapisBtImpl(
 					val targetDeviceAddress = BluetoothDevice.Address(bondStateChangeLapisDevice.address)
 
 					_scannedDevices.update { devices ->
-						devices.map { existingDevice ->
-							if (existingDevice.address == targetDeviceAddress) {
+						devices.map { existingScannedDevice ->
+							if (existingScannedDevice.device.address == targetDeviceAddress) {
+								val existingDevice = existingScannedDevice.device
 								val connectionState = if (existingDevice.connectionState == BluetoothDevice.ConnectionState.Connecting) {
 									BluetoothDevice.ConnectionState.Connecting
 								}
@@ -700,14 +708,16 @@ internal class LapisBtImpl(
 								}
 								if (bondStateChangeLapisDevice.bondState == AndroidBluetoothDevice.BOND_NONE) {
 									// When a device is unbonded some data is erased, this way we can preserve it
-									existingDevice.copy(
-										connectionState = connectionState,
-										pairingState = BluetoothDevice.PairingState.None,
+									existingScannedDevice.copy(
+										device = existingDevice.copy(
+											connectionState = connectionState,
+											pairingState = BluetoothDevice.PairingState.None,
+										)
 									)
 								}
-								else bondStateChangeLapisDevice.toModel(connectionState = connectionState)
+								else existingScannedDevice.copy(device = bondStateChangeLapisDevice.toModel(connectionState = connectionState))
 							}
-							else existingDevice
+							else existingScannedDevice
 						}
 					}
 					_pairedDevices.update { devices ->
@@ -874,11 +884,13 @@ internal class LapisBtImpl(
 					}
 				}
 				_scannedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address == targetDeviceAddress) {
-							device.copy(uuids = lapisDevice.uuids)
+					devices.map { scannedDevice ->
+						if (scannedDevice.device.address == targetDeviceAddress) {
+							scannedDevice.copy(
+								device = scannedDevice.device.copy(uuids = lapisDevice.uuids)
+							)
 						}
-						else device
+						else scannedDevice
 					}
 				}
 				_connectedDevices.update { devices ->
@@ -892,24 +904,28 @@ internal class LapisBtImpl(
 			}
 		}
 		_scope.launch {
-			bluetoothEvents.deviceFoundFlow.collect { lapisDevice ->
+			bluetoothEvents.deviceFoundFlow.collect { (lapisDevice, rssi) ->
 				val newDevice = lapisDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Disconnected,
 				)
 
-				_events.emit(LapisBt.Event.OnDeviceScanned(newDevice))
-
+				_events.emit(
+					LapisBt.Event.OnDeviceScanned(
+						device = newDevice,
+						rssi = rssi,
+					)
+				)
 				_scannedDevices.update { devices ->
-					val updatedDevices = devices.map { device ->
-						if (device.address == newDevice.address) {
-							newDevice
+					val updatedDevices = devices.map { scannedDevice ->
+						if (scannedDevice.device.address == newDevice.address) {
+							scannedDevice.copy(device = newDevice, rssi = rssi)
 						}
-						else device
+						else scannedDevice
 					}
-					if (updatedDevices.any { it.address == newDevice.address }) {
+					if (updatedDevices.any { it.device.address == newDevice.address }) {
 						updatedDevices
 					}
-					else (updatedDevices + newDevice).distinct()
+					else (updatedDevices + ScannedBluetoothDevice(device = newDevice, rssi = rssi)).distinct()
 				}
 			}
 		}
@@ -961,10 +977,10 @@ internal class LapisBtImpl(
 						}
 					}
 					_scannedDevices.update { devices ->
-						devices.map { device ->
-							val disconnectedDevice = device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						devices.map { scannedDevice ->
+							val disconnectedDevice = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
 
-							if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+							if (scannedDevice.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 								launch {
 									if (!handleDisconnectedDevice(disconnectedDevice.address)) {
 										return@launch
@@ -981,7 +997,7 @@ internal class LapisBtImpl(
 								}
 							}
 
-							disconnectedDevice
+							scannedDevice.copy(device = disconnectedDevice)
 						}
 					}
 
@@ -1026,11 +1042,13 @@ internal class LapisBtImpl(
 					}
 				}
 				_scannedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address == targetDeviceAddress) {
-							device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+					devices.map { scannedDevice ->
+						if (scannedDevice.device.address == targetDeviceAddress) {
+							scannedDevice.copy(
+								device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+							)
 						}
-						else device
+						else scannedDevice
 					}
 				}
 
@@ -1106,13 +1124,13 @@ internal class LapisBtImpl(
 			}
 		}
 		_scannedDevices.update { devices ->
-			devices.map { device ->
-				if (_clientSocketByAddress.contains(device.address)) {
-					device.copy(
-						connectionState = BluetoothDevice.ConnectionState.Connected,
+			devices.map { scannedDevice ->
+				if (_clientSocketByAddress.contains(scannedDevice.device.address)) {
+					scannedDevice.copy(
+						device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Connected),
 					)
 				}
-				else device
+				else scannedDevice
 			}
 		}
 		_connectedDevices.update { devices ->
@@ -1223,11 +1241,13 @@ internal class LapisBtImpl(
 			}
 		}
 		_scannedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Connecting)
+			devices.map { scannedDevice ->
+				if (scannedDevice.device.address == deviceAddress) {
+					scannedDevice.copy(
+						device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Connecting)
+					)
 				}
-				else device
+				else scannedDevice
 			}
 		}
 
@@ -1260,11 +1280,13 @@ internal class LapisBtImpl(
 				}
 			}
 			_scannedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+				devices.map { scannedDevice ->
+					if (scannedDevice.device.address == deviceAddress) {
+						scannedDevice.copy(
+							device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+						)
 					}
-					else device
+					else scannedDevice
 				}
 			}
 
@@ -1438,11 +1460,13 @@ internal class LapisBtImpl(
 			}
 		}
 		_scannedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+			devices.map { scannedDevice ->
+				if (scannedDevice.device.address == deviceAddress) {
+					scannedDevice.copy(
+						device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+					)
 				}
-				else device
+				else scannedDevice
 			}
 		}
 		_connectedDevices.update { devices ->

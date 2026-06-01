@@ -10,6 +10,8 @@ import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.domain.StorageController
 import com.elianfabian.lapisbt.app.common.domain.allArePermanentlyDenied
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
+import com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationState.*
+import com.elianfabian.lapisbt.feature.manual_bluetooth_communication.presentation.ManualBluetoothCommunicationState.SelectedDevice.*
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.zhuinden.flowcombinetuplekt.combineTuple
 import com.zhuinden.simplestack.ScopedServices
@@ -296,7 +298,7 @@ class ManualBluetoothCommunicationViewModel(
 					if (Build.VERSION.SDK_INT < 31) {
 						val result = accessFineLocationPermissionController.request()
 						if (result == PermissionState.PermanentlyDenied) {
-							_permissionDialog.value = ManualBluetoothCommunicationState.PermissionDialogState(
+							_permissionDialog.value = PermissionDialogState(
 								title = "Permission Denied",
 								message = "Please, enable location permissions in settings to allow scanning.",
 								actionName = "Settings",
@@ -389,7 +391,7 @@ class ManualBluetoothCommunicationViewModel(
 			}
 			is ManualBluetoothCommunicationAction.ClickPairedDevice -> {
 				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.device)
+					_selectedDevice.value = Device(action.device)
 					return
 				}
 				_scope.launch {
@@ -417,24 +419,56 @@ class ManualBluetoothCommunicationViewModel(
 				}
 			}
 			is ManualBluetoothCommunicationAction.ClickScannedDevice -> {
-				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
-					_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.device)
+				val device = action.scannedDevice.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+					_selectedDevice.value = Device(device)
 					return
 				}
 				_scope.launch {
-					if (action.device.connectionState == BluetoothDevice.ConnectionState.Connecting) {
-						lapisBt.cancelConnectionAttempt(action.device.address)
+					if (device.connectionState == BluetoothDevice.ConnectionState.Connecting) {
+						lapisBt.cancelConnectionAttempt(device.address)
 						return@launch
 					}
 					val result = if (_useSecureConnection.value) {
 						lapisBt.connectToDevice(
-							deviceAddress = action.device.address,
+							deviceAddress = device.address,
 							serviceUuid = ConnectionUuid,
 						)
 					}
 					else {
 						lapisBt.connectToDeviceWithoutPairing(
-							deviceAddress = action.device.address,
+							deviceAddress = device.address,
+							serviceUuid = ConnectionUuid,
+						)
+					}
+
+					when (result) {
+						is LapisBt.ConnectionResult.ConnectionEstablished -> {
+						}
+						else -> Unit
+					}
+				}
+			}
+			is ManualBluetoothCommunicationAction.ClickConnectedDevice -> {
+				val device = action.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+					_selectedDevice.value = Device(device)
+					return
+				}
+				_scope.launch {
+					if (device.connectionState == BluetoothDevice.ConnectionState.Connecting) {
+						lapisBt.cancelConnectionAttempt(device.address)
+						return@launch
+					}
+					val result = if (_useSecureConnection.value) {
+						lapisBt.connectToDevice(
+							deviceAddress = device.address,
+							serviceUuid = ConnectionUuid,
+						)
+					}
+					else {
+						lapisBt.connectToDeviceWithoutPairing(
+							deviceAddress = device.address,
 							serviceUuid = ConnectionUuid,
 						)
 					}
@@ -456,10 +490,21 @@ class ManualBluetoothCommunicationViewModel(
 				}
 			}
 			is ManualBluetoothCommunicationAction.LongClickScannedDevice -> {
-				if (action.device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+				val device = action.scannedDevice.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
 					_scope.launch {
-						if (!lapisBt.disconnectFromDevice(action.device.address)) {
-							androidHelper.showToast("Could not disconnect from: ${action.device.name}")
+						if (!lapisBt.disconnectFromDevice(device.address)) {
+							androidHelper.showToast("Could not disconnect from: ${device.name}")
+						}
+					}
+				}
+			}
+			is ManualBluetoothCommunicationAction.LongClickConnectedDevice -> {
+				val device = action.device
+				if (device.connectionState == BluetoothDevice.ConnectionState.Connected) {
+					_scope.launch {
+						if (!lapisBt.disconnectFromDevice(device.address)) {
+							androidHelper.showToast("Could not disconnect from: ${device.name}")
 						}
 					}
 				}
@@ -472,7 +517,7 @@ class ManualBluetoothCommunicationViewModel(
 							device.address.value == action.message.senderAddress
 						} ?: return@launch
 
-						_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(targetDevice)
+						_selectedDevice.value = Device(targetDevice)
 					}
 				}
 			}
@@ -496,7 +541,7 @@ class ManualBluetoothCommunicationViewModel(
 				_useSecureConnection.value = action.enabled
 			}
 			is ManualBluetoothCommunicationAction.SelectTargetDeviceToMessage -> {
-				_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.Device(action.connectedDevice)
+				_selectedDevice.value = Device(action.connectedDevice)
 			}
 			is ManualBluetoothCommunicationAction.SelectAllDevicesToMessage -> {
 				_selectedDevice.value = ManualBluetoothCommunicationState.SelectedDevice.AllDevices
