@@ -4,17 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import com.google.gson.JsonParseException
-import com.google.gson.JsonParser
 import com.google.gson.TypeAdapter
 import com.google.gson.TypeAdapterFactory
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
-import kotlin.collections.contentToString
-import kotlin.reflect.KClass
-import kotlin.reflect.full.defaultType
 
 @Suppress("DEPRECATION")
 fun Bundle.contentToString(): String {
@@ -60,64 +54,17 @@ private class SealedClassToStringAdapterFactory : TypeAdapterFactory {
 		}
 
 		return object : TypeAdapter<T>() {
-			// Serializa directamente usando el método toString()
 			override fun write(out: JsonWriter, value: T?) {
 				if (value == null) {
 					out.nullValue()
-				} else {
+				}
+				else {
 					out.value(value.toString())
 				}
 			}
 
-			// Deserializa parseando la cadena del toString()
 			override fun read(reader: JsonReader): T? {
-				val str = reader.nextString() ?: return null
-
-				// 1. Intentar emparejar directamente con un 'data object'
-				val objectInstance = kClass.sealedSubclasses
-					.find { it.simpleName == str && it.objectInstance != null }
-					?.objectInstance
-
-				if (objectInstance != null) return objectInstance as T
-
-				// 2. Si no es un object, es una data class (ej: "UnknownValue(value=42)")
-				val subclass = kClass.sealedSubclasses.find {
-					str.startsWith("${it.simpleName}(")
-				} ?: throw JsonParseException("Unknown type string representation: $str")
-
-				// Extraer el contenido dentro de los paréntesis: "value=42"
-				val content = str.substringAfter("(").substringBeforeLast(")")
-
-				val constructor = subclass.constructors.firstOrNull()
-					?: throw JsonParseException("No constructor found for ${subclass.simpleName}")
-
-				if (constructor.parameters.isEmpty()) {
-					return constructor.call() as T
-				}
-
-				// Parsear los pares clave-valor del toString()
-				val pairs = content.split(",").associate {
-					val parts = it.split("=")
-					parts[0].trim() to parts.getOrNull(1)?.trim()
-				}
-
-				// Mapear los tipos básicos de los parámetros del constructor
-				val args = constructor.parameters.associateWith { param ->
-					val paramValueStr = pairs[param.name]
-					if (paramValueStr == null || paramValueStr == "null") {
-						null
-					} else {
-						when (param.type.classifier as? KClass<*>) {
-							Int::class -> paramValueStr.toIntOrNull()
-							Long::class -> paramValueStr.toLongOrNull()
-							Boolean::class -> paramValueStr.toBooleanStrictOrNull()
-							String::class -> paramValueStr
-							else -> throw JsonParseException("Unsupported parameter type [${param.type}] when parsing toString() for ${subclass.simpleName}")
-						}
-					}
-				}
-
-				return constructor.callBy(args) as T
+				error("Deserialization of sealed classes is not supported")
 			}
 		} as TypeAdapter<T>
 	}
