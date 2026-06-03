@@ -18,7 +18,6 @@ public data class SimulatedBluetoothConfiguration(
 	public var isBluetoothConnectGranted: Boolean = true,
 	public var isBluetoothScanGranted: Boolean = true,
 	public var isLocationEnabled: Boolean = true,
-	public var name: String? = "Simulated Adapter",
 	public var needsLocationForScan: Boolean = false,
 	public var scanMode: Int = BluetoothAdapter.SCAN_MODE_NONE,
 

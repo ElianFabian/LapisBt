@@ -33,7 +33,7 @@ internal class SimulatedLapisBluetoothAdapter(
 				_realAdapter.name
 			}
 			else {
-				_name ?: config.name
+				_name ?: ("Device " + address.takeLast(5))
 			}
 		}
 

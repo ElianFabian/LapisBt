@@ -6,7 +6,7 @@ import android.content.Context
 
 internal class SimulatedAndroidHelper(
 	private val config: SimulatedBluetoothConfiguration,
-	private val context: Context?
+	context: Context?,
 ) : AndroidHelper {
 
     private val realHelper: AndroidHelper? = context?.let { AndroidHelperImpl(it) }

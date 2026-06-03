@@ -11,6 +11,9 @@ import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
+// TODO: in real devices we can only have one connection per device, if we try to add more
+//  the previous one will be closed
+//  we have to implement this behavior for the simulated environment
 internal class SimulatedLapisBluetoothSocket(
 	override val remoteDevice: SimulatedLapisBluetoothDevice,
 	var connectSuccess: Boolean = true,
@@ -32,25 +35,43 @@ internal class SimulatedLapisBluetoothSocket(
 
 	private val _queue = LinkedBlockingQueue<Int>()
 
+	private val _connectDelayMs = 500L
+
+	@Volatile
+	private var _isClosed = false
+
+
 	init {
 		remoteDevice.environment.registerSocket(this)
 	}
 
+
 	override fun connect() {
 		println("$$$ connect: ${remoteDevice.address}")
+		if (_connectDelayMs > 0) {
+			_queue.poll(_connectDelayMs, TimeUnit.MILLISECONDS)
+		}
+		if (_isClosed) {
+			throw IOException("Socket is already closed.")
+		}
 		if (!connectSuccess) {
 			throw IOException("Failed to connect to the Bluetooth device.")
 		}
 
 		if (isClient && serviceUuid != null) {
-			// 1. Wait for server to be registered
 			var serverEntry: SimulatedBluetoothEnvironment.ServerEntry? = null
 			var attempts = 0
 			while (attempts < 50) { // 5 seconds timeout
+				if (_isClosed) throw IOException("Connection cancelled.")
 				serverEntry = remoteDevice.environment.getServer(remoteDevice.address, serviceUuid)
 				if (serverEntry != null) break
-				Thread.sleep(100)
+
+				_queue.poll(100, TimeUnit.MILLISECONDS)
 				attempts++
+			}
+
+			if (_isClosed) {
+				throw IOException("Connection cancelled.")
 			}
 
 			if (serverEntry == null) {
@@ -61,7 +82,6 @@ internal class SimulatedLapisBluetoothSocket(
 			val finalIsSecure = isSecure || serverEntry.isSecure
 			this.isSecure = finalIsSecure
 
-			// 2. Security/Bonding check
 			if (finalIsSecure) {
 				// Automatically initiate pairing if not bonded
 				if (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address)) {
@@ -69,11 +89,17 @@ internal class SimulatedLapisBluetoothSocket(
 					remoteDevice.environment.initiatePairing(remoteDevice.requesterAddress, remoteDevice.address)
 				}
 
-				// Wait for bond state to become BONDED
 				var bondAttempts = 0
 				while (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address) && bondAttempts < 20) {
-					Thread.sleep(100)
+					if (_isClosed) {
+						throw IOException("Connection cancelled.")
+					}
+					_queue.poll(100, TimeUnit.MILLISECONDS)
 					bondAttempts++
+				}
+
+				if (_isClosed) {
+					throw IOException("Connection cancelled.")
 				}
 
 				if (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address)) {
@@ -81,7 +107,6 @@ internal class SimulatedLapisBluetoothSocket(
 				}
 			}
 
-			// 3. Setup bidirectional pipe
 			val pipe = BidirectionalStreamPipe()
 			this._inputStream = pipe.sideA.inputStream
 			this._outputStream = pipe.sideA.outputStream
@@ -90,7 +115,7 @@ internal class SimulatedLapisBluetoothSocket(
 				remoteDevice = SimulatedLapisBluetoothDevice(
 					address = remoteDevice.requesterAddress,
 					name = remoteDevice.environment.getDeviceName(remoteDevice.requesterAddress),
-					bluetoothEvents = remoteDevice.environment.getDeviceEvents(remoteDevice.address)!!, // target device events? wait.
+					bluetoothEvents = remoteDevice.environment.getDeviceEvents(remoteDevice.address)!!,
 					environment = remoteDevice.environment,
 					requesterAddress = remoteDevice.address
 				),
@@ -106,8 +131,10 @@ internal class SimulatedLapisBluetoothSocket(
 			serverEntry.socket.enqueueIncomingConnection(serverSideSocket)
 		}
 
-		// Simulate connection delay/handshake
-		_queue.poll(100, TimeUnit.MILLISECONDS)
+		if (_isClosed) {
+			throw IOException("Connection cancelled.")
+		}
+
 		isConnected = true
 		remoteDevice.setConnected(true)
 
@@ -118,23 +145,28 @@ internal class SimulatedLapisBluetoothSocket(
 	}
 
 	override fun close() {
+		if (_isClosed) {
+			return
+		}
+		_isClosed = true
+
+		if (_queue.isEmpty()) {
+			_queue.add(1)
+		}
+
 		if (!isConnected) {
 			return
 		}
 		isConnected = false
 		remoteDevice.setConnected(false)
-		
+
 		remoteDevice.environment.unregisterSocket(this)
 
 		try {
 			_inputStream?.close()
 			_outputStream?.close()
-		} catch (_: Exception) {
-			// Ignore close errors
 		}
-
-		if (_queue.isEmpty()) {
-			_queue.add(1)
+		catch (_: Exception) {
 		}
 
 		twin?.close()

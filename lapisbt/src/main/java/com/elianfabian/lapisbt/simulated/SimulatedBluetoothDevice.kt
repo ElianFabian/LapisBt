@@ -50,14 +50,14 @@ public class SimulatedBluetoothDevice internal constructor(
     internal fun launchPairingProcess(targetAddress: String) {
         environment.scope.launch {
             // Simulate pairing request delay
-            delay(250)
+            delay(1500)
             
             val pairingResult = config.pairingResult
             if (pairingResult is SimulatedBluetoothConfiguration.PairingResult.Failure) {
                 events.emitUnbondReason(
                     LapisBluetoothEvents.UnbondReasonEvent(
                         androidDevice = environment.getScannableDevices(address.value).first { it.address == targetAddress },
-                        reason = pairingResult.reason
+                        reason = pairingResult.reason,
                     )
                 )
                 return@launch
@@ -73,7 +73,7 @@ public class SimulatedBluetoothDevice internal constructor(
                 LapisBluetoothEvents.PairingRequestEvent(
                     androidDevice = targetLapisDevice,
                     pairingKey = pairingKey,
-                    pairingVariant = pairingVariant
+                    pairingVariant = pairingVariant,
                 )
             )
 
@@ -81,12 +81,12 @@ public class SimulatedBluetoothDevice internal constructor(
                 LapisBluetoothEvents.PairingRequestEvent(
                     androidDevice = myLapisDevice,
                     pairingKey = pairingKey,
-                    pairingVariant = pairingVariant
+                    pairingVariant = pairingVariant,
                 )
             )
 
             // Simulate user interaction delay
-            delay(500)
+            delay(1500)
             
             environment.bondDevices(address.value, targetAddress)
         }

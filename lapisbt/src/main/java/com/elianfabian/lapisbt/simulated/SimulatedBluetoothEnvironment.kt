@@ -1,6 +1,9 @@
 package com.elianfabian.lapisbt.simulated
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import com.elianfabian.lapisbt.LapisBtImpl
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
@@ -14,16 +17,11 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
-// TODO: dedicate more time to fully understand this code
 public class SimulatedBluetoothEnvironment internal constructor(
 	seed: Long = 1L,
 	private val context: Context? = null,
 	public val globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
 ) {
-	/**
-	 * A [CoroutineScope] tied to the lifecycle of this environment.
-	 * It is cancelled when [dispose] is called.
-	 */
 	public val scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
 	private val _random = Random(seed)
@@ -31,6 +29,19 @@ public class SimulatedBluetoothEnvironment internal constructor(
 	private val _activeServers = ConcurrentHashMap<String, MutableMap<UUID, ServerEntry>>()
 	private val _bondingRegistry = ConcurrentHashMap<String, MutableSet<String>>()
 	private val _activeConnections = ConcurrentHashMap<Pair<String, String>, MutableList<SimulatedLapisBluetoothSocket>>()
+
+	private val _activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
+		override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+		override fun onActivityStarted(activity: Activity) = Unit
+		override fun onActivityResumed(activity: Activity) {
+			onActivityResumed()
+		}
+
+		override fun onActivityPaused(activity: Activity) = Unit
+		override fun onActivityStopped(activity: Activity) = Unit
+		override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+		override fun onActivityDestroyed(activity: Activity) = Unit
+	}
 
 	private var _isDisposed = false
 
@@ -46,17 +57,41 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		val isSecure: Boolean,
 	)
 
+	init {
+		(context?.applicationContext as? Application)?.registerActivityLifecycleCallbacks(_activityLifecycleCallbacks)
+	}
+
+	public fun createDeviceWithAndroidState(
+		address: String = generateAddress(),
+		config: SimulatedBluetoothConfiguration? = globalConfig.copy(),
+	): SimulatedBluetoothDevice = createDevice(
+		address = address,
+		name = null,
+		config = config ?: globalConfig.copy(),
+		useAndroidState = true,
+	)
+
 	public fun createDevice(
 		address: String = generateAddress(),
-		name: String? = "Device ${address.takeLast(5)}",
+		name: String? = null,
+		config: SimulatedBluetoothConfiguration? = globalConfig.copy(),
+	): SimulatedBluetoothDevice = createDevice(
+		address = address,
+		name = name,
+		config = config,
+	)
+
+	private fun createDevice(
+		address: String = generateAddress(),
+		name: String? = null,
 		config: SimulatedBluetoothConfiguration = globalConfig.copy(),
-		useRealDeviceState: Boolean = true,
+		useAndroidState: Boolean,
 	): SimulatedBluetoothDevice {
 		check(!_isDisposed) {
 			"Environment is disposed"
 		}
 
-		val context = if (useRealDeviceState) {
+		val context = if (useAndroidState) {
 			context
 		}
 		else null
@@ -68,15 +103,15 @@ public class SimulatedBluetoothEnvironment internal constructor(
 			environment = this,
 			context = context,
 		)
-		adapter.address = address
-		if (name != null) {
-			adapter.setName(name)
-		}
-
 		val simulatedAndroidHelper = SimulatedAndroidHelper(
 			config = config,
 			context = context,
 		)
+
+		adapter.address = address
+		if (name != null && !isRealDevice()) {
+			adapter.setName(name)
+		}
 
 		val lapisBt = LapisBtImpl(
 			lapisAdapter = adapter,
@@ -123,7 +158,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		_activeServers.getOrPut(deviceAddress) { ConcurrentHashMap() }[uuid] = ServerEntry(socket, isSecure)
 	}
 
-	public fun getDeviceConfig(address: String): SimulatedBluetoothConfiguration? {
+	internal fun getDeviceConfig(address: String): SimulatedBluetoothConfiguration? {
 		return _devices[address]?.config
 	}
 
@@ -154,6 +189,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		_bondingRegistry.getOrPut(address1) { Collections.newSetFromMap(ConcurrentHashMap()) }.add(address2)
 		_bondingRegistry.getOrPut(address2) { Collections.newSetFromMap(ConcurrentHashMap()) }.add(address1)
 
+		// We automatically pair devices for fake devices
 		emitBondState(address1, address2, AndroidBluetoothDevice.BOND_BONDED)
 		emitBondState(address2, address1, AndroidBluetoothDevice.BOND_BONDED)
 	}
@@ -241,7 +277,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 			),
 			serviceUuid = uuid,
 			isSecure = isSecureRequest,
-			isClient = true
+			isClient = true,
 		)
 	}
 
@@ -300,5 +336,9 @@ public class SimulatedBluetoothEnvironment internal constructor(
 		_devices.clear()
 
 		_bondingRegistry.clear()
+
+		(context?.applicationContext as? Application)?.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
 	}
+
+	private fun isRealDevice() = context != null
 }

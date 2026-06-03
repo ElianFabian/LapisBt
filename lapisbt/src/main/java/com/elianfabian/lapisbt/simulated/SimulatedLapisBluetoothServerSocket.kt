@@ -13,23 +13,22 @@ internal class SimulatedLapisBluetoothServerSocket(
 	private val serviceUuid: UUID,
 ) : LapisBluetoothServerSocket {
 
-	private val pendingConnections = LinkedBlockingQueue<LapisBluetoothSocket>()
-	private var isClosed = false
+	private val _pendingConnections = LinkedBlockingQueue<LapisBluetoothSocket>()
+	private var _isClosed = false
 
 	/**
 	 * Enqueues a socket to be returned by [accept].
 	 */
 	fun enqueueIncomingConnection(socket: LapisBluetoothSocket) {
-		pendingConnections.put(socket)
+		_pendingConnections.put(socket)
 	}
 
 	override fun accept(): LapisBluetoothSocket {
-		if (isClosed) {
+		if (_isClosed) {
 			throw IOException("Server socket closed")
 		}
 
-		// Wait for a connection to be enqueued by the environment
-		val clientSocket = pendingConnections.poll(Long.MAX_VALUE, TimeUnit.SECONDS)
+		val clientSocket = _pendingConnections.poll(Long.MAX_VALUE, TimeUnit.SECONDS)
 			?: throw IOException("Accept timed out")
 
 		if (clientSocket is SimulatedLapisBluetoothSocket) {
@@ -41,11 +40,11 @@ internal class SimulatedLapisBluetoothServerSocket(
 	}
 
 	override fun close() {
-		if (isClosed) {
+		if (_isClosed) {
 			return
 		}
-		isClosed = true
-		pendingConnections.clear()
+		_isClosed = true
+		_pendingConnections.clear()
 		environment.unregisterServer(address, serviceUuid)
 	}
 }
