@@ -11,6 +11,8 @@ import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
+import com.elianfabian.lapisbt.util.LapisLogConfig
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +51,8 @@ public interface LapisBt {
 	public val scanMode: StateFlow<ScanMode>
 
 	public val activeBluetoothServersUuids: StateFlow<List<UUID>>
+
+	public val logConfig: LapisLogConfig
 
 
 	/**
@@ -372,7 +376,10 @@ public interface LapisBt {
 		 * To ensure state consistency, you should maintain a single instance of this interface
 		 * throughout your application's lifecycle.
 		 */
-		public fun newInstance(context: Context): LapisBt {
+		public fun newInstance(
+			context: Context,
+			logger: LapisLogger = LapisLogger.android(),
+		): LapisBt {
 			val appContext = context.applicationContext
 			val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
@@ -380,6 +387,7 @@ public interface LapisBt {
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
 				androidHelper = AndroidHelperImpl(appContext),
 				bluetoothEvents = LapisBluetoothEventsImpl(appContext),
+				logger = logger,
 			)
 		}
 

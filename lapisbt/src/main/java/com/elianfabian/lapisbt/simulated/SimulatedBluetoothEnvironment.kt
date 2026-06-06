@@ -8,6 +8,7 @@ import com.elianfabian.lapisbt.LapisBtImpl
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.LapisLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -117,6 +118,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 			lapisAdapter = adapter,
 			androidHelper = simulatedAndroidHelper,
 			bluetoothEvents = events,
+			logger = LapisLogger.Silent,
 		)
 
 		val device = SimulatedBluetoothDevice(
