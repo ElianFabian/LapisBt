@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt_rpc.method_adapter
 import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.LapisEncryption
 import com.elianfabian.lapisbt_rpc.LapisInterceptor
@@ -66,6 +67,7 @@ internal class BluetoothDeviceRpc(
 	private val packetProcessor: LapisPacketProcessor,
 	private val serializationStrategy: LapisSerializationStrategy,
 	private val metadataProvider: LapisMetadataProvider<Any?>,
+	private val logger: LapisLogger,
 ) {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -88,16 +90,18 @@ internal class BluetoothDeviceRpc(
 		SuspendMethodAdapter(
 			deviceAddress = deviceAddress,
 			bluetoothDeviceRpc = this,
+			logger = logger,
 		),
 		FlowMethodAdapter(
 			deviceAddress = deviceAddress,
 			bluetoothDeviceRpc = this,
+			logger = logger,
 		)
 	)
 
 
 	init {
-		println("$$$ bluetoothDeviceRpc: $deviceAddress")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Starting for $deviceAddress")
 		_scope.launch {
 			lapisBt.events.collect { event ->
 				when (event) {
@@ -117,7 +121,7 @@ internal class BluetoothDeviceRpc(
 							adapter.onDeviceDisconnected(deviceAddress)
 						}
 
-						println("$$$ BluetoothDeviceRpc - device disconnected($deviceAddress): ${hashCode()}")
+						logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): instance disconnected and cleaned up (hash: ${hashCode()})")
 						internalDispose()
 					}
 					else -> Unit
@@ -130,11 +134,11 @@ internal class BluetoothDeviceRpc(
 					packetProcessor.sendData(stream)
 				}
 				if (success) {
-					Log.w(TAG, "sendData returned true")
+					logger.warning(TAG, "BluetoothDeviceRpc($deviceAddress): sendData loop completed unexpectedly")
 					break
 				}
 
-				println("$$$ BluetoothDeviceRpc: sendData failed for $deviceAddress, waiting for connection...")
+				logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): sendData failed - device is not connected. Waiting for connection...")
 				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
 					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
 				}
@@ -150,11 +154,11 @@ internal class BluetoothDeviceRpc(
 					packetProcessor.receiveData(stream)
 				}
 				if (success) {
-					Log.w(TAG, "receiveData returned true")
+					logger.warning(TAG, "BluetoothDeviceRpc($deviceAddress): receiveData loop completed unexpectedly")
 					break
 				}
 
-				println("$$$ BluetoothDeviceRpc: receiveData failed for $deviceAddress, waiting for connection...")
+				logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): receiveData failed - device is not connected. Waiting for connection...")
 				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
 					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
 				}
@@ -166,7 +170,7 @@ internal class BluetoothDeviceRpc(
 		}
 		_scope.launch {
 			for (completePacket in packetProcessor.remoteCompletePackets) {
-				println("$$$$ Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
+				logger.verbose(TAG, "BluetoothDeviceRpc($deviceAddress): Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
 				ensureActive()
 				val packet = LapisPacketSerializer.deserialize(completePacket.type, completePacket.payloadStream)
 				processPacket(packet)
@@ -195,7 +199,7 @@ internal class BluetoothDeviceRpc(
 		method: Method,
 		args: Array<out Any?>?,
 	): Any {
-		println("$$$ functionCall: method: $method, args: ${args.contentToString()}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Proxy function call: ${method.name}(...)")
 
 		if (method.declaringClass == Any::class.java) {
 			return when (method.name) {
@@ -262,7 +266,7 @@ internal class BluetoothDeviceRpc(
 			arguments = argumentsByName,
 		)
 
-		println("$$$ sendRequest($serviceName, $methodName) = ${argumentsByName}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Preparing to send RPC request: $serviceName.$methodName(${argumentsByName.keys.joinToString()})")
 
 		val request = LapisRpcPacket.Request(
 			requestId = requestId,
@@ -298,7 +302,7 @@ internal class BluetoothDeviceRpc(
 		val methodMetadataAnnotations = method.annotations.filter { it.javaClass.getAnnotation(LapisMetadata::class.java) != null }
 
 
-		println("$$$$ Sending request with id ${request.requestId}, service: ${request.serviceName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
+		logger.verbose(TAG, "Sending request with id ${request.requestId}, service: ${request.serviceName}, method: ${request.methodName}, arguments: ${request.rawArguments.keys.joinToString()}")
 
 		val interceptedRequest = LapisRequest(
 			requestId = request.requestId,
@@ -312,7 +316,7 @@ internal class BluetoothDeviceRpc(
 
 		sendPacket(request, methodMetadataAnnotations)
 
-		println("$$$$ Finished sending request with id ${request.requestId}")
+		logger.verbose(TAG, "Finished sending request with id ${request.requestId}")
 	}
 
 	suspend fun sendResult(
@@ -348,7 +352,7 @@ internal class BluetoothDeviceRpc(
 		requestId: Int,
 		message: String,
 	) {
-		println("$$$ sendErrorMessage($requestId) = $message")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Sending error response for request $requestId: $message")
 		interceptor.interceptOutgoingErrorMessage(deviceAddress = deviceAddress, requestId = requestId, message = message)
 		sendPacket(LapisRpcPacket.ErrorResponse(requestId, message))
 	}
@@ -356,7 +360,7 @@ internal class BluetoothDeviceRpc(
 	suspend fun cancel(
 		requestId: Int,
 	) {
-		println("$$$$ cancel: $requestId")
+		logger.verbose(TAG, "cancel: $requestId")
 		interceptor.interceptOutgoingCancellation(deviceAddress = deviceAddress, requestId = requestId)
 		sendPacket(LapisRpcPacket.Cancellation(requestId))
 	}
@@ -371,37 +375,37 @@ internal class BluetoothDeviceRpc(
 
 
 	private suspend fun processRequest(rawRequest: LapisRpcPacket.Request) {
-		println("$$$$ process request with id ${rawRequest.requestId}, service: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
+		logger.verbose(TAG, "process request with id ${rawRequest.requestId}, service: ${rawRequest.serviceName}, method: ${rawRequest.methodName}, arguments: ${rawRequest.rawArguments.keys.joinToString()}")
 
 		val serverImplementation = lapisRpc.getBluetoothServerServiceByName(
 			deviceAddress = deviceAddress,
 			serviceName = rawRequest.serviceName,
 		)
 
-		println("$$$$ Found server implementation for service ${rawRequest.serviceName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
+		logger.verbose(TAG, "Found server implementation for service ${rawRequest.serviceName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation")
 
 		val serviceInterface = serverImplementation::class.java.interfaces.firstOrNull { inter ->
 			inter.getAnnotation(LapisRpc::class.java)?.name == rawRequest.serviceName
 		} ?: run {
 			val message = "No interface found for service: ${rawRequest.serviceName}"
 			return withContext(Dispatchers.IO) {
-				println("$$$$ Sending error response for request id ${rawRequest.requestId}, message: $message")
+				logger.verbose(TAG, "Sending error response for request id ${rawRequest.requestId}, message: $message")
 				this@BluetoothDeviceRpc.sendPacket(LapisRpcPacket.ErrorResponse(requestId = rawRequest.requestId, message = message))
-				println("$$$$ Finished sending error response with id ${rawRequest.requestId}")
+				logger.verbose(TAG, "Finished sending error response with id ${rawRequest.requestId}")
 			}
 		}
 
 		// TODO: we could create a map for fast method lookup
 		val method = serviceInterface.methods.firstOrNull { method ->
 			val annotation = method.getAnnotation(LapisMethod::class.java)
-			println("$$$$ Checking method ${method.name} with annotation ${annotation?.name} against request method name ${rawRequest.methodName}")
+			logger.verbose(TAG, "Checking method ${method.name} with annotation ${annotation?.name} against request method name ${rawRequest.methodName}")
 			annotation?.name == rawRequest.methodName
 		} ?: run {
 			val message = "No method found with name ${rawRequest.methodName} in service ${rawRequest.serviceName}"
 			return withContext(Dispatchers.IO) {
-				println("$$$$ Sending error response for request id ${rawRequest.requestId}, message: $message")
+				logger.verbose(TAG, "Sending error response for request id ${rawRequest.requestId}, message: $message")
 				this@BluetoothDeviceRpc.sendPacket(LapisRpcPacket.ErrorResponse(requestId = rawRequest.requestId, message = message))
-				println("$$$$ Finished sending error response with id ${rawRequest.requestId}")
+				logger.verbose(TAG, "Finished sending error response with id ${rawRequest.requestId}")
 			}
 		}
 
@@ -420,7 +424,7 @@ internal class BluetoothDeviceRpc(
 		}
 
 		val missingParameters = mutableListOf<String>()
-		println("$$$$ processRequest.parameterNames: $parametersNames | ${rawRequest.rawArguments.map { it.key to it.value.contentToString() }.toMap()}")
+		logger.verbose(TAG, "processRequest.parameterNames: $parametersNames | ${rawRequest.rawArguments.map { it.key to it.value.contentToString() }.toMap()}")
 		val orderedArgsByName = parametersNames.mapIndexedNotNull { index, name ->
 			val valueBytes = rawRequest.rawArguments[name]
 			if (valueBytes == null) {
@@ -435,12 +439,12 @@ internal class BluetoothDeviceRpc(
 					dataStream.readInt()
 				}
 
-				println("$$$ Creating flow for parameter '$name' of method '${method.name}' with flow id $flowId")
+				logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Creating incoming Flow for parameter '$name' (ID: $flowId)")
 
 				val flow = callbackFlow {
 					_pendingFlowParameterChannelsById[flowId] = this
 
-					println("$$$$ sendFlowParameterCollection for flow $flowId")
+					logger.verbose(TAG, "sendFlowParameterCollection for flow $flowId")
 					interceptor.interceptOutgoingFlowParameterCollection(
 						deviceAddress = deviceAddress,
 						requestId = rawRequest.requestId,
@@ -450,13 +454,13 @@ internal class BluetoothDeviceRpc(
 					sendPacket(LapisRpcPacket.FlowParameter.Collection(requestId = rawRequest.requestId, flowId = flowId, parameterName = name))
 
 					awaitClose {
-						println("$$$ Flow for parameter '$name' of method '${method.name}' is being cancelled locally")
+						logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Local cancellation of incoming Flow for parameter '$name'")
 
 						_pendingFlowParameterChannelsById.remove(flowId)
 						_pendingFlowParameterJobById.remove(flowId)?.cancel()
 
 						_scope.launch {
-							println("$$$$ sendFlowParameterCancellation for flow $flowId")
+							logger.verbose(TAG, "sendFlowParameterCancellation for flow $flowId")
 							interceptor.interceptOutgoingFlowParameterCancellation(
 								deviceAddress = deviceAddress,
 								requestId = rawRequest.requestId,
@@ -490,7 +494,7 @@ internal class BluetoothDeviceRpc(
 			}
 			else {
 				val serializer = serializationStrategy.serializerForClass(valueType)
-				println("$$$ processRequest.valueType: $valueType, $serializer, name: $name")
+				logger.debug(TAG, "processRequest.valueType: $valueType, $serializer, name: $name")
 				val valueStream = ByteArrayInputStream(valueBytes)
 
 				name to serializer?.deserialize(valueStream)
@@ -501,19 +505,19 @@ internal class BluetoothDeviceRpc(
 			val message = "Missing parameters from request ${rawRequest.requestId} for service ${rawRequest.serviceName}, and method ${rawRequest.methodName}: $missingParameters"
 
 			withContext(Dispatchers.IO) {
-				println("$$$$ Sending error response for request id ${rawRequest.requestId}, message: $message")
+				logger.verbose(TAG, "Sending error response for request id ${rawRequest.requestId}, message: $message")
 				interceptor.interceptOutgoingErrorMessage(deviceAddress = deviceAddress, requestId = rawRequest.requestId, message = message)
 				sendPacket(LapisRpcPacket.ErrorResponse(requestId = rawRequest.requestId, message = message))
-				println("$$$$ Finished sending error response with id ${rawRequest.requestId}")
+				logger.verbose(TAG, "Finished sending error response with id ${rawRequest.requestId}")
 			}
 
-			Log.w(TAG, message)
+			logger.warning(TAG, message)
 			return
 		}
 
 		rawRequest.rawArguments.keys.forEach { clientParameterName ->
 			if (clientParameterName !in parametersNames) {
-				Log.w(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with service name '${rawRequest.serviceName}'")
+				logger.warning(TAG, "Client parameter '$clientParameterName' not defined in server method '${method.name}' with service name '${rawRequest.serviceName}'")
 			}
 		}
 
@@ -527,7 +531,7 @@ internal class BluetoothDeviceRpc(
 			metadata = metadata,
 		)
 
-		println("$$$$ processRequest: $request")
+		logger.verbose(TAG, "processRequest: $request")
 
 		val adapter = getMethodAdapter(method)
 
@@ -554,28 +558,28 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 		catch (e: CancellationException) {
-			println("$$$ Request with id ${request.requestId} was cancelled: ${e.message}")
+			logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): RPC request ${request.requestId} was cancelled: ${e.message}")
 			throw e
 		}
 		catch (e: Throwable) {
-			println("$$$ Error processing request with id ${request.requestId}: ${e.message}")
+			logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Unexpected error processing RPC request ${request.requestId}: ${e.message}")
 			val message = e.stackTraceToString()
 			withContext(Dispatchers.IO) {
-				println("$$$$ Sending error response for request id ${rawRequest.requestId}, message: $message")
+				logger.verbose(TAG, "Sending error response for request id ${rawRequest.requestId}, message: $message")
 				interceptor.interceptOutgoingErrorMessage(deviceAddress = deviceAddress, requestId = rawRequest.requestId, message = message)
 				sendPacket(LapisRpcPacket.ErrorResponse(requestId = rawRequest.requestId, message = message))
-				println("$$$$ Finished sending error response with id ${rawRequest.requestId}")
+				logger.verbose(TAG, "Finished sending error response with id ${rawRequest.requestId}")
 			}
 			return
 		}
 		finally {
-			println("$$$ processPacketAsRequest.finally: ${request.requestId}")
+			logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Finished processing RPC request ${request.requestId}")
 			_pendingServerMethodByRequestId.remove(request.requestId)
 		}
 	}
 
 	private suspend fun processResponse(response: LapisRpcPacket.Response) {
-		println("$$$$ process response for request id ${response.requestId}")
+		logger.verbose(TAG, "process response for request id ${response.requestId}")
 
 		val gate = _responseProcessingGates.getOrPut(response.requestId) {
 			CompletableDeferred()
@@ -586,7 +590,7 @@ internal class BluetoothDeviceRpc(
 
 			val adapter = getMethodAdapter(method)
 
-			println("$$$$ Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+			logger.verbose(TAG, "Found pending method for response with id ${response.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
 			val outputType = adapter.getOutputType(method)
 
@@ -613,10 +617,10 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private suspend fun processErrorResponse(errorResponse: LapisRpcPacket.ErrorResponse) {
-		println("$$$$ process error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
+		logger.verbose(TAG, "process error response for request id ${errorResponse.requestId}, message: ${errorResponse.message}")
 
 		val method = _pendingClientMethodByRequestId.remove(errorResponse.requestId) ?: error("No pending method found for error response id: ${errorResponse.requestId}")
-		println("$$$$ Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+		logger.verbose(TAG, "Found pending method for error response with id ${errorResponse.requestId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
 		val adapter = getMethodAdapter(method)
 
@@ -633,13 +637,13 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private suspend fun processCancellation(cancellation: LapisRpcPacket.Cancellation) {
-		println("$$$$ process cancellation for request id ${cancellation.requestId}")
+		logger.verbose(TAG, "process cancellation for request id ${cancellation.requestId}")
 
 		val method = _pendingServerMethodByRequestId.remove(cancellation.requestId) ?: return run {
-			Log.i(TAG, "No pending method found for cancellation id: ${cancellation.requestId}")
+			logger.info(TAG, "No pending method found for cancellation id: ${cancellation.requestId}")
 		}
 
-		println("$$$$ process cancellation for request id ${cancellation.requestId}: $method")
+		logger.verbose(TAG, "process cancellation for request id ${cancellation.requestId}: $method")
 
 		val adapter = getMethodAdapter(method)
 
@@ -649,7 +653,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private suspend fun processMethodExecutionEnd(completion: LapisRpcPacket.Completion) {
-		println("$$$$ process method execution end for request id ${completion.requestId}")
+		logger.verbose(TAG, "process method execution end for request id ${completion.requestId}")
 
 		val gate = _responseProcessingGates.getOrPut(completion.requestId) {
 			CompletableDeferred()
@@ -658,7 +662,7 @@ internal class BluetoothDeviceRpc(
 		gate.await()
 
 		if (_responseProcessingGates.remove(completion.requestId) == null) {
-			println("$$$$ [Warning] The method execution end for request id ${completion.requestId} was already processed")
+			logger.verbose(TAG, "[Warning] The method execution end for request id ${completion.requestId} was already processed")
 			return
 		}
 
@@ -693,7 +697,7 @@ internal class BluetoothDeviceRpc(
 						value = it,
 					)
 				}
-				println("$$$$ sendFlowParameterCompletion for flow ${flowCollection.flowId}")
+				logger.verbose(TAG, "sendFlowParameterCompletion for flow ${flowCollection.flowId}")
 				interceptor.interceptOutgoingFlowParameterCompletion(
 					deviceAddress = deviceAddress,
 					requestId = flowCollection.requestId,
@@ -712,13 +716,13 @@ internal class BluetoothDeviceRpc(
 				// no-op
 			}
 			catch (_: CancellationException) {
-				println("$$$ Flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId} was cancelled locally")
-				println("$$$$ sendFlowParameterCancellation for flow ${flowCollection.flowId}")
+				logger.debug(TAG, "Flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId} was cancelled locally")
+				logger.verbose(TAG, "sendFlowParameterCancellation for flow ${flowCollection.flowId}")
 				interceptor.interceptOutgoingFlowParameterCancellation(
 					deviceAddress = deviceAddress,
 					requestId = flowCollection.requestId,
 					flowId = flowCollection.flowId,
-					parameterName = flowCollection.parameterName,
+					parameterName = flowCollection.parameterName
 				)
 				sendPacket(
 					LapisRpcPacket.FlowParameter.Cancellation(
@@ -732,9 +736,9 @@ internal class BluetoothDeviceRpc(
 				throw e.cause!!
 			}
 			catch (e: Throwable) {
-				println("$$$ Error collecting flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId}: ${e.message}")
+				logger.debug(TAG, "Error collecting flow for parameter '${flowCollection.parameterName}' with id ${flowCollection.flowId}: ${e.message}")
 				val message = e.message ?: "Unknown error"
-				println("$$$$ sendFlowParameterError for flow ${flowCollection.flowId}, message: $message")
+				logger.verbose(TAG, "sendFlowParameterError for flow ${flowCollection.flowId}, message: $message")
 				interceptor.interceptOutgoingFlowParameterError(
 					deviceAddress = deviceAddress,
 					requestId = flowCollection.requestId,
@@ -759,25 +763,25 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun processFlowParameterEmission(emission: LapisRpcPacket.FlowParameter.Emission) {
-		println("$$$$ process argument flow emission for flow id ${emission.flowId}")
+		logger.verbose(TAG, "process argument flow emission for flow id ${emission.flowId}")
 
 		val channel = _pendingFlowParameterChannelsById[emission.flowId] ?: error("No pending flow found for emission with id: ${emission.flowId}")
 
 		val method = _pendingServerMethodByRequestId[emission.requestId] ?: error("No pending method found for argument flow emission with id: ${emission.flowId}")
-		println("$$$$ Found pending method for argument flow emission with id ${emission.flowId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
+		logger.verbose(TAG, "Found pending method for argument flow emission with id ${emission.flowId}: ${method.name}, return type: ${method.returnType}, return type kotlin: ${method.returnType.kotlin}, generic return type: ${method.genericReturnType}")
 
 		var parameterIndex = -1
 		for (parameterAnnotations in method.parameterAnnotations) {
 			parameterIndex++
 
 			val paramAnnotation = parameterAnnotations.filterIsInstance<LapisParam>().firstOrNull { it.name == emission.parameterName }
-			println("$$$ parameter index: $parameterIndex, parameter name: ${paramAnnotation?.name}, emission parameter name: ${emission.parameterName}")
+			logger.debug(TAG, "parameter index: $parameterIndex, parameter name: ${paramAnnotation?.name}, emission parameter name: ${emission.parameterName}")
 			if (paramAnnotation != null) {
 				break
 			}
 		}
 
-		println("$$$$ parameter index for emission with id ${emission.flowId} is $parameterIndex")
+		logger.verbose(TAG, "parameter index for emission with id ${emission.flowId} is $parameterIndex")
 
 		if (parameterIndex == -1) {
 			error("No parameter found with name '${emission.parameterName}' in method '${method.name}'")
@@ -792,7 +796,7 @@ internal class BluetoothDeviceRpc(
 		val serializer = serializationStrategy.serializerForClass(flowGenericType) ?: error("No serializer found for argument flow emission for value type $flowGenericType with id: ${emission.flowId}")
 		val deserializedValue = serializer.deserialize(ByteArrayInputStream(emission.rawData))
 
-		println("$$$ processFlowParameterEmission(id: ${emission.flowId}, value: $deserializedValue)")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Received flow emission for ID ${emission.flowId}")
 
 		_scope.launch {
 			interceptor.interceptIncomingFlowParameterEmission(
@@ -808,7 +812,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun processFlowParameterCancellation(cancellation: LapisRpcPacket.FlowParameter.Cancellation) {
-		println("$$$ process argument flow cancellation for flow id ${cancellation.flowId}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Received flow cancellation for ID ${cancellation.flowId}")
 
 		_scope.launch {
 			interceptor.interceptIncomingFlowParameterCancellation(
@@ -824,7 +828,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun processFlowParameterCompletion(completion: LapisRpcPacket.FlowParameter.Completion) {
-		println("$$$ process argument flow completion for flow id ${completion.flowId}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Received flow completion for ID ${completion.flowId}")
 
 		_scope.launch {
 			interceptor.interceptIncomingFlowParameterCompletion(
@@ -841,7 +845,7 @@ internal class BluetoothDeviceRpc(
 	}
 
 	private fun processFlowParameterError(error: LapisRpcPacket.FlowParameter.Error) {
-		println("$$$ process argument flow error for flow id ${error.flowId}, message: ${error.message}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Received flow error for ID ${error.flowId}: ${error.message}")
 
 		_scope.launch {
 			interceptor.interceptIncomingFlowParameterError(
@@ -862,7 +866,7 @@ internal class BluetoothDeviceRpc(
 		parameterName: String,
 		value: Any?,
 	) {
-		println("$$$$ sendArgumentEmission for flow $flowId, value: $value")
+		logger.verbose(TAG, "sendArgumentEmission for flow $flowId, value: $value")
 
 		@Suppress("UNCHECKED_CAST")
 		val serializer = serializationStrategy.serializerForClass(if (value == null) Nothing::class else value::class) as? LapisSerializer<Any?> ?: error("No serializer registered for type: ${value?.let { it::class.qualifiedName } ?: "null"}")
@@ -926,7 +930,7 @@ internal class BluetoothDeviceRpc(
 		}
 		_isDisposed = true
 
-		println("$$$ internalDispose: ${hashCode()}")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Disposing instance (hash: ${hashCode()})...")
 		packetProcessor.dispose()
 
 		_scope.cancel()

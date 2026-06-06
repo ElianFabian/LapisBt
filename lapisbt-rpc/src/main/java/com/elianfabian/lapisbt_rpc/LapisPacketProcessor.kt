@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.util.CompressionUtil
 import com.elianfabian.lapisbt_rpc.util.padded
 import com.elianfabian.lapisbt_rpc.util.readNBytesCompat
@@ -43,7 +44,9 @@ public interface LapisPacketProcessor {
 }
 
 
-internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
+internal class DefaultLapisPacketProcessor(
+	private val logger: LapisLogger,
+) : LapisPacketProcessor {
 
 	internal companion object {
 
@@ -95,22 +98,22 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	}
 
 	override suspend fun receiveData(stream: InputStream) = withContext(Dispatchers.IO) {
-		println("$$$ Start receiving data")
+		logger.debug(TAG, "LapisPacketProcessor: Starting data reception loop...")
 		while (true) {
 			val bytes = try {
 				stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 			}
 			catch (e: IOException) {
-				println("$$$ receiveData: IOException during read: ${e.message}")
+				logger.error(TAG, "LapisPacketProcessor: Read error during data reception", e)
 				break
 			}
 
 			if (bytes.isEmpty()) {
-				println("$$$ receiveData: EOF reached")
+				logger.debug(TAG, "LapisPacketProcessor: End of stream reached during reception")
 				break
 			}
 			if (bytes.size < BLUETOOTH_PACKET_LENGTH) {
-				println("$$$ receiveData: partial packet received (${bytes.size} bytes), ignoring.")
+				logger.warning(TAG, "LapisPacketProcessor: Received incomplete packet (${bytes.size} bytes). Discarding...")
 				break
 			}
 
@@ -118,7 +121,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 
 			val id = dataStream.readInt()
 
-			println("$$$$ Received raw data with size ${bytes.size} = $id")
+			logger.verbose(TAG, "LapisPacketProcessor: Received raw fragment for ID $id (${bytes.size} bytes)")
 			val packets = _remotePacketsById.getOrPut(id) {
 				mutableListOf()
 			}
@@ -152,7 +155,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				actualPayload = encryption!!.encrypt(actualPayload)
 			}
 
-			println("$$$ original: ${payload.size}, actual: ${actualPayload.size}, encrypted: $encrypted")
+			logger.verbose(TAG, "LapisPacketProcessor: Packet payload stats - Original: ${payload.size}, Processed: ${actualPayload.size}, Encrypted: $encrypted")
 
 			val firstFragmentPayloadSize = minOf(actualPayload.size, FIRST_FRAGMENT_PAYLOAD_CAPACITY)
 			val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
@@ -181,14 +184,14 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 				val fragment = BluetoothPacket.Fragment(
 					packetId = packetId,
 					index = index,
-					payload = actualPayload.sliceArray(start until end).also { println("$$$ payload size: ${it.size}, target: $FRAGMENT_PAYLOAD_CAPACITY") },
+					payload = actualPayload.sliceArray(start until end).also { logger.verbose(TAG, "LapisPacketProcessor: Fragmentation: index $index, size ${it.size}") },
 				)
 				yield(fragment)
 			}
 		}
 
 		packets.forEach { packet ->
-			println("$$$$ Queued packet to send: $packet")
+			logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $packet")
 			_pendingPacketToSendChannel.send(packet)
 		}
 	}
@@ -241,7 +244,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 			dataStream.write(bytesToWrite)
 		}
 
-		println("$$$$ packet sent: $packet")
+		logger.verbose(TAG, "LapisPacketProcessor: Fragment transmitted successfully: $packet")
 	}
 
 	private fun deserializePacket(
@@ -290,11 +293,11 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 	private fun launchPacketProcessing() {
 		_scope.launch {
 			for (packet in _remotePacketChannel) {
-				println("$$$$ processing packet: $packet")
+				logger.verbose(TAG, "LapisPacketProcessor: Reassembling fragment: $packet")
 				ensureActive()
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
-						println("$$$$ Stored first fragment with id ${packet.packetId}, type: ${packet.type}, length: ${packet.length}, original payload size: ${packet.originalPayloadSize}")
+						logger.verbose(TAG, "LapisPacketProcessor: Received first fragment for packet ${packet.packetId} (Type: ${packet.type})")
 						if (packet.length == 0) {
 							var actualPayload = packet.payload
 
@@ -315,11 +318,11 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 							_remoteCompletePacketChannel.send(completePacket)
 							_remotePacketsById.remove(packet.packetId)
 
-							println("$$$$ Assembled complete packet with id ${completePacket.packetId}, type: ${completePacket.type}, payload size: ${decompressedPayload.size}")
+							logger.debug(TAG, "LapisPacketProcessor: Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)")
 						}
 					}
 					is BluetoothPacket.Fragment -> {
-						println("$$$$ Stored fragment with id ${packet.packetId}, index: ${packet.index}, payload size: ${packet.payload.size}")
+						logger.verbose(TAG, "LapisPacketProcessor: Received fragment ${packet.index} for packet ${packet.packetId}")
 						val packets = _remotePacketsById[packet.packetId]!!
 
 						val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: throw IllegalStateException("There should be a FirstFragment packet when processing a Fragment packet")
@@ -351,7 +354,7 @@ internal class DefaultLapisPacketProcessor : LapisPacketProcessor {
 							_remoteCompletePacketChannel.send(completePacket)
 							_remotePacketsById.remove(packet.packetId)
 
-							println("$$$$ Assembled complete packet with id ${completePacket.packetId}, type: ${completePacket.type}, payload size: ${decompressedPayload.size}")
+							logger.debug(TAG, "LapisPacketProcessor: Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)")
 						}
 					}
 				}

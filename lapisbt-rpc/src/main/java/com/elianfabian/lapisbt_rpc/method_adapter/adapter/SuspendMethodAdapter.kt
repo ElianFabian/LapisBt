@@ -1,7 +1,7 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
-import android.util.Log
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo
@@ -33,6 +33,7 @@ import kotlin.reflect.KClass
 internal class SuspendMethodAdapter(
 	private val deviceAddress: BluetoothDevice.Address,
 	private val bluetoothDeviceRpc: BluetoothDeviceRpc,
+	private val logger: LapisLogger,
 ) : LapisMethodAdapter {
 
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -91,7 +92,7 @@ internal class SuspendMethodAdapter(
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
 
 					cancellableContinuation.invokeOnCancellation { cause ->
-						println("$$$ invokeOnCompletion($requestId): $cause")
+						logger.debug(TAG, "SuspendMethodAdapter: Request $requestId cancelled. Cause: $cause")
 						_pendingContinuationsByRequestId.remove(requestId)
 
 						if (cause is CancellationException) {
@@ -100,7 +101,7 @@ internal class SuspendMethodAdapter(
 									bluetoothDeviceRpc.cancel(requestId = requestId)
 								}
 								catch (e: Exception) {
-									Log.e(TAG, "Failed to send cancellation for $requestId", e)
+									logger.error(TAG, "SuspendMethodAdapter: Failed to send cancellation for $requestId", e)
 								}
 							}
 						}
@@ -123,7 +124,7 @@ internal class SuspendMethodAdapter(
 		val job = _scope.launch(LapisRequestInfoContext(getLapisRequestInfo())) {
 			val result = server.invokeSuspendMethod()
 
-			println("$$$ onReceiveRequest: request = $request, result = $result")
+			logger.debug(TAG, "SuspendMethodAdapter: Received request ${request.requestId} ($request). Result: $result")
 
 			bluetoothDeviceRpc.sendResult(
 				requestId = request.requestId,
@@ -155,18 +156,18 @@ internal class SuspendMethodAdapter(
 	}
 
 	override fun onEnd(requestId: Int) {
-		println("$$$ onEnd: $requestId")
+		logger.debug(TAG, "SuspendMethodAdapter: Request $requestId finished")
 		_pendingContinuationsByRequestId.remove(requestId)
 	}
 
 	override fun onCancel(requestId: Int) {
-		println("$$$ onCancel: $requestId")
+		logger.debug(TAG, "SuspendMethodAdapter: Request $requestId was cancelled")
 		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
 	override fun onResult(requestId: Int, result: Any?) {
-		println("$$$ onResult($requestId) = $result | ${_pendingContinuationsByRequestId[requestId]}")
+		logger.debug(TAG, "SuspendMethodAdapter: Received result for request $requestId: $result")
 		_pendingContinuationsByRequestId[requestId]?.resume(result)
 	}
 

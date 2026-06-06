@@ -2,6 +2,8 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.LapisLogConfig
+import com.elianfabian.lapisbt.util.LapisLogger
 import kotlin.reflect.KClass
 
 /**
@@ -66,6 +68,8 @@ public interface LapisBtRpc {
 	 */
 	public fun setEncryption(deviceAddress: BluetoothDevice.Address, encryption: LapisEncryption?)
 
+	public val logConfig: LapisLogConfig
+
 	/**
 	 * Releases all resources held by this instance.
 	 *
@@ -88,13 +92,15 @@ public interface LapisBtRpc {
 			interceptor: LapisInterceptor? = null,
 			metadataProvider: LapisMetadataProvider<Any?>? = null,
 			createLapisPacketProcessor: ((deviceAddress: BluetoothDevice.Address) -> LapisPacketProcessor)? = null,
+			logger: LapisLogger = LapisLogger.android(),
 		): LapisBtRpc {
 			return LapisBtRpcImpl(
 				lapisBt = lapisBt,
 				serializationStrategy = serializationStrategy?.withDefaultFallback() ?: DefaultSerializationStrategy,
 				interceptor = interceptor ?: NoOpLapisInterceptor,
 				metadataProvider = metadataProvider ?: NoOpLapisMetadataProvider,
-				createPacketProcessor = createLapisPacketProcessor ?: { DefaultLapisPacketProcessor() },
+				createPacketProcessor = createLapisPacketProcessor ?: { DefaultLapisPacketProcessor(logger) },
+				logger = logger,
 			)
 		}
 	}

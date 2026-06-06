@@ -28,7 +28,7 @@ public interface LapisLogger : LapisLogConfig {
 		 */
 		public fun android(
 			enabled: Boolean = true,
-			minLevel: Level = Level.Debug,
+			minLevel: Level = Level.Info,
 		): LapisLogger = AndroidLogger(enabled, minLevel)
 
 		/**

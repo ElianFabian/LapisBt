@@ -2,6 +2,8 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.util.LapisLogConfig
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
 import java.lang.reflect.InvocationHandler
@@ -16,7 +18,10 @@ internal class LapisBtRpcImpl(
 	private val interceptor: LapisInterceptor,
 	private val metadataProvider: LapisMetadataProvider<Any?>,
 	private val createPacketProcessor: (deviceAddress: BluetoothDevice.Address) -> LapisPacketProcessor,
+	private val logger: LapisLogger,
 ) : LapisBtRpc {
+
+	override val logConfig: LapisLogConfig get() = logger
 
 	private val _bluetoothClientServicesByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
 	private val _bluetoothServerServiceByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
@@ -56,6 +61,7 @@ internal class LapisBtRpcImpl(
 				interceptor = interceptor,
 				metadataProvider = metadataProvider,
 				packetProcessor = packetProcessor,
+				logger = logger,
 			)
 		}
 
@@ -147,6 +153,7 @@ internal class LapisBtRpcImpl(
 				interceptor = interceptor,
 				metadataProvider = metadataProvider,
 				packetProcessor = packetProcessor,
+				logger = logger,
 			)
 		}
 	}
