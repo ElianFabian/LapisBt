@@ -10,14 +10,17 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -56,8 +59,7 @@ class LapisBtRpcRegularTest {
 		Dispatchers.resetMain()
 	}
 
-	private suspend fun setupConnection(
-		scope: CoroutineScope,
+	private suspend fun TestScope.setupConnection(
 		phoneMetadataProvider: LapisMetadataProvider<Any?>? = null,
 		peripheralMetadataProvider: LapisMetadataProvider<Any?>? = null,
 	) {
@@ -66,7 +68,7 @@ class LapisBtRpcRegularTest {
 
 		peripheralRpc.registerBluetoothServerService<RegularService>(phone.address, serviceImpl)
 
-		scope.launch {
+		backgroundScope.launch {
 			peripheral.lapisBt.startBluetoothServerWithoutPairing("RegularService", serviceUuid)
 		}
 
@@ -76,7 +78,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `suspend fun noParamNoReturn works`() = runTest(timeout = 10.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		client.noParamNoReturn()
@@ -85,7 +87,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `suspend fun noParamWithReturn works`() = runTest(timeout = 10.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		val result = client.noParamWithReturn()
@@ -94,7 +96,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `suspend fun withParams works`() = runTest(timeout = 10.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		val result = client.withParams(10, "abc")
@@ -103,7 +105,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `suspend fun withFlowParam works`() = runTest(timeout = 15.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		val flow = flowOf(1, 2, 3, 4, 5)
@@ -113,7 +115,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `suspend fun withMixedParams works`() = runTest(timeout = 15.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		val flow = flowOf(10, 20)
@@ -123,7 +125,7 @@ class LapisBtRpcRegularTest {
 
 	@Test
 	fun `fun streamReturn works`() = runTest(timeout = 10.seconds) {
-		setupConnection(backgroundScope)
+		this.setupConnection()
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
 		val result = client.streamReturn(5).toList()
@@ -133,8 +135,7 @@ class LapisBtRpcRegularTest {
 	@Test
 	fun `request metadata works`() = runTest(timeout = 10.seconds) {
 		val testMetadata = "SecretToken-123"
-		setupConnection(
-			scope = backgroundScope,
+		this.setupConnection(
 			phoneMetadataProvider = StringMetadataProvider(testMetadata) as LapisMetadataProvider<Any?>,
 			peripheralMetadataProvider = StringMetadataProvider("") as LapisMetadataProvider<Any?>
 		)
@@ -142,6 +143,35 @@ class LapisBtRpcRegularTest {
 
 		val receivedMetadata = client.checkMetadata()
 		assertThat(receivedMetadata).isEqualTo(testMetadata)
+	}
+
+	@Test
+	fun `concurrent requests work`() = runTest(timeout = 10.seconds) {
+		this.setupConnection()
+		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+		val results = (1..5).map { i ->
+			async {
+				client.delayedEcho("Msg$i", 500)
+			}
+		}.awaitAll()
+
+		assertThat(results).containsExactly("Msg1", "Msg2", "Msg3", "Msg4", "Msg5").inOrder()
+	}
+
+	@Test
+	fun `concurrent flows work`() = runTest(timeout = 10.seconds) {
+		this.setupConnection()
+		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+		val results = (1..3).map { i ->
+			async {
+				val flow = flowOf(i, i + 1)
+				client.withFlowParam(flow)
+			}
+		}.awaitAll()
+
+		assertThat(results).containsExactly(1 + 2, 2 + 3, 3 + 4)
 	}
 }
 
@@ -185,6 +215,14 @@ interface RegularService {
 
 	@LapisMethod("checkMetadata")
 	suspend fun checkMetadata(): String?
+
+	@LapisMethod("delayedEcho")
+	suspend fun delayedEcho(
+		@LapisParam("message")
+		message: String,
+		@LapisParam("delayMs")
+		delayMs: Long,
+	): String
 }
 
 class RegularServiceImpl : RegularService {
@@ -213,6 +251,11 @@ class RegularServiceImpl : RegularService {
 	override suspend fun checkMetadata(): String? {
 		val info = getLapisRequestInfo()
 		return info.request.metadata as? String
+	}
+
+	override suspend fun delayedEcho(message: String, delayMs: Long): String {
+		delay(delayMs)
+		return message
 	}
 }
 
