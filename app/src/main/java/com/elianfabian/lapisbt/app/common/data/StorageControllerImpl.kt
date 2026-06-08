@@ -1,7 +1,6 @@
 package com.elianfabian.lapisbt.app.common.data
 
 import android.content.Context
-import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.elianfabian.lapisbt.app.common.domain.StorageController
 

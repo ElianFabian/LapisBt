@@ -9,8 +9,6 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.LapisEncryptionException
 import com.elianfabian.lapisbt_rpc.exception.LapisHandshakeException
 import com.google.common.truth.Truth.assertThat
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertThrows
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow

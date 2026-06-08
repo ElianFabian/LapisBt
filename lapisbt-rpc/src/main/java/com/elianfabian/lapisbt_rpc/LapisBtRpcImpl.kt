@@ -6,7 +6,6 @@ import com.elianfabian.lapisbt.util.LapisLogConfig
 import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
-import com.elianfabian.lapisbt_rpc.util.isSuspend
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy

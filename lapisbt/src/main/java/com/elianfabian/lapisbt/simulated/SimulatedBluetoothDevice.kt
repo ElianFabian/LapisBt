@@ -5,9 +5,6 @@ import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

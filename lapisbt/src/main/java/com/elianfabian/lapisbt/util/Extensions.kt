@@ -2,7 +2,6 @@ package com.elianfabian.lapisbt.util
 
 import android.content.Intent
 import android.os.Bundle
-import kotlin.collections.contentToString
 
 @Suppress("DEPRECATION")
 internal fun Bundle.contentToString(): String {

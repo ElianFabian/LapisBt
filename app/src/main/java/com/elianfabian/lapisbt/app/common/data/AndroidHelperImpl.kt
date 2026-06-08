@@ -1,6 +1,5 @@
 package com.elianfabian.lapisbt.app.common.data
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
@@ -26,14 +25,13 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.getSystemService
-import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
+import com.elianfabian.lapisbt.app.common.domain.AndroidHelper
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,7 +40,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.UUID
 import kotlin.coroutines.resume

@@ -1,8 +1,8 @@
 package com.elianfabian.lapisbt.simulated
 
+import android.content.Context
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.impl.AndroidHelperImpl
-import android.content.Context
 
 internal class SimulatedAndroidHelper(
 	private val config: SimulatedBluetoothConfiguration,

@@ -1,7 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.model.BluetoothDevice
-import java.util.UUID
 
 public interface LapisMetadataProvider<out T> {
 

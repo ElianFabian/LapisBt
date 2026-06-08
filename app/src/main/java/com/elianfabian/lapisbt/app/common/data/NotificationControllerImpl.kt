@@ -16,11 +16,11 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
-import com.elianfabian.lapisbt.app.common.data.service.BluetoothService
-import com.elianfabian.lapisbt.app.common.domain.NotificationController
 import com.elianfabian.lapisbt.app.BuildConfig
 import com.elianfabian.lapisbt.app.MainActivity
 import com.elianfabian.lapisbt.app.R
+import com.elianfabian.lapisbt.app.common.data.service.BluetoothService
+import com.elianfabian.lapisbt.app.common.domain.NotificationController
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.OnCreateApplicationCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow

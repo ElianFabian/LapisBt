@@ -10,8 +10,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import com.elianfabian.lapisbt.app.common.util.asInstanceOf
 import com.elianfabian.lapisbt.app.InnerPaddingProvider
+import com.elianfabian.lapisbt.app.common.util.asInstanceOf
 import com.elianfabian.lapisbt.app.ui.theme.LapisBtTheme
 import com.zhuinden.simplestackcomposeintegration.core.BackstackProvider
 import com.zhuinden.simplestackextensions.fragments.KeyedFragment
