@@ -42,7 +42,8 @@ fun DeviceSelector(
 	Column(modifier = modifier) {
 		if (connectedDevices.isEmpty()) {
 			Text(text = "No connected devices", modifier = Modifier.padding(8.dp))
-		} else {
+		}
+		else {
 			Card(
 				onClick = { isExpanded = true },
 			) {
@@ -145,7 +146,7 @@ private fun DeviceSelectorPreview() = BasePreview {
 			deviceSelection = DeviceSelection.None,
 			onSelectDevice = {}
 		)
-		
+
 		Text("Device Selected:")
 		DeviceSelector(
 			connectedDevices = devices,

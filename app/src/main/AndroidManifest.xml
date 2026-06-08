@@ -5,8 +5,12 @@
 
     <!--Features-->
     <uses-feature android:name="android.hardware.bluetooth" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
 
 
     <!--Permissions-->
@@ -32,18 +36,18 @@
 
 
     <!--Unused permissions from other libraries-->
-        <uses-permission
-            android:name="android.permission.READ_EXTERNAL_STORAGE"
-            android:maxSdkVersion="32"
-            tools:node="remove" />
-        <uses-permission
-            android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-            android:maxSdkVersion="32"
-            tools:ignore="ScopedStorage"
-            tools:node="remove" />
-        <uses-permission
-            android:name="android.permission.READ_PHONE_STATE"
-            tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"
+        tools:ignore="ScopedStorage"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_PHONE_STATE"
+        tools:node="remove" />
 
     <application
         android:name=".BluetoothApplication"

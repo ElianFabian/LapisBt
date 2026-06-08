@@ -11,31 +11,32 @@ import java.nio.channels.Pipe
  */
 public class BidirectionalStreamPipe() {
 
-    private val pipeA = Pipe.open()
-    private val pipeB = Pipe.open()
+	private val pipeA = Pipe.open()
+	private val pipeB = Pipe.open()
 
-    private val outA = Channels.newOutputStream(pipeA.sink())
-    private val inB = Channels.newInputStream(pipeA.source())
+	private val outA = Channels.newOutputStream(pipeA.sink())
+	private val inB = Channels.newInputStream(pipeA.source())
 
-    private val outB = Channels.newOutputStream(pipeB.sink())
-    private val inA = Channels.newInputStream(pipeB.source())
+	private val outB = Channels.newOutputStream(pipeB.sink())
+	private val inA = Channels.newInputStream(pipeB.source())
 
-    public val sideA: ConnectionSide = ConnectionSide(inA, outA)
-    public val sideB: ConnectionSide = ConnectionSide(inB, outB)
+	public val sideA: ConnectionSide = ConnectionSide(inA, outA)
+	public val sideB: ConnectionSide = ConnectionSide(inB, outB)
 
-    public data class ConnectionSide(
+	public data class ConnectionSide(
         public val inputStream: InputStream,
-        public val outputStream: OutputStream
+        public val outputStream: OutputStream,
     )
 
-    public fun close() {
-        try {
-            outA.close()
-            inB.close()
-            outB.close()
-            inA.close()
-        } catch (e: Exception) {
-            // Ignore close errors
-        }
-    }
+	public fun close() {
+		try {
+			outA.close()
+			inB.close()
+			outB.close()
+			inA.close()
+		}
+		catch (e: Exception) {
+			// Ignore close errors
+		}
+	}
 }

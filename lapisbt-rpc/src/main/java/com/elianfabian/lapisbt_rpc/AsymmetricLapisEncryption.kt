@@ -13,7 +13,7 @@ import javax.crypto.Cipher
  */
 internal class AsymmetricLapisEncryption(
 	private val keyPair: KeyPair,
-	private val remotePublicKey: PublicKey
+	private val remotePublicKey: PublicKey,
 ) : LapisEncryption {
 
 	companion object {

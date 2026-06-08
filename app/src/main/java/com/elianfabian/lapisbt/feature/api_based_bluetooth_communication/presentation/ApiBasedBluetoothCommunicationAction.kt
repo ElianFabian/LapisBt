@@ -32,15 +32,15 @@ sealed interface ApiBasedBluetoothCommunicationAction {
 	data object StartRemoteVibration : ApiBasedBluetoothCommunicationAction
 	data object StopRemoteVibration : ApiBasedBluetoothCommunicationAction
 	data class ToggleFlashlight(val enabled: Boolean) : ApiBasedBluetoothCommunicationAction
-	
+
 	data object StartLightSensor : ApiBasedBluetoothCommunicationAction
 	data object StopLightSensor : ApiBasedBluetoothCommunicationAction
-	
+
 	data class StartRandomNumbers(val intervalMillis: Long) : ApiBasedBluetoothCommunicationAction
 	data object StopRandomNumbers : ApiBasedBluetoothCommunicationAction
-	
+
 	data object StartProcessDataStream : ApiBasedBluetoothCommunicationAction
 	data object StopProcessDataStream : ApiBasedBluetoothCommunicationAction
-	
+
 	data object ClickClearLogs : ApiBasedBluetoothCommunicationAction
 }

@@ -98,7 +98,7 @@ fun EnableBluetoothPlaceholder(
 			verticalArrangement = Arrangement.Center
 		) {
 			val hapticFeedback = LocalHapticFeedback.current
-			
+
 			Box(contentAlignment = Alignment.Center) {
 				// Animated ripple waves
 				Box(

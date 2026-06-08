@@ -88,7 +88,8 @@ fun ApiBasedBluetoothCommunicationScreen(
 				fontWeight = FontWeight.Bold,
 			)
 		}
-	} else {
+	}
+	else {
 		Column(
 			modifier = Modifier
 				.fillMaxSize()
@@ -103,7 +104,8 @@ fun ApiBasedBluetoothCommunicationScreen(
 					EnableBluetoothPlaceholder(
 						onEnableClick = { onAction(ApiBasedBluetoothCommunicationAction.EnableBluetooth) }
 					)
-				} else {
+				}
+				else {
 					BluetoothDeviceList(
 						state = state,
 						onAction = onAction,
@@ -189,7 +191,8 @@ private fun BluetoothDeviceList(
 								)
 							}
 						}
-					} else {
+					}
+					else {
 						Row(
 							verticalAlignment = Alignment.CenterVertically,
 						) {
@@ -332,7 +335,8 @@ private fun BluetoothDeviceList(
 		item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
 		if (state.pairedDevices.isEmpty()) {
 			item { Text("No paired devices", color = Color.Gray) }
-		} else {
+		}
+		else {
 			items(state.pairedDevices) { device ->
 				BluetoothDeviceItem(
 					name = device.name,
@@ -352,7 +356,8 @@ private fun BluetoothDeviceList(
 		item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
 		if (state.scannedDevices.isEmpty()) {
 			item { Text("No scanned devices", color = Color.Gray) }
-		} else {
+		}
+		else {
 			items(state.scannedDevices) { scannedDevice ->
 				BluetoothDeviceItem(
 					name = scannedDevice.device.name,
@@ -417,7 +422,8 @@ private fun FlowControl(label: String, isActive: Boolean, value: String?, onStar
 			Button(onClick = onStop, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
 				Text("Stop")
 			}
-		} else {
+		}
+		else {
 			Button(onClick = onStart) {
 				Text("Start")
 			}
@@ -455,16 +461,16 @@ fun RpcLogs(logs: List<String>, onClear: () -> Unit) {
 				Text("CLEAR", fontSize = 10.sp, fontWeight = FontWeight.Bold)
 			}
 		}
-		
+
 		Spacer(Modifier.height(8.dp))
-		
+
 		val logState = rememberLazyListState()
 		LaunchedEffect(logs.size) {
 			if (logs.isNotEmpty()) {
 				logState.animateScrollToItem(logs.size - 1)
 			}
 		}
-		
+
 		LazyColumn(
 			state = logState,
 			modifier = Modifier
@@ -481,7 +487,7 @@ fun RpcLogs(logs: List<String>, onClear: () -> Unit) {
 					log.startsWith("Stopped", ignoreCase = true) -> Color(0xFFFFB74D) // Orange
 					else -> Color(0xFFE0E0E0) // Off-white
 				}
-				
+
 				Text(
 					text = "> $log",
 					color = textColor,

@@ -9,7 +9,7 @@ internal class SimulatedAndroidHelper(
 	context: Context?,
 ) : AndroidHelper {
 
-    private val realHelper: AndroidHelper? = context?.let { AndroidHelperImpl(it) }
+	private val realHelper: AndroidHelper? = context?.let { AndroidHelperImpl(it) }
 
 	override fun isBluetoothClassicSupported(): Boolean {
 		return realHelper?.isBluetoothClassicSupported() ?: config.isBluetoothSupported

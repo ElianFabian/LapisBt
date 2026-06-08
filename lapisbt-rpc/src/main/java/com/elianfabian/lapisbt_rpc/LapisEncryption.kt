@@ -65,7 +65,7 @@ public interface LapisEncryption {
 }
 
 internal class AutomaticEncryptionMarker(
-	val factory: ((sharedSecret: ByteArray) -> LapisEncryption)? = null
+	val factory: ((sharedSecret: ByteArray) -> LapisEncryption)? = null,
 ) : LapisEncryption {
 	override fun encrypt(data: ByteArray, associatedData: ByteArray?): ByteArray = error("Marker only")
 	override fun decrypt(data: ByteArray, associatedData: ByteArray?): ByteArray = error("Marker only")

@@ -33,6 +33,6 @@ internal class AndroidHelperImpl(
 	override fun isLocationEnabled(): Boolean {
 		val locationManager = context.getSystemService<LocationManager>() ?: return false
 		return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-				locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+			locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 	}
 }

@@ -153,9 +153,9 @@ private fun BluetoothControlPanelPreview() = BasePreview {
 			onToggleServer = {},
 			onCheckSecureConnection = {}
 		)
-		
+
 		HorizontalDivider()
-		
+
 		Text("Interactive (Test toggles):")
 		BluetoothControlPanel(
 			isScanning = isScanning,

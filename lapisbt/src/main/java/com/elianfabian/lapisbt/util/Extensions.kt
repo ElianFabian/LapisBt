@@ -8,15 +8,15 @@ internal fun Bundle.contentToString(): String {
 	return "Bundle(${
 		keySet().joinToString { key ->
 			when (val value = get(key)) {
-				is Bundle       -> "$key=${value.contentToString()}"
-				is Array<*>     -> "$key=${value.contentToString()}"
-				is IntArray     -> "$key=${value.contentToString()}"
-				is LongArray    -> "$key=${value.contentToString()}"
-				is FloatArray   -> "$key=${value.contentToString()}"
-				is DoubleArray  -> "$key=${value.contentToString()}"
+				is Bundle -> "$key=${value.contentToString()}"
+				is Array<*> -> "$key=${value.contentToString()}"
+				is IntArray -> "$key=${value.contentToString()}"
+				is LongArray -> "$key=${value.contentToString()}"
+				is FloatArray -> "$key=${value.contentToString()}"
+				is DoubleArray -> "$key=${value.contentToString()}"
 				is BooleanArray -> "$key=${value.contentToString()}"
-				is CharArray    -> "$key=${value.contentToString()}"
-				else            -> "$key=$value"
+				is CharArray -> "$key=${value.contentToString()}"
+				else -> "$key=$value"
 			}
 		}
 	})"

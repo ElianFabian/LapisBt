@@ -10,29 +10,29 @@ import com.google.gson.Gson
 
 class RpcTestingBroadcastReceiver : BroadcastReceiver() {
 
-    private val gson = Gson()
+	private val gson = Gson()
 
-    override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action ?: return
-        Log.i(TAG, "onReceive: $action")
+	override fun onReceive(context: Context, intent: Intent) {
+		val action = intent.action ?: return
+		Log.i(TAG, "onReceive: $action")
 
-        val rpcTestingApp = context.applicationContext as RpcTestingApplication
-        val lapisBt = rpcTestingApp.lapisBt
+		val rpcTestingApp = context.applicationContext as RpcTestingApplication
+		val lapisBt = rpcTestingApp.lapisBt
 
-        val resultValue: String = when (action) {
-            "get-connected-devices" -> {
-                gson.toJson(lapisBt.connectedDevices.value.map { it.address.value })
-            }
-            "get-last-rpc-result" -> {
-                MainRpcTestingActivity.lastRpcResult.value ?: "null"
-            }
-            else -> "Unsupported action: $action"
-        }
+		val resultValue: String = when (action) {
+			"get-connected-devices" -> {
+				gson.toJson(lapisBt.connectedDevices.value.map { it.address.value })
+			}
+			"get-last-rpc-result" -> {
+				MainRpcTestingActivity.lastRpcResult.value ?: "null"
+			}
+			else -> "Unsupported action: $action"
+		}
 
-        setResult(Activity.RESULT_OK, resultValue, Bundle.EMPTY)
-    }
+		setResult(Activity.RESULT_OK, resultValue, Bundle.EMPTY)
+	}
 
-    companion object {
-        const val TAG = "RpcTestingBroadcastReceiver"
-    }
+	companion object {
+		const val TAG = "RpcTestingBroadcastReceiver"
+	}
 }

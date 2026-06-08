@@ -72,7 +72,6 @@ class GlobalServiceProvider(
 		)
 
 
-
 		val applicationOrchestrator = ApplicationOrchestrator(
 			context = applicationContext,
 			androidHelper = androidHelper,

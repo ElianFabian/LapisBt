@@ -53,7 +53,8 @@ internal object LapisPacketSerializer {
 				}
 			}
 			is LapisRpcPacket.Cancellation,
-			is LapisRpcPacket.Completion -> Unit
+			is LapisRpcPacket.Completion,
+				-> Unit
 		}
 	}
 

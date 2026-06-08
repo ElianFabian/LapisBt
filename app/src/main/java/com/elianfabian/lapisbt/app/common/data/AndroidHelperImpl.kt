@@ -89,7 +89,8 @@ class AndroidHelperImpl(
 			Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
 				putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 			}
-		} else {
+		}
+		else {
 			Intent("android.settings.APP_NOTIFICATION_SETTINGS").apply {
 				putExtra("app_package", context.packageName)
 				putExtra("app_uid", context.applicationInfo.uid)
@@ -97,7 +98,8 @@ class AndroidHelperImpl(
 		}
 		try {
 			activity.startActivity(intent)
-		} catch (e: Exception) {
+		}
+		catch (e: Exception) {
 			e.printStackTrace()
 		}
 	}
@@ -108,7 +110,8 @@ class AndroidHelperImpl(
 		}
 		try {
 			activity.startActivity(intent)
-		} catch (e: Exception) {
+		}
+		catch (e: Exception) {
 			e.printStackTrace()
 		}
 	}
@@ -117,7 +120,8 @@ class AndroidHelperImpl(
 		val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
 		try {
 			activity.startActivity(intent)
-		} catch (e: Exception) {
+		}
+		catch (e: Exception) {
 			e.printStackTrace()
 		}
 	}
@@ -126,7 +130,8 @@ class AndroidHelperImpl(
 		val intent = Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)
 		try {
 			activity.startActivity(intent)
-		} catch (e: Exception) {
+		}
+		catch (e: Exception) {
 			e.printStackTrace()
 		}
 	}
@@ -168,7 +173,7 @@ class AndroidHelperImpl(
 			callback = {
 				val locationManager = context.getSystemService<LocationManager>()
 				val isLocationEnabled = locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
-						locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+					locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
 				continuation.resume(isLocationEnabled)
 			},
 		)
@@ -250,7 +255,8 @@ class AndroidHelperImpl(
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			// Continuous vibration (pattern: 0ms wait, 1000ms vibrate, repeat from index 0)
 			vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 1000), 0))
-		} else {
+		}
+		else {
 			@Suppress("DEPRECATION")
 			vibrator.vibrate(longArrayOf(0, 1000), 0)
 		}
@@ -266,7 +272,8 @@ class AndroidHelperImpl(
 		try {
 			val cameraId = cameraManager.cameraIdList.firstOrNull() ?: return
 			cameraManager.setTorchMode(cameraId, enabled)
-		} catch (e: Exception) {
+		}
+		catch (e: Exception) {
 			e.printStackTrace()
 		}
 	}

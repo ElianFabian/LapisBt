@@ -87,7 +87,8 @@ fun ManualBluetoothCommunicationScreen(
 				fontWeight = FontWeight.Bold,
 			)
 		}
-	} else {
+	}
+	else {
 		Column(
 			modifier = Modifier
 				.fillMaxSize()
@@ -102,7 +103,8 @@ fun ManualBluetoothCommunicationScreen(
 					EnableBluetoothPlaceholder(
 						onEnableClick = { onAction(ManualBluetoothCommunicationAction.EnableBluetooth) }
 					)
-				} else {
+				}
+				else {
 					BluetoothDeviceList(
 						state = state,
 						onAction = onAction,
@@ -214,7 +216,8 @@ private fun BluetoothDeviceList(
 								Icon(Icons.Filled.CheckCircle, contentDescription = null)
 							}
 						}
-					} else {
+					}
+					else {
 						Row(
 							verticalAlignment = Alignment.CenterVertically,
 						) {
@@ -264,7 +267,8 @@ private fun BluetoothDeviceList(
 		item { Text("Paired Devices", fontWeight = FontWeight.SemiBold) }
 		if (state.pairedDevices.isEmpty()) {
 			item { Text("No paired devices", color = Color.Gray) }
-		} else {
+		}
+		else {
 			items(state.pairedDevices) { device ->
 				BluetoothDeviceItem(
 					name = device.name,
@@ -284,7 +288,8 @@ private fun BluetoothDeviceList(
 		item { Text("Scanned Devices", fontWeight = FontWeight.SemiBold) }
 		if (state.scannedDevices.isEmpty()) {
 			item { Text("No scanned devices", color = Color.Gray) }
-		} else {
+		}
+		else {
 			items(state.scannedDevices) { scannedDevice ->
 				BluetoothDeviceItem(
 					name = scannedDevice.device.name,
@@ -311,7 +316,8 @@ private fun BluetoothDeviceList(
 		}
 		if (state.messages.isEmpty()) {
 			item { Text("No messages", color = Color.Gray) }
-		} else {
+		}
+		else {
 			items(state.messages) { message ->
 				Message(
 					senderName = message.senderName,
@@ -373,7 +379,8 @@ private fun Message(
 					drawStopIndicator = {},
 					modifier = Modifier.fillMaxWidth()
 				)
-			} else {
+			}
+			else {
 				Text(
 					text = content,
 					style = MaterialTheme.typography.bodyMedium,

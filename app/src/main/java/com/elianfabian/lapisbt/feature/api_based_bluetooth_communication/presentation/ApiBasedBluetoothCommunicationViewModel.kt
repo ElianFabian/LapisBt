@@ -136,21 +136,23 @@ class ApiBasedBluetoothCommunicationViewModel(
 		lapisBt.scannedDevices,
 		lapisBt.connectedDevices,
 		_rpcTestState,
-	).map { (
-		pairedDevices,
-		isScanning,
-		bluetoothState,
-		permissionDialog,
-		bluetoothDeviceName,
-		isWaitingForConnection,
-		enteredBluetoothDeviceName,
-		useSecureConnection,
-		selectedDevice,
-		currentDeviceAddress,
-		scannedDevices,
-		connectedDevices,
-		rpcTestState,
-	) ->
+	).map {
+			(
+				pairedDevices,
+				isScanning,
+				bluetoothState,
+				permissionDialog,
+				bluetoothDeviceName,
+				isWaitingForConnection,
+				enteredBluetoothDeviceName,
+				useSecureConnection,
+				selectedDevice,
+				currentDeviceAddress,
+				scannedDevices,
+				connectedDevices,
+				rpcTestState,
+			),
+		->
 		ApiBasedBluetoothCommunicationState(
 			pairedDevices = pairedDevices,
 			isScanning = isScanning,
@@ -466,12 +468,14 @@ class ApiBasedBluetoothCommunicationViewModel(
 			_scope.launch {
 				try {
 					block(apiClient)
-				} catch (e: Exception) {
+				}
+				catch (e: Exception) {
 					addLog("Error: ${e.message}")
 					e.printStackTrace()
 				}
 			}
-		} else {
+		}
+		else {
 			androidHelper.showToast("Please, select a connected device.")
 		}
 	}
@@ -500,14 +504,16 @@ class ApiBasedBluetoothCommunicationViewModel(
 				catch (e: Exception) {
 					addLog("Flow Error ($key): ${e.message}")
 					e.printStackTrace()
-				} finally {
+				}
+				finally {
 					_rpcTestState.update { it.copy(activeFlows = it.activeFlows - key) }
 					_activeFlowJobs.remove(key)
 					addLog("Stopped flow: $key")
 				}
 			}
 			_activeFlowJobs[key] = job
-		} else {
+		}
+		else {
 			androidHelper.showToast("Please, select a connected device.")
 		}
 	}

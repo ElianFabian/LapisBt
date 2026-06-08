@@ -61,7 +61,7 @@ internal sealed interface LapisRpcPacket {
 
 	data class Handshake(
 		override val requestId: Int,
-		val publicKey: ByteArray
+		val publicKey: ByteArray,
 	) : LapisRpcPacket {
 		override fun equals(other: Any?): Boolean {
 			if (this === other) return true
