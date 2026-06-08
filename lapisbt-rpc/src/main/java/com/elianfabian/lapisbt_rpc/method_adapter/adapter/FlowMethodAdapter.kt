@@ -203,6 +203,18 @@ internal class FlowMethodAdapter(
 		_activeServerJobs.clear()
 	}
 
+	override suspend fun onAllRequestsFailed(throwable: Throwable) {
+		_pendingChannelsByRequestId.forEach { (_, channel) ->
+			channel.close(throwable)
+		}
+		_pendingChannelsByRequestId.clear()
+
+		_activeServerJobs.forEach { (_, job) ->
+			job.cancel(CancellationException("Internal error", throwable))
+		}
+		_activeServerJobs.clear()
+	}
+
 
 	private fun generateId() = _nextId.getAndIncrement()
 

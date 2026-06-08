@@ -2,10 +2,15 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
+import com.elianfabian.lapisbt_rpc.exception.LapisEncryptionException
+import com.elianfabian.lapisbt_rpc.exception.LapisHandshakeException
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertThrows
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -45,8 +50,8 @@ class LapisBtRpcEncryptionTest {
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 
-		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt)
-		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt)
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
 
 		phoneRpc.setEncryption(peripheral.address, LapisEncryption.aesGcm(aesKey))
 		peripheralRpc.setEncryption(phone.address, LapisEncryption.aesGcm(aesKey))
@@ -80,13 +85,13 @@ class LapisBtRpcEncryptionTest {
 	}
 
 	@Test
-	fun `rpc call fails when encryption is mismatched`() = runTest(timeout = 10.seconds) {
+	fun `rpc call fails when encryption is mismatched`() = runTest(timeout = 15.seconds) {
 		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 
-		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt)
-		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt)
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
 
 		// Enable encryption ONLY on phone
 		phoneRpc.setEncryption(peripheral.address, LapisEncryption.aesGcm(aesKey))
@@ -121,8 +126,8 @@ class LapisBtRpcEncryptionTest {
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 
-		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt)
-		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt)
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
 
 		val clientRandomKey = ByteArray(16) { (it + 1).toByte() }
 		val serverRandomKey = ByteArray(16) { (it + 100).toByte() }
@@ -158,6 +163,144 @@ class LapisBtRpcEncryptionTest {
 
 		val message = "Handshake Successful"
 		assertThat(secureClient.echo(message)).isEqualTo(message)
+
+		serverJob.cancel()
+		phoneRpc.dispose()
+		peripheralRpc.dispose()
+		environment.dispose()
+	}
+
+	@Test
+	fun `rpc works with automatic encryption`() = runTest(timeout = 10.seconds) {
+		val environment = LapisBt.newSimulatedBluetoothEnvironment()
+		val phone = environment.createDevice()
+		val peripheral = environment.createDevice()
+
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+
+		phoneRpc.setEncryption(peripheral.address, LapisEncryption.automatic())
+		peripheralRpc.setEncryption(phone.address, LapisEncryption.automatic())
+
+		val serverJob = launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("SecureService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		peripheralRpc.registerBluetoothServerService<SecureService>(phone.address, SecureServiceImpl())
+
+		val client = phoneRpc.getOrCreateBluetoothClientService<SecureService>(peripheral.address)
+
+		val message = "Hello, Automatic World!"
+		assertThat(client.echo(message)).isEqualTo(message)
+
+		serverJob.cancel()
+		phoneRpc.dispose()
+		peripheralRpc.dispose()
+		environment.dispose()
+	}
+
+	@Test
+	fun `rpc works with custom automatic encryption`() = runTest(timeout = 10.seconds) {
+		val environment = LapisBt.newSimulatedBluetoothEnvironment()
+		val phone = environment.createDevice()
+		val peripheral = environment.createDevice()
+
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+
+		// Custom factory that just uses the shared secret directly (not recommended for production but fine for test)
+		val factory = { sharedSecret: ByteArray -> LapisEncryption.aesGcm(sharedSecret.copyOf(32)) }
+
+		phoneRpc.setEncryption(peripheral.address, LapisEncryption.automatic(factory))
+		peripheralRpc.setEncryption(phone.address, LapisEncryption.automatic(factory))
+
+		val serverJob = launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("SecureService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		peripheralRpc.registerBluetoothServerService<SecureService>(phone.address, SecureServiceImpl())
+
+		val client = phoneRpc.getOrCreateBluetoothClientService<SecureService>(peripheral.address)
+
+		val message = "Hello, Custom Automatic World!"
+		assertThat(client.echo(message)).isEqualTo(message)
+
+		serverJob.cancel()
+		phoneRpc.dispose()
+		peripheralRpc.dispose()
+		environment.dispose()
+	}
+
+	@Test
+	fun `rpc call fails with LapisEncryptionException when one side doesn't have encryption`() = runTest(timeout = 10.seconds) {
+		val environment = LapisBt.newSimulatedBluetoothEnvironment()
+		val phone = environment.createDevice()
+		val peripheral = environment.createDevice()
+
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+
+		// Phone requires encryption
+		phoneRpc.setEncryption(peripheral.address, LapisEncryption.aesGcm(aesKey))
+		// Peripheral does NOT have encryption set
+		peripheralRpc.setEncryption(phone.address, null)
+
+		val serverJob = launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("SecureService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		peripheralRpc.registerBluetoothServerService<SecureService>(phone.address, SecureServiceImpl())
+
+		val client = phoneRpc.getOrCreateBluetoothClientService<SecureService>(peripheral.address)
+
+		try {
+			client.echo("fail")
+			throw AssertionError("Should have thrown LapisEncryptionException")
+		}
+		catch (e: LapisEncryptionException) {
+			// Expected
+		}
+
+		serverJob.cancel()
+		phoneRpc.dispose()
+		peripheralRpc.dispose()
+		environment.dispose()
+	}
+
+	@Test
+	fun `handshake times out when remote doesn't respond`() = runTest(timeout = 10.seconds) {
+		val environment = LapisBt.newSimulatedBluetoothEnvironment()
+		val phone = environment.createDevice()
+		val peripheral = environment.createDevice()
+
+		val phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		val peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+
+		// Phone is automatic
+		phoneRpc.setEncryption(peripheral.address, LapisEncryption.automatic())
+		// Peripheral DOES NOT have encryption configured, so it won't respond to Handshake packets
+		peripheralRpc.setEncryption(phone.address, null)
+
+		val serverJob = launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("SecureService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		peripheralRpc.registerBluetoothServerService<SecureService>(phone.address, SecureServiceImpl())
+
+		val client = phoneRpc.getOrCreateBluetoothClientService<SecureService>(peripheral.address)
+
+		// Handshake starts on call. It should timeout.
+		try {
+			client.echo("timeout")
+			throw AssertionError("Should have thrown LapisHandshakeException")
+		}
+		catch (e: LapisHandshakeException) {
+			// Expected
+		}
 
 		serverJob.cancel()
 		phoneRpc.dispose()

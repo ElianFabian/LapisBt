@@ -17,7 +17,8 @@ public data class CompleteBluetoothPacket(
 		FlowParameterEmission(7),
 		FlowParameterCompletion(8),
 		FlowParameterCancellation(9),
-		FlowParameterError(10);
+		FlowParameterError(10),
+		Handshake(11);
 
 		public companion object {
 			private val map = entries.associateBy(Type::byteValue)

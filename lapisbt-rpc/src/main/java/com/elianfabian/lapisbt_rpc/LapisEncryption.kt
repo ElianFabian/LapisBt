@@ -1,5 +1,8 @@
 package com.elianfabian.lapisbt_rpc
 
+import java.security.KeyPair
+import java.security.PublicKey
+
 /**
  * Interface for providing encryption and decryption capabilities to the RPC layer.
  *
@@ -15,6 +18,30 @@ public interface LapisEncryption {
 		 */
 		public fun aesGcm(key: ByteArray): LapisEncryption {
 			return AesLapisEncryption(key)
+		}
+
+		/**
+		 * Enables automatic encryption with ECDH key exchange and default AES-GCM implementation.
+		 */
+		public fun automatic(): LapisEncryption {
+			return AutomaticEncryptionMarker()
+		}
+
+		/**
+		 * Enables automatic key exchange, but allows for a custom encryption implementation
+		 * using the derived shared secret.
+		 */
+		public fun automatic(factory: (sharedSecret: ByteArray) -> LapisEncryption): LapisEncryption {
+			return AutomaticEncryptionMarker(factory)
+		}
+
+		/**
+		 * Enables asymmetric encryption using a fixed key pair.
+		 *
+		 * Note: This may have payload size limitations depending on the algorithm and MTU.
+		 */
+		public fun asymmetric(keyPair: KeyPair, remotePublicKey: PublicKey): LapisEncryption {
+			return AsymmetricLapisEncryption(keyPair, remotePublicKey)
 		}
 	}
 
@@ -35,4 +62,11 @@ public interface LapisEncryption {
 	 * @return The decrypted plaintext.
 	 */
 	public fun decrypt(data: ByteArray, associatedData: ByteArray? = null): ByteArray
+}
+
+internal class AutomaticEncryptionMarker(
+	val factory: ((sharedSecret: ByteArray) -> LapisEncryption)? = null
+) : LapisEncryption {
+	override fun encrypt(data: ByteArray, associatedData: ByteArray?): ByteArray = error("Marker only")
+	override fun decrypt(data: ByteArray, associatedData: ByteArray?): ByteArray = error("Marker only")
 }

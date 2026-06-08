@@ -1,9 +1,9 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
-import android.util.Log
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.LapisLogger
+import com.elianfabian.lapisbt_rpc.AutomaticEncryptionMarker
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.LapisEncryption
 import com.elianfabian.lapisbt_rpc.LapisInterceptor
@@ -17,6 +17,7 @@ import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.exception.DeviceNotConnectedException
+import com.elianfabian.lapisbt_rpc.exception.LapisHandshakeException
 import com.elianfabian.lapisbt_rpc.exception.LapisRemoteException
 import com.elianfabian.lapisbt_rpc.exception.LocalException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
@@ -28,6 +29,7 @@ import com.elianfabian.lapisbt_rpc.model.LapisResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRpcPacket
 import com.elianfabian.lapisbt_rpc.serializer.LapisPacketSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
+import com.elianfabian.lapisbt_rpc.util.LapisKeyExchange
 import com.elianfabian.lapisbt_rpc.util.extractFirstGenericArgument
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
 import com.elianfabian.lapisbt_rpc.util.isSuspend
@@ -50,11 +52,14 @@ import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.lang.reflect.Method
+import java.security.KeyPair
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
@@ -85,6 +90,10 @@ internal class BluetoothDeviceRpc(
 	private val _flowEnd = Any()
 	private val _nextId = AtomicInteger(0)
 
+	private var _encryptionMarker: AutomaticEncryptionMarker? = null
+	private var _handshakeReady: CompletableDeferred<Unit>? = null
+
+	private var _handshakeKeyPair: KeyPair? = null
 
 	private val _returnTypeAdapters = mutableSetOf(
 		SuspendMethodAdapter(
@@ -169,22 +178,40 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 		_scope.launch {
-			for (completePacket in packetProcessor.remoteCompletePackets) {
-				logger.verbose(TAG, "BluetoothDeviceRpc($deviceAddress): Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
-				ensureActive()
-				val packet = LapisPacketSerializer.deserialize(completePacket.type, completePacket.payloadStream)
-				processPacket(packet)
+			try {
+				for (completePacket in packetProcessor.remoteCompletePackets) {
+					logger.verbose(TAG, "BluetoothDeviceRpc($deviceAddress): Received complete packet with id ${completePacket.packetId}, type: ${completePacket.type}")
+					ensureActive()
+					val packet = LapisPacketSerializer.deserialize(completePacket.type, completePacket.payloadStream)
+					processPacket(packet)
+				}
+			}
+			catch (e: Throwable) {
+				if (e is CancellationException) throw e
+				val lastRequestId = _pendingServerMethodByRequestId.keys.lastOrNull()
+				logger.error(TAG, "Error in remoteCompletePackets loop($isActive): $lastRequestId", e)
+				internalAllRequestsFailed(e)
 			}
 		}
 	}
 
+	private suspend fun internalAllRequestsFailed(throwable: Throwable) {
+		_encryptionMarker = null
+		// WE HAVE TO INFORM THE CLIENT THAT SOMETHING WAS WRONG SO THEY DON'T WAIT FOREVER (NO AI COMMENT)
+		sendErrorMessage(0, throwable.message ?: "Unknown error")
+		_handshakeReady?.completeExceptionally(throwable)
+		_handshakeReady = null
+		_returnTypeAdapters.forEach { it.onAllRequestsFailed(throwable) }
+	}
+
 	private suspend fun processPacket(packet: LapisRpcPacket) {
 		when (packet) {
-			is LapisRpcPacket.Request -> _scope.launch { processRequest(packet) }
+			is LapisRpcPacket.Request -> processRequest(packet)
 			is LapisRpcPacket.Response -> processResponse(packet)
-			is LapisRpcPacket.ErrorResponse -> _scope.launch { processErrorResponse(packet) }
+			is LapisRpcPacket.ErrorResponse -> processErrorResponse(packet)
 			is LapisRpcPacket.Cancellation -> processCancellation(packet)
 			is LapisRpcPacket.Completion -> processMethodExecutionEnd(packet)
+			is LapisRpcPacket.Handshake -> processHandshake(packet)
 			is LapisRpcPacket.FlowParameter.Collection -> processFlowParameterCollection(packet)
 			is LapisRpcPacket.FlowParameter.Emission -> processFlowParameterEmission(packet)
 			is LapisRpcPacket.FlowParameter.Cancellation -> processFlowParameterCancellation(packet)
@@ -370,7 +397,124 @@ internal class BluetoothDeviceRpc(
 	}
 
 	fun setEncryption(encryption: LapisEncryption?) {
-		packetProcessor.encryption = encryption
+		if (encryption is AutomaticEncryptionMarker) {
+			_encryptionMarker = encryption
+			packetProcessor.encryptionRequired = true
+			_handshakeReady = null // Reset handshake if encryption is set again
+		}
+		else {
+			_encryptionMarker = null
+			packetProcessor.encryption = encryption
+			packetProcessor.encryptionRequired = encryption != null
+			_handshakeReady = CompletableDeferred(Unit) // Already ready if manual encryption
+		}
+	}
+
+
+	private suspend fun ensureEncryptionReady() {
+		logger.debug(TAG, "ensureEncryptionReady: ${hashCode()}")
+
+		val ready = _handshakeReady
+		if (ready == null || !ready.isCompleted) {
+			if (ready == null) {
+				val deferred = CompletableDeferred<Unit>()
+				_handshakeReady = deferred
+
+				_scope.launch {
+					try {
+						withTimeout(5000) {
+						logger.debug(TAG, "ensureEncryptionReady.timeout1: ${hashCode()}")
+							startHandshake()
+							logger.debug(TAG, "ensureEncryptionReady.timeout2: ${hashCode()}")
+							deferred.await()
+							logger.debug(TAG, "ensureEncryptionReady.timeout3: ${hashCode()}")
+						}
+					}
+					catch (e: Exception) {
+						logger.error(TAG, "Handshake failed", e)
+						val handshakeEx = if (e is LapisHandshakeException) e else LapisHandshakeException("Encryption handshake failed or timed out", e)
+						deferred.completeExceptionally(handshakeEx)
+						internalAllRequestsFailed(handshakeEx)
+					}
+					finally {
+						// This ensures that if for some reason the above launch is the only thing keeping the test alive,
+						// we don't hang if it's already failed.
+					}
+				}
+				deferred.await()
+				logger.debug(TAG, "ensureEncryptionReady.timeout5: ${hashCode()}")
+			}
+			else {
+				logger.debug(TAG, "ensureEncryptionReady.timeout6: ${hashCode()}")
+				ready.await()
+				logger.debug(TAG, "ensureEncryptionReady.timeout7: ${hashCode()}")
+			}
+		}
+	}
+
+	private suspend fun startHandshake() {
+		val keyPair = try {
+			_handshakeKeyPair ?: LapisKeyExchange.generateKeyPair()
+		}
+		catch (e: Exception) {
+			logger.error(TAG, "Failed to generate key pair", e)
+			throw LapisHandshakeException("Failed to initiate handshake", e)
+		}
+
+		_handshakeKeyPair = keyPair
+
+		val handshakePacket = LapisRpcPacket.Handshake(
+			requestId = generateId(),
+			publicKey = keyPair.public.encoded,
+		)
+
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Initiating handshake...")
+		sendPacket(handshakePacket)
+	}
+
+	private fun processHandshake(packet: LapisRpcPacket.Handshake) {
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): processHandshake called for requestId ${packet.requestId}")
+		_scope.launch {
+			try {
+				val marker = _encryptionMarker
+				if (marker == null) {
+					logger.warning(TAG, "Received handshake packet but no automatic encryption is configured")
+					return@launch
+				}
+
+				val myKeyPair = _handshakeKeyPair ?: LapisKeyExchange.generateKeyPair().also { _handshakeKeyPair = it }
+
+				val ready = _handshakeReady
+				if (ready == null || !ready.isCompleted) {
+					// If we haven't initiated, send our public key too (Symmetric Handshake)
+					if (ready == null) {
+						logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Remote initiated handshake, responding with our public key")
+						_handshakeReady = CompletableDeferred()
+						startHandshake()
+					}
+
+					val sharedSecret = LapisKeyExchange.deriveSharedSecret(myKeyPair.private, packet.publicKey)
+
+					val encryptionImpl = marker.factory?.invoke(sharedSecret) ?: run {
+						val hashedSecret = MessageDigest.getInstance("SHA-256").digest(sharedSecret)
+						LapisEncryption.aesGcm(hashedSecret)
+					}
+
+					packetProcessor.encryption = encryptionImpl
+					_handshakeReady?.complete(Unit)
+					logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Handshake completed successfully")
+				}
+				else {
+					logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Handshake already ready, ignoring redundant handshake packet")
+				}
+			}
+			catch (e: Throwable) {
+				if (e is CancellationException) throw e
+				logger.error(TAG, "Error processing handshake", e)
+				_handshakeReady?.completeExceptionally(e)
+				internalAllRequestsFailed(e)
+			}
+		}
 	}
 
 
@@ -897,6 +1041,11 @@ internal class BluetoothDeviceRpc(
 		packet: LapisRpcPacket,
 		methodMetadataAnnotations: List<Annotation> = emptyList(),
 	) {
+		// I ADDED A CHECK FOR THE MARKER BECAUSE WE ONLY HAVE TO SEND A HANDSHAKE FOR AUTOMATIC ENCRYPTION (NO AI COMMENT)
+		if (packet !is LapisRpcPacket.Handshake && _encryptionMarker != null) {
+			ensureEncryptionReady()
+		}
+
 		val byteArrayOutputStream = ByteArrayOutputStream()
 		LapisPacketSerializer.serialize(byteArrayOutputStream, packet)
 
@@ -913,6 +1062,7 @@ internal class BluetoothDeviceRpc(
 		is LapisRpcPacket.ErrorResponse -> CompleteBluetoothPacket.Type.ErrorResponse
 		is LapisRpcPacket.Cancellation -> CompleteBluetoothPacket.Type.Cancellation
 		is LapisRpcPacket.Completion -> CompleteBluetoothPacket.Type.Completion
+		is LapisRpcPacket.Handshake -> CompleteBluetoothPacket.Type.Handshake
 		is LapisRpcPacket.FlowParameter.Collection -> CompleteBluetoothPacket.Type.FlowParameterCollection
 		is LapisRpcPacket.FlowParameter.Emission -> CompleteBluetoothPacket.Type.FlowParameterEmission
 		is LapisRpcPacket.FlowParameter.Cancellation -> CompleteBluetoothPacket.Type.FlowParameterCancellation

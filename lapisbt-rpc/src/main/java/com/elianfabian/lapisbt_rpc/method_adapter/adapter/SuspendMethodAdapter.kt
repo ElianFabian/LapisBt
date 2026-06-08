@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.reflect.Method
@@ -45,6 +46,7 @@ internal class SuspendMethodAdapter(
 
 
 	override fun dispose() {
+		logger.debug(TAG, "dispose ${_pendingContinuationsByRequestId.size}")
 		val message = "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
 
 		_scope.cancel(CancellationException(message))
@@ -81,18 +83,22 @@ internal class SuspendMethodAdapter(
 
 				onGenerateRequestId(requestId)
 
+				logger.debug(TAG, "start sendRequest: $requestId")
 				bluetoothDeviceRpc.sendRequest(
 					requestId = requestId,
 					serviceInterface = serviceInterface,
 					method = method,
 					args = args.orEmpty().dropLast(1).toTypedArray(),
 				)
+				logger.debug(TAG, "end sendRequest: $requestId")
 
 				suspendCancellableCoroutine { cancellableContinuation ->
+					logger.debug(TAG, "start add continuation")
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
+					logger.debug(TAG, "end add continuation: ${_pendingContinuationsByRequestId.size}")
 
 					cancellableContinuation.invokeOnCancellation { cause ->
-						logger.debug(TAG, "SuspendMethodAdapter: Request $requestId cancelled. Cause: $cause")
+						logger.debug(TAG, "Request(${_pendingContinuationsByRequestId.size}) $requestId cancelled. Cause: $cause")
 						_pendingContinuationsByRequestId.remove(requestId)
 
 						if (cause is CancellationException) {
@@ -101,7 +107,7 @@ internal class SuspendMethodAdapter(
 									bluetoothDeviceRpc.cancel(requestId = requestId)
 								}
 								catch (e: Exception) {
-									logger.error(TAG, "SuspendMethodAdapter: Failed to send cancellation for $requestId", e)
+									logger.error(TAG, "Failed to send cancellation for $requestId", e)
 								}
 							}
 						}
@@ -124,7 +130,7 @@ internal class SuspendMethodAdapter(
 		val job = _scope.launch(LapisRequestInfoContext(getLapisRequestInfo())) {
 			val result = server.invokeSuspendMethod()
 
-			logger.debug(TAG, "SuspendMethodAdapter: Received request ${request.requestId} ($request). Result: $result")
+			logger.debug(TAG, "Received request ${request.requestId} ($request). Result: $result")
 
 			bluetoothDeviceRpc.sendResult(
 				requestId = request.requestId,
@@ -156,26 +162,28 @@ internal class SuspendMethodAdapter(
 	}
 
 	override fun onEnd(requestId: Int) {
-		logger.debug(TAG, "SuspendMethodAdapter: Request $requestId finished")
+		logger.debug(TAG, "Request $requestId finished")
 		_pendingContinuationsByRequestId.remove(requestId)
 	}
 
 	override fun onCancel(requestId: Int) {
-		logger.debug(TAG, "SuspendMethodAdapter: Request $requestId was cancelled")
+		logger.debug(TAG, "Request $requestId was cancelled")
 		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
 	override fun onResult(requestId: Int, result: Any?) {
-		logger.debug(TAG, "SuspendMethodAdapter: Received result for request $requestId: $result")
+		logger.debug(TAG, "Received result for request $requestId: $result")
 		_pendingContinuationsByRequestId[requestId]?.resume(result)
 	}
 
 	override fun onErrorMessage(requestId: Int, throwable: Throwable) {
+		logger.error(TAG, "onErrorMessage($throwable)")
 		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(throwable)
 	}
 
 	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
+		logger.error(TAG, "onDeviceDisconnected(${_pendingContinuationsByRequestId.size})")
 		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
 			continuation.resumeWithException(CancellationException("Device '$deviceAddress' disconnected"))
 		}
@@ -187,11 +195,22 @@ internal class SuspendMethodAdapter(
 		_activeServerJobs.clear()
 	}
 
+	override suspend fun onAllRequestsFailed(throwable: Throwable) {
+		logger.error(TAG, "onAllRequestsFailed resume with exception: $throwable | ${currentCoroutineContext()}")
+		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
+			continuation.resumeWithException(throwable)
+		}
+		_pendingContinuationsByRequestId.clear()
+
+		_activeServerJobs.forEach { (_, job) ->
+			job.cancel(CancellationException("Internal error", throwable))
+		}
+		_activeServerJobs.clear()
+	}
+
 
 	private fun generateId() = _nextId.getAndIncrement()
 
 
-	companion object {
-		private val TAG = this::class.qualifiedName!!
-	}
+	private val TAG = this::class.simpleName!! + hashCode() + "|" + deviceAddress
 }

@@ -33,6 +33,9 @@ internal object LapisPacketSerializer {
 			is LapisRpcPacket.ErrorResponse -> {
 				output.writeUTF(packet.message)
 			}
+			is LapisRpcPacket.Handshake -> {
+				output.writeByteArray(packet.publicKey)
+			}
 			is LapisRpcPacket.FlowParameter -> {
 				output.writeInt(packet.flowId)
 				output.writeUTF(packet.parameterName)
@@ -51,8 +54,7 @@ internal object LapisPacketSerializer {
 				}
 			}
 			is LapisRpcPacket.Cancellation,
-			is LapisRpcPacket.Completion,
-				-> Unit
+			is LapisRpcPacket.Completion -> Unit
 		}
 	}
 
@@ -96,6 +98,12 @@ internal object LapisPacketSerializer {
 			}
 			CompleteBluetoothPacket.Type.Completion -> {
 				LapisRpcPacket.Completion(requestId)
+			}
+			CompleteBluetoothPacket.Type.Handshake -> {
+				LapisRpcPacket.Handshake(
+					requestId = requestId,
+					publicKey = input.readByteArray()
+				)
 			}
 			CompleteBluetoothPacket.Type.FlowParameterCollection -> {
 				LapisRpcPacket.FlowParameter.Collection(

@@ -33,5 +33,7 @@ internal interface LapisMethodAdapter {
 
 	fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address)
 
+	suspend fun onAllRequestsFailed(throwable: Throwable)
+
 	fun dispose()
 }

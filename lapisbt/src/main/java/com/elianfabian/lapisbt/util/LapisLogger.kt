@@ -32,6 +32,15 @@ public interface LapisLogger : LapisLogConfig {
 		): LapisLogger = AndroidLogger(enabled, minLevel)
 
 		/**
+		 * A [LapisLogger] that logs to the console using println.
+		 * Useful for unit tests where Android's Log class is not available.
+		 */
+		public fun console(
+			enabled: Boolean = true,
+			minLevel: Level = Level.Verbose,
+		): LapisLogger = ConsoleLogger(enabled, minLevel)
+
+		/**
 		 * A [LapisLogger] that does nothing.
 		 */
 		public val Silent: LapisLogger = object : LapisLogger {
@@ -86,6 +95,44 @@ internal class AndroidLogger(
 	override fun error(tag: String, message: String, throwable: Throwable?) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
 			Log.e(tag, message, throwable)
+		}
+	}
+}
+
+
+internal class ConsoleLogger(
+	override var enabled: Boolean,
+	override var minLevel: LapisLogger.Level,
+) : LapisLogger {
+
+	override fun verbose(tag: String, message: String) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
+			println("V/$tag: $message")
+		}
+	}
+
+	override fun debug(tag: String, message: String) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
+			println("D/$tag: $message")
+		}
+	}
+
+	override fun info(tag: String, message: String) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
+			println("I/$tag: $message")
+		}
+	}
+
+	override fun warning(tag: String, message: String) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
+			println("W/$tag: $message")
+		}
+	}
+
+	override fun error(tag: String, message: String, throwable: Throwable?) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
+			println("E/$tag: $message")
+			throwable?.printStackTrace()
 		}
 	}
 }

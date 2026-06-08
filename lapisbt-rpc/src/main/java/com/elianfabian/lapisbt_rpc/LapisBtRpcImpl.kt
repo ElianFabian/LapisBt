@@ -6,6 +6,7 @@ import com.elianfabian.lapisbt.util.LapisLogConfig
 import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
+import com.elianfabian.lapisbt_rpc.util.isSuspend
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -201,7 +202,21 @@ internal class LapisBtRpcImpl(
 
 	override fun setEncryption(deviceAddress: BluetoothDevice.Address, encryption: LapisEncryption?) {
 		checkIsNotDisposed()
-		_bluetoothDeviceRpcByAddress[deviceAddress]?.setEncryption(encryption)
+		val rpc = _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			val packetProcessor = createPacketProcessor(deviceAddress)
+
+			BluetoothDeviceRpc(
+				deviceAddress = deviceAddress,
+				lapisBt = lapisBt,
+				lapisRpc = this@LapisBtRpcImpl,
+				serializationStrategy = serializationStrategy,
+				interceptor = interceptor,
+				metadataProvider = metadataProvider,
+				packetProcessor = packetProcessor,
+				logger = logger,
+			)
+		}
+		rpc.setEncryption(encryption)
 	}
 
 	override fun dispose() {

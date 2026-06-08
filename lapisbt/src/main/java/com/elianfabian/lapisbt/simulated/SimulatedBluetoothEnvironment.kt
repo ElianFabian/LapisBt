@@ -79,7 +79,8 @@ public class SimulatedBluetoothEnvironment internal constructor(
 	): SimulatedBluetoothDevice = createDevice(
 		address = address,
 		name = name,
-		config = config,
+		config = config ?: globalConfig.copy(),
+		useAndroidState = false,
 	)
 
 	private fun createDevice(
