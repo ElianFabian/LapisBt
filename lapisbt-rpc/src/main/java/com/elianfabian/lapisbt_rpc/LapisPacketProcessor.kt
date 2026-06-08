@@ -68,7 +68,7 @@ internal class DefaultLapisPacketProcessor(
 		const val FRAGMENT_METADATA_SIZE = PACKET_ID_SIZE + INDEX_METADATA_SIZE
 		const val FRAGMENT_PAYLOAD_CAPACITY = BLUETOOTH_PACKET_LENGTH - FRAGMENT_METADATA_SIZE
 
-		val TAG = this::class.qualifiedName!!
+		val TAG = DefaultLapisPacketProcessor::class.simpleName!!
 	}
 
 

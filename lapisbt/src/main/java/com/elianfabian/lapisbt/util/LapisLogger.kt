@@ -105,33 +105,43 @@ internal class ConsoleLogger(
 	override var minLevel: LapisLogger.Level,
 ) : LapisLogger {
 
+	// ANSI Escape Codes for Colors
+	private companion object {
+		const val RESET = "\u001B[0m"
+		const val GRAY = "\u001B[90m"    // Verbose
+		const val CYAN = "\u001B[36m"    // Debug
+		const val GREEN = "\u001B[32m"   // Info
+		const val YELLOW = "\u001B[33m"  // Warning
+		const val RED = "\u001B[31m"     // Error
+	}
+
 	override fun verbose(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
-			println("V/$tag: $message")
+			println("${GRAY}V/$tag: $message$RESET")
 		}
 	}
 
 	override fun debug(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
-			println("D/$tag: $message")
+			println("${CYAN}D/$tag: $message$RESET")
 		}
 	}
 
 	override fun info(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
-			println("I/$tag: $message")
+			println("${GREEN}I/$tag: $message$RESET")
 		}
 	}
 
 	override fun warning(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
-			println("W/$tag: $message")
+			println("${YELLOW}W/$tag: $message$RESET")
 		}
 	}
 
 	override fun error(tag: String, message: String, throwable: Throwable?) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
-			println("E/$tag: $message")
+			println("${RED}E/$tag: $message$RESET")
 			throwable?.printStackTrace()
 		}
 	}

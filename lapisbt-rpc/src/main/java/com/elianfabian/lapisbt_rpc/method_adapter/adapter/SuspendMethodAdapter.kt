@@ -93,9 +93,7 @@ internal class SuspendMethodAdapter(
 				logger.debug(TAG, "end sendRequest: $requestId")
 
 				suspendCancellableCoroutine { cancellableContinuation ->
-					logger.debug(TAG, "start add continuation")
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
-					logger.debug(TAG, "end add continuation: ${_pendingContinuationsByRequestId.size}")
 
 					cancellableContinuation.invokeOnCancellation { cause ->
 						logger.debug(TAG, "Request(${_pendingContinuationsByRequestId.size}) $requestId cancelled. Cause: $cause")
@@ -212,5 +210,7 @@ internal class SuspendMethodAdapter(
 	private fun generateId() = _nextId.getAndIncrement()
 
 
-	private val TAG = this::class.simpleName!! + hashCode() + "|" + deviceAddress
+	companion object {
+		private val TAG = SuspendMethodAdapter::class.simpleName!!
+	}
 }

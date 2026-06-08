@@ -1511,7 +1511,7 @@ internal class LapisBtImpl(
 
 	companion object {
 
-		private val TAG = this::class.simpleName!!
+		private val TAG = LapisBtImpl::class.simpleName!!
 
 		/**
 		 * Validate a String Bluetooth address, such as "00:43:A8:23:10:F0"

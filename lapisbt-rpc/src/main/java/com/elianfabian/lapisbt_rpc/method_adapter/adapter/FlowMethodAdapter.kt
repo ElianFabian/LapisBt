@@ -219,6 +219,6 @@ internal class FlowMethodAdapter(
 	private fun generateId() = _nextId.getAndIncrement()
 
 	companion object {
-		private val TAG = this::class.qualifiedName!!
+		private val TAG = FlowMethodAdapter::class.simpleName!!
 	}
 }

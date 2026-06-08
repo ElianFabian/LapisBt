@@ -1076,6 +1076,6 @@ internal class BluetoothDeviceRpc(
 	private fun generateId() = _nextId.getAndIncrement()
 
 	companion object {
-		private val TAG = this::class.qualifiedName!!
+		private val TAG = BluetoothDeviceRpc::class.simpleName!!
 	}
 }
