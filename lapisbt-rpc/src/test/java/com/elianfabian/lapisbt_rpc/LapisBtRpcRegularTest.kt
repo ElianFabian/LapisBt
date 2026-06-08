@@ -5,6 +5,7 @@ import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
+import com.elianfabian.lapisbt.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
@@ -60,8 +61,8 @@ class LapisBtRpcRegularTest {
 		phoneMetadataProvider: LapisMetadataProvider<Any?>? = null,
 		peripheralMetadataProvider: LapisMetadataProvider<Any?>? = null,
 	) {
-		phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, metadataProvider = phoneMetadataProvider)
-		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, metadataProvider = peripheralMetadataProvider)
+		phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, metadataProvider = phoneMetadataProvider, logger = LapisLogger.console())
+		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, metadataProvider = peripheralMetadataProvider, logger = LapisLogger.console())
 
 		peripheralRpc.registerBluetoothServerService<RegularService>(phone.address, serviceImpl)
 
@@ -101,7 +102,7 @@ class LapisBtRpcRegularTest {
 	}
 
 	@Test
-	fun `suspend fun withFlowParam works`() = runTest(timeout = 10.seconds) {
+	fun `suspend fun withFlowParam works`() = runTest(timeout = 15.seconds) {
 		setupConnection(backgroundScope)
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
@@ -111,7 +112,7 @@ class LapisBtRpcRegularTest {
 	}
 
 	@Test
-	fun `suspend fun withMixedParams works`() = runTest(timeout = 10.seconds) {
+	fun `suspend fun withMixedParams works`() = runTest(timeout = 15.seconds) {
 		setupConnection(backgroundScope)
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 

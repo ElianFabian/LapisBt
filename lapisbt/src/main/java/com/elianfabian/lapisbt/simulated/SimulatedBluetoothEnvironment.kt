@@ -119,7 +119,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 			lapisAdapter = adapter,
 			androidHelper = simulatedAndroidHelper,
 			bluetoothEvents = events,
-			logger = LapisLogger.Silent,
+			logger = LapisLogger.console(),
 		)
 
 		val device = SimulatedBluetoothDevice(
