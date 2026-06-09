@@ -22,6 +22,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 	seed: Long = 1L,
 	private val context: Context? = null,
 	public val globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
+	private val logger: LapisLogger = LapisLogger.console(),
 ) {
 	public val scope: CoroutineScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
 
@@ -119,7 +120,7 @@ public class SimulatedBluetoothEnvironment internal constructor(
 			lapisAdapter = adapter,
 			androidHelper = simulatedAndroidHelper,
 			bluetoothEvents = events,
-			logger = LapisLogger.console(),
+			logger = logger,
 		)
 
 		val device = SimulatedBluetoothDevice(
