@@ -32,7 +32,6 @@ internal class SimulatedLapisBluetoothServerSocket(
 			?: throw IOException("Accept timed out")
 
 		if (clientSocket is SimulatedLapisBluetoothSocket) {
-			println("$$$ serverSocket finished: $address")
 			clientSocket.setConnected(true)
 		}
 

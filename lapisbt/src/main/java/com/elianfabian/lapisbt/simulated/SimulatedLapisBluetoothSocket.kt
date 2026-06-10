@@ -47,7 +47,6 @@ internal class SimulatedLapisBluetoothSocket(
 
 
 	override fun connect() {
-		println("$$$ connect: ${remoteDevice.address}")
 		if (_connectDelayMs > 0) {
 			_queue.poll(_connectDelayMs, TimeUnit.MILLISECONDS)
 		}
