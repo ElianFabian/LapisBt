@@ -110,7 +110,7 @@ internal class BluetoothDeviceRpc(
 
 
 	init {
-		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Starting for $deviceAddress")
+		logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Starting...")
 		_scope.launch {
 			lapisBt.events.collect { event ->
 				when (event) {
