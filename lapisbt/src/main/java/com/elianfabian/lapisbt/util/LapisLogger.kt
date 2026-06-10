@@ -38,7 +38,12 @@ public interface LapisLogger : LapisLogConfig {
 		public fun console(
 			enabled: Boolean = true,
 			minLevel: Level = Level.Verbose,
-		): LapisLogger = ConsoleLogger(enabled, minLevel)
+			prefix: String = "",
+		): LapisLogger = ConsoleLogger(
+			enabled = enabled,
+			minLevel = minLevel,
+			prefix = prefix,
+		)
 
 		/**
 		 * A [LapisLogger] that does nothing.
@@ -103,6 +108,7 @@ internal class AndroidLogger(
 internal class ConsoleLogger(
 	override var enabled: Boolean,
 	override var minLevel: LapisLogger.Level,
+	val prefix: String,
 ) : LapisLogger {
 
 	// ANSI Escape Codes for Colors
@@ -117,31 +123,51 @@ internal class ConsoleLogger(
 
 	override fun verbose(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
-			println("${GRAY}V/$tag: $message$RESET")
+			val actualPrefix = if (prefix.isNotBlank()) {
+				"$prefix|"
+			}
+			else ""
+			println("${GRAY}V/$actualPrefix$tag: $message$RESET")
 		}
 	}
 
 	override fun debug(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
-			println("${CYAN}D/$tag: $message$RESET")
+			val actualPrefix = if (prefix.isNotBlank()) {
+				"$prefix|"
+			}
+			else ""
+			println("${CYAN}D/$actualPrefix$tag: $message$RESET")
 		}
 	}
 
 	override fun info(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
-			println("${GREEN}I/$tag: $message$RESET")
+			val actualPrefix = if (prefix.isNotBlank()) {
+				"$prefix|"
+			}
+			else ""
+			println("${GREEN}I/$actualPrefix$tag: $message$RESET")
 		}
 	}
 
 	override fun warning(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
-			println("${YELLOW}W/$tag: $message$RESET")
+			val actualPrefix = if (prefix.isNotBlank()) {
+				"$prefix|"
+			}
+			else ""
+			println("${YELLOW}W/$actualPrefix$tag: $message$RESET")
 		}
 	}
 
 	override fun error(tag: String, message: String, throwable: Throwable?) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
-			println("${RED}E/$tag: $message$RESET")
+			val actualPrefix = if (prefix.isNotBlank()) {
+				"$prefix|"
+			}
+			else ""
+			println("${RED}E/$actualPrefix$tag: $message$RESET")
 			throwable?.printStackTrace()
 		}
 	}

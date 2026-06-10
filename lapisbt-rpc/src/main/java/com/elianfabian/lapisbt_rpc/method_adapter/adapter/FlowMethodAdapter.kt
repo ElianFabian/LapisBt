@@ -20,6 +20,7 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.shareIn
@@ -97,23 +98,24 @@ internal class FlowMethodAdapter(
 				logger.debug(TAG, "FlowMethodAdapter: Flow collection for request $requestId (${method.name}) is closing (isActive=$isActive)")
 				_pendingChannelsByRequestId.remove(requestId)
 				_scope.launch {
-					logger.verbose(TAG, "cancel callbackFlow")
 					bluetoothDeviceRpc.cancel(requestId = requestId)
 				}
 			}
-		}.shareIn(
-			scope = _scope,
-			started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
-			replay = 0,
-		).transformWhile { value ->
-			if (value === _flowEnd) {
-				false
-			}
-			else {
-				emit(value)
-				true
-			}
 		}
+			.buffer(capacity = Int.MAX_VALUE)
+			.shareIn(
+				scope = _scope,
+				started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 0),
+				replay = 0,
+			).transformWhile { value ->
+				if (value === _flowEnd) {
+					false
+				}
+				else {
+					emit(value)
+					true
+				}
+			}
 	}
 
 	override suspend fun onReceiveRequest(request: LapisRequest, server: LapisServerService) {
@@ -182,7 +184,14 @@ internal class FlowMethodAdapter(
 
 	override fun onResult(requestId: Int, result: Any?) {
 		logger.debug(TAG, "FlowMethodAdapter: Received result for request $requestId: $result")
-		_pendingChannelsByRequestId[requestId]?.trySend(result)
+
+		// FIX: using send over trySend fixes the issue of flows getting blocked when we send more than 64 values,
+		// this happens because callbackFlow internally uses Channel.BUFFERED, which by default is a buffer of size 64.
+		// We also increased the buffer size to Int.MAX_VALUE, because sometimes it still fails
+		// TODO: investigate issue with sending many values in a flow, use LapisBtRpcBenchmarks.benchmarkStreamLarge for testing this issue
+		_scope.launch {
+			_pendingChannelsByRequestId[requestId]?.send(result)
+		}
 	}
 
 	override fun onErrorMessage(requestId: Int, throwable: Throwable) {

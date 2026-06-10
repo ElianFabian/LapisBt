@@ -714,7 +714,9 @@ internal class BluetoothDeviceRpc(
 		}
 		finally {
 			logger.debug(TAG, "BluetoothDeviceRpc($deviceAddress): Finished processing RPC request ${request.requestId}")
-			_pendingServerMethodByRequestId.remove(request.requestId)
+//			val method = _pendingServerMethodByRequestId.remove(request.requestId) ?: return
+//			val adapter = getMethodAdapter(method)
+//			adapter.onEnd(request.requestId)
 		}
 	}
 

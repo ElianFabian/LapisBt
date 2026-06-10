@@ -54,6 +54,7 @@ internal class LapisBtImpl(
 
 	private val _scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+	@Volatile
 	private var _isDisposed = false
 
 	private val _isConnectPermissionGranted = MutableStateFlow(androidHelper.isBluetoothConnectGranted())
@@ -68,7 +69,7 @@ internal class LapisBtImpl(
 	private val _connectedDevices = MutableStateFlow(emptyList<BluetoothDevice>())
 	override val connectedDevices = _connectedDevices.asStateFlow()
 
-	private val _events = MutableSharedFlow<LapisBt.Event>(extraBufferCapacity = 64)
+	private val _events = MutableSharedFlow<LapisBt.Event>(extraBufferCapacity = Int.MAX_VALUE)
 	override val events = _events.distinctUntilChangedBy { event ->
 		when (event) {
 			// We prevent having duplicate connection/disconnection events
@@ -618,9 +619,9 @@ internal class LapisBtImpl(
 			return
 		}
 
-		logger.info(TAG, "dispose(): Disposing LapisBt instance...")
-
 		_isDisposed = true
+
+		logger.info(TAG, "dispose(): Disposing LapisBt instance...")
 
 		_scope.cancel()
 

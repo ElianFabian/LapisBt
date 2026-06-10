@@ -89,6 +89,9 @@ internal class DefaultLapisPacketProcessor(
 
 	override var encryptionRequired: Boolean = false
 
+	@Volatile
+	private var _isDisposed = false
+
 
 	init {
 		launchPacketProcessing()
@@ -96,7 +99,12 @@ internal class DefaultLapisPacketProcessor(
 
 
 	override suspend fun sendData(stream: OutputStream) = withContext(Dispatchers.IO) {
+		checkIsNotDisposed()
+
 		for (packetToSend in _pendingPacketToSendChannel) {
+			if (_isDisposed) {
+				break
+			}
 			serializePacket(
 				stream = stream,
 				packet = packetToSend,
@@ -105,8 +113,11 @@ internal class DefaultLapisPacketProcessor(
 	}
 
 	override suspend fun receiveData(stream: InputStream) = withContext(Dispatchers.IO) {
+		checkIsNotDisposed()
+
 		logger.debug(TAG, "LapisPacketProcessor: Starting data reception loop...")
-		while (true) {
+
+		while (!_isDisposed) {
 			val bytes = try {
 				stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 			}
@@ -150,6 +161,8 @@ internal class DefaultLapisPacketProcessor(
 		payload: ByteArray,
 		methodMetadataAnnotations: List<Annotation>,
 	) {
+		checkIsNotDisposed()
+
 		val packets = sequence {
 			val compressed = CompressionUtil.shouldCompress(payload)
 			var actualPayload = if (compressed) {
@@ -209,6 +222,10 @@ internal class DefaultLapisPacketProcessor(
 	}
 
 	override fun dispose() {
+		if (_isDisposed) {
+			return
+		}
+		_isDisposed = true
 		_scope.cancel()
 		_remotePacketsById.clear()
 		_remotePacketChannel.close()
@@ -305,6 +322,9 @@ internal class DefaultLapisPacketProcessor(
 	private fun launchPacketProcessing() {
 		_scope.launch {
 			for (packet in _remotePacketChannel) {
+				if (_isDisposed) {
+					break
+				}
 				logger.verbose(TAG, "LapisPacketProcessor: Reassembling fragment: $packet")
 				ensureActive()
 				when (packet) {
@@ -425,4 +445,10 @@ internal class DefaultLapisPacketProcessor(
 	}
 
 	private fun generateId(): Int = _nextPacketId.getAndIncrement()
+
+	private fun checkIsNotDisposed() {
+		check(!_isDisposed) {
+			"Can't call a method on a disposed instance"
+		}
+	}
 }

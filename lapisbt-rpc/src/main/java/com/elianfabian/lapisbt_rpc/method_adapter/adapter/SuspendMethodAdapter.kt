@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.reflect.Method
@@ -57,7 +58,9 @@ internal class SuspendMethodAdapter(
 		_activeServerJobs.clear()
 
 		_pendingContinuationsByRequestId.forEach { (_, continuation) ->
-			continuation.resumeWithException(CancellationException(message))
+			if (continuation.context.isActive) {
+				continuation.resumeWithException(CancellationException(message))
+			}
 		}
 		_pendingContinuationsByRequestId.clear()
 	}

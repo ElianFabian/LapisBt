@@ -395,13 +395,13 @@ public interface LapisBt {
 			seed: Long = 1L,
 			context: Context? = null,
 			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
-			logger: LapisLogger = LapisLogger.console(),
+			createLogger: (deviceAddress: BluetoothDevice.Address) -> LapisLogger = { LapisLogger.console() },
 		): SimulatedBluetoothEnvironment {
 			return SimulatedBluetoothEnvironment(
 				context = context,
 				seed = seed,
 				globalConfig = globalConfig,
-				logger = logger,
+				createLogger = createLogger,
 			)
 		}
 
