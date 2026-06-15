@@ -86,17 +86,19 @@ internal class SuspendMethodAdapter(
 
 				onGenerateRequestId(requestId)
 
-				logger.debug(TAG, "start sendRequest: $requestId")
-				bluetoothDeviceRpc.sendRequest(
-					requestId = requestId,
-					serviceInterface = serviceInterface,
-					method = method,
-					args = args.orEmpty().dropLast(1).toTypedArray(),
-				)
-				logger.debug(TAG, "end sendRequest: $requestId")
-
 				suspendCancellableCoroutine { cancellableContinuation ->
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
+
+					_scope.launch {
+						logger.debug(TAG, "start sendRequest: $requestId")
+						bluetoothDeviceRpc.sendRequest(
+							requestId = requestId,
+							serviceInterface = serviceInterface,
+							method = method,
+							args = args.orEmpty().dropLast(1).toTypedArray(),
+						)
+						logger.debug(TAG, "end sendRequest: $requestId")
+					}
 
 					cancellableContinuation.invokeOnCancellation { cause ->
 						logger.debug(TAG, "Request(${_pendingContinuationsByRequestId.size}) $requestId cancelled. Cause: $cause")
