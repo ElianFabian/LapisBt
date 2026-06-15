@@ -111,10 +111,7 @@ class LapisBtRpcBenchmark {
 
 	@Test
 	fun benchmarkConcurrentCalls(): Unit = runBlocking {
-		var i = 0
 		Benchmark.run("10 Concurrent Echo Calls", warmup = 100, iterations = 1000) {
-			println("$$$ benchmarkConcurrentCalls: $i")
-			i++
 			(1..10).map { i ->
 				async { client.echo("Msg $i") }
 			}.awaitAll()
