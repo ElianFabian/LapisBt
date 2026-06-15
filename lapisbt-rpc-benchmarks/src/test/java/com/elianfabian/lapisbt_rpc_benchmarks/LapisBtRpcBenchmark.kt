@@ -104,8 +104,8 @@ class LapisBtRpcBenchmark {
 
 	@Test
 	fun benchmarkStreamLarge(): Unit = runBlocking {
-		Benchmark.run("Stream 1000 elements", warmup = 100, iterations = 1000) {
-			client.stream(1000).toList() // falla aquí
+		Benchmark.run("Stream 1000 elements", warmup = 500, iterations = 1500) {
+			client.stream(1000).toList()
 		}
 	}
 
