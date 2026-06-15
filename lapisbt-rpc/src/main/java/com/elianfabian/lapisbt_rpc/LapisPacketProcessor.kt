@@ -161,7 +161,10 @@ internal class DefaultLapisPacketProcessor(
 		payload: ByteArray,
 		methodMetadataAnnotations: List<Annotation>,
 	) {
-		checkIsNotDisposed()
+		if (_isDisposed) {
+			return
+		}
+		//checkIsNotDisposed()
 
 		val packets = sequence {
 			val compressed = CompressionUtil.shouldCompress(payload)
