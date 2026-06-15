@@ -82,7 +82,7 @@ class LapisBtRpcBenchmark {
 
 	@Test
 	fun benchmarkSimpleCall(): Unit = runBlocking {
-		Benchmark.run("Simple Suspend Call", warmup = 50, iterations = 200) {
+		Benchmark.run("Simple Suspend Call", warmup = 100, iterations = 1000) {
 			client.simpleCall()
 		}
 	}
@@ -90,28 +90,31 @@ class LapisBtRpcBenchmark {
 	@Test
 	fun benchmarkEchoCall(): Unit = runBlocking {
 		val message = "Hello Benchmark!"
-		Benchmark.run("Echo String Call", warmup = 50, iterations = 200) {
+		Benchmark.run("Echo String Call", warmup = 100, iterations = 1000) {
 			client.echo(message)
 		}
 	}
 
 	@Test
 	fun benchmarkStreamSmall(): Unit = runBlocking {
-		Benchmark.run("Stream 10 elements", warmup = 20, iterations = 100) {
+		Benchmark.run("Stream 10 elements", warmup = 50, iterations = 500) {
 			client.stream(10).toList()
 		}
 	}
 
 	@Test
 	fun benchmarkStreamLarge(): Unit = runBlocking {
-		Benchmark.run("Stream 1000 elements", warmup = 5, iterations = 5) {
+		Benchmark.run("Stream 1000 elements", warmup = 100, iterations = 1000) {
 			client.stream(1000).toList() // falla aquí
 		}
 	}
 
 	@Test
 	fun benchmarkConcurrentCalls(): Unit = runBlocking {
-		Benchmark.run("10 Concurrent Echo Calls", warmup = 20, iterations = 50) {
+		var i = 0
+		Benchmark.run("10 Concurrent Echo Calls", warmup = 100, iterations = 1000) {
+			println("$$$ benchmarkConcurrentCalls: $i")
+			i++
 			(1..10).map { i ->
 				async { client.echo("Msg $i") }
 			}.awaitAll()
