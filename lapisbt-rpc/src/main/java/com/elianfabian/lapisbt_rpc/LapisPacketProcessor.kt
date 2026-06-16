@@ -260,8 +260,6 @@ internal class DefaultLapisPacketProcessor(
 		stream: OutputStream,
 		packet: BluetoothPacket,
 	) {
-		val dataStream = stream
-
 		val byteArrayOutputStream = ByteArrayOutputStream(BLUETOOTH_PACKET_LENGTH)
 		val packetStream = DataOutputStream(byteArrayOutputStream)
 
@@ -289,10 +287,10 @@ internal class DefaultLapisPacketProcessor(
 		}
 		if (bytesToWrite.size < BLUETOOTH_PACKET_LENGTH) {
 			val paddedPacket = bytesToWrite.padded(BLUETOOTH_PACKET_LENGTH)
-			dataStream.write(paddedPacket)
+			stream.write(paddedPacket)
 		}
 		else {
-			dataStream.write(bytesToWrite)
+			stream.write(bytesToWrite)
 		}
 
 		logger.verbose(TAG) {
