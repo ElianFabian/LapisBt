@@ -166,61 +166,56 @@ internal class DefaultLapisPacketProcessor(
 		}
 		//checkIsNotDisposed()
 
-		val packets = sequence {
-			val compressed = CompressionUtil.shouldCompress(payload)
-			var actualPayload = if (compressed) {
-				CompressionUtil.compress(payload)!!
+		val compressed = CompressionUtil.shouldCompress(payload)
+		var actualPayload = if (compressed) {
+			CompressionUtil.compress(payload)!!
+		}
+		else payload
+
+		val encrypted = encryption != null && type != CompleteBluetoothPacket.Type.Handshake.byteValue
+		if (encrypted) {
+			actualPayload = try {
+				encryption!!.encrypt(actualPayload)
 			}
-			else payload
-
-			val encrypted = encryption != null && type != CompleteBluetoothPacket.Type.Handshake.byteValue
-			if (encrypted) {
-				actualPayload = try {
-					encryption!!.encrypt(actualPayload)
-				}
-				catch (e: GeneralSecurityException) {
-					throw LapisEncryptionException("Failed to encrypt packet payload", e)
-				}
-			}
-
-			logger.verbose(TAG, "LapisPacketProcessor: Packet payload stats - Original: ${payload.size}, Processed: ${actualPayload.size}, Encrypted: $encrypted")
-
-			val firstFragmentPayloadSize = minOf(actualPayload.size, FIRST_FRAGMENT_PAYLOAD_CAPACITY)
-			val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
-			val numberOfFragments = if (remainingPayloadSize <= 0) {
-				0
-			}
-			else (remainingPayloadSize + FRAGMENT_PAYLOAD_CAPACITY - 1) / FRAGMENT_PAYLOAD_CAPACITY
-
-			val packetId = generateId()
-
-			val firstFragment = BluetoothPacket.FirstFragment(
-				packetId = packetId,
-				type = type,
-				length = numberOfFragments,
-				compressed = compressed,
-				encrypted = encrypted,
-				originalPayloadSize = payload.size,
-				actualPayloadSize = actualPayload.size,
-				payload = actualPayload.sliceArray(0 until firstFragmentPayloadSize)
-			)
-			yield(firstFragment)
-
-			for (index in 0 until numberOfFragments) {
-				val start = firstFragmentPayloadSize + (index * FRAGMENT_PAYLOAD_CAPACITY)
-				val end = minOf(start + FRAGMENT_PAYLOAD_CAPACITY, actualPayload.size)
-				val fragment = BluetoothPacket.Fragment(
-					packetId = packetId,
-					index = index,
-					payload = actualPayload.sliceArray(start until end).also { logger.verbose(TAG, "LapisPacketProcessor: Fragmentation: index $index, size ${it.size}") },
-				)
-				yield(fragment)
+			catch (e: GeneralSecurityException) {
+				throw LapisEncryptionException("Failed to encrypt packet payload", e)
 			}
 		}
 
-		packets.forEach { packet ->
-			logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $packet")
-			_pendingPacketToSendChannel.send(packet)
+		logger.verbose(TAG, "LapisPacketProcessor: Packet payload stats - Original: ${payload.size}, Processed: ${actualPayload.size}, Encrypted: $encrypted")
+
+		val firstFragmentPayloadSize = minOf(actualPayload.size, FIRST_FRAGMENT_PAYLOAD_CAPACITY)
+		val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
+		val numberOfFragments = if (remainingPayloadSize <= 0) {
+			0
+		}
+		else (remainingPayloadSize + FRAGMENT_PAYLOAD_CAPACITY - 1) / FRAGMENT_PAYLOAD_CAPACITY
+
+		val packetId = generateId()
+
+		val firstFragment = BluetoothPacket.FirstFragment(
+			packetId = packetId,
+			type = type,
+			length = numberOfFragments,
+			compressed = compressed,
+			encrypted = encrypted,
+			originalPayloadSize = payload.size,
+			actualPayloadSize = actualPayload.size,
+			payload = actualPayload.copyOfRange(0, firstFragmentPayloadSize),
+		)
+		logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $firstFragment")
+		_pendingPacketToSendChannel.send(firstFragment)
+
+		for (index in 0 until numberOfFragments) {
+			val start = firstFragmentPayloadSize + (index * FRAGMENT_PAYLOAD_CAPACITY)
+			val end = minOf(start + FRAGMENT_PAYLOAD_CAPACITY, actualPayload.size)
+			val fragment = BluetoothPacket.Fragment(
+				packetId = packetId,
+				index = index,
+				payload = actualPayload.copyOfRange(start, end).also { logger.verbose(TAG, "LapisPacketProcessor: Fragmentation: index $index, size ${it.size}") },
+			)
+			logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $fragment")
+			_pendingPacketToSendChannel.send(fragment)
 		}
 	}
 
@@ -241,7 +236,7 @@ internal class DefaultLapisPacketProcessor(
 		stream: OutputStream,
 		packet: BluetoothPacket,
 	) {
-		val dataStream = DataOutputStream(stream)
+		val dataStream = stream
 
 		val byteArrayOutputStream = ByteArrayOutputStream(BLUETOOTH_PACKET_LENGTH)
 		val packetStream = DataOutputStream(byteArrayOutputStream)
