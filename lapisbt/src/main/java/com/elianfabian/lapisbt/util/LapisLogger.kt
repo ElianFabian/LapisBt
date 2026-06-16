@@ -57,6 +57,36 @@ public interface LapisLogger : LapisLogConfig {
 			override fun warning(tag: String, message: String) {}
 			override fun error(tag: String, message: String, throwable: Throwable?) {}
 		}
+
+		public inline fun LapisLogger.verbose(tag: String, message: () -> String) {
+			if (enabled && minLevel <= Level.Verbose) {
+				verbose(tag, message())
+			}
+		}
+
+		public inline fun LapisLogger.debug(tag: String, message: () -> String) {
+			if (enabled && minLevel <= Level.Debug) {
+				debug(tag, message())
+			}
+		}
+
+		public inline fun LapisLogger.info(tag: String, message: () -> String) {
+			if (enabled && minLevel <= Level.Info) {
+				info(tag, message())
+			}
+		}
+
+		public inline fun LapisLogger.warning(tag: String, message: () -> String) {
+			if (enabled && minLevel <= Level.Warn) {
+				warning(tag, message())
+			}
+		}
+
+		public inline fun LapisLogger.error(tag: String, throwable: Throwable? = null, message: () -> String) {
+			if (enabled && minLevel <= Level.Error) {
+				error(tag, message(), throwable)
+			}
+		}
 	}
 
 	public enum class Level(public val value: Int) {
@@ -74,31 +104,31 @@ internal class AndroidLogger(
 ) : LapisLogger {
 
 	override fun verbose(tag: String, message: String) {
-		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
+		if (enabled && minLevel <= LapisLogger.Level.Verbose) {
 			Log.v(tag, message)
 		}
 	}
 
 	override fun debug(tag: String, message: String) {
-		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
+		if (enabled && minLevel <= LapisLogger.Level.Debug) {
 			Log.d(tag, message)
 		}
 	}
 
 	override fun info(tag: String, message: String) {
-		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
+		if (enabled && minLevel <= LapisLogger.Level.Info) {
 			Log.i(tag, message)
 		}
 	}
 
 	override fun warning(tag: String, message: String) {
-		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
+		if (enabled && minLevel <= LapisLogger.Level.Warn) {
 			Log.w(tag, message)
 		}
 	}
 
 	override fun error(tag: String, message: String, throwable: Throwable?) {
-		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
+		if (enabled && minLevel <= LapisLogger.Level.Error) {
 			Log.e(tag, message, throwable)
 		}
 	}

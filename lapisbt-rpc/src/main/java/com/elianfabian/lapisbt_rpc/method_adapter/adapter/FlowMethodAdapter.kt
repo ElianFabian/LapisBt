@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.util.LapisLogger
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.debug
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.LocalException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
@@ -95,7 +96,9 @@ internal class FlowMethodAdapter(
 			)
 
 			awaitClose {
-				logger.debug(TAG, "FlowMethodAdapter: Flow collection for request $requestId (${method.name}) is closing (isActive=$isActive)")
+				logger.debug(TAG) {
+					"FlowMethodAdapter: Flow collection for request $requestId (${method.name}) is closing (isActive=$isActive)"
+				}
 				_pendingChannelsByRequestId.remove(requestId)
 				_scope.launch {
 					bluetoothDeviceRpc.cancel(requestId = requestId)
@@ -120,7 +123,9 @@ internal class FlowMethodAdapter(
 
 	override suspend fun onReceiveRequest(request: LapisRequest, server: LapisServerService) {
 
-		logger.debug(TAG, "FlowMethodAdapter: Handling incoming Flow request for ${getLapisRequestInfo()}")
+		logger.debug(TAG) {
+			"FlowMethodAdapter: Handling incoming Flow request for ${getLapisRequestInfo()}"
+		}
 
 		val job = _scope.launch(LapisRequestInfoContext(getLapisRequestInfo())) {
 			val flow = server.invokeMethod() as Flow<Any?>
@@ -154,7 +159,9 @@ internal class FlowMethodAdapter(
 						result = value,
 					)
 
-					logger.debug(TAG, "FlowMethodAdapter: Emitting value for request ${request.requestId} (isActive=${coroutineContext.isActive})")
+					logger.debug(TAG) {
+						"FlowMethodAdapter: Emitting value for request ${request.requestId} (isActive=${coroutineContext.isActive})"
+					}
 				}
 			bluetoothDeviceRpc.sendEnd(requestId = request.requestId)
 		}
@@ -165,7 +172,9 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onEnd(requestId: Int) {
-		logger.debug(TAG, "FlowMethodAdapter: Flow for request $requestId has ended")
+		logger.debug(TAG) {
+			"FlowMethodAdapter: Flow for request $requestId has ended"
+		}
 
 		val channel = _pendingChannelsByRequestId.remove(requestId)
 		channel?.trySend(_flowEnd)
@@ -173,7 +182,9 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onCancel(requestId: Int) {
-		logger.debug(TAG, "FlowMethodAdapter: Flow for request $requestId was cancelled")
+		logger.debug(TAG) {
+			"FlowMethodAdapter: Flow for request $requestId was cancelled"
+		}
 
 		// We force it to be a local exception so that we don't send a cancellation message to the client
 		// Cancellation should happen from the client to the server and not the other way around
@@ -183,13 +194,17 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onResult(requestId: Int, result: Any?) {
-		logger.debug(TAG, "FlowMethodAdapter: Received result for request $requestId: $result")
+		logger.debug(TAG) {
+			"FlowMethodAdapter: Received result for request $requestId: $result"
+		}
 
 		_pendingChannelsByRequestId[requestId]?.trySend(result)
 	}
 
 	override fun onErrorMessage(requestId: Int, throwable: Throwable) {
-		logger.debug(TAG, "FlowMethodAdapter: Error in Flow for request $requestId: ${throwable.message}")
+		logger.debug(TAG) {
+			"FlowMethodAdapter: Error in Flow for request $requestId: ${throwable.message}"
+		}
 		_pendingChannelsByRequestId.remove(requestId)?.close(throwable)
 	}
 

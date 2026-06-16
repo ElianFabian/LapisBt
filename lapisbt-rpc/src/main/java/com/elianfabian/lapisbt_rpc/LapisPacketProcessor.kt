@@ -1,6 +1,10 @@
 package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.util.LapisLogger
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.error
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt_rpc.exception.LapisEncryptionException
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
@@ -115,23 +119,31 @@ internal class DefaultLapisPacketProcessor(
 	override suspend fun receiveData(stream: InputStream) = withContext(Dispatchers.IO) {
 		checkIsNotDisposed()
 
-		logger.debug(TAG, "LapisPacketProcessor: Starting data reception loop...")
+		logger.debug(TAG) {
+			"Starting data reception loop..."
+		}
 
 		while (!_isDisposed) {
 			val bytes = try {
 				stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 			}
 			catch (e: IOException) {
-				logger.error(TAG, "LapisPacketProcessor: Read error during data reception", e)
+				logger.error(TAG, e) {
+					"Read error during data reception"
+				}
 				break
 			}
 
 			if (bytes.isEmpty()) {
-				logger.debug(TAG, "LapisPacketProcessor: End of stream reached during reception")
+				logger.debug(TAG) {
+					"End of stream reached during reception"
+				}
 				break
 			}
 			if (bytes.size < BLUETOOTH_PACKET_LENGTH) {
-				logger.warning(TAG, "LapisPacketProcessor: Received incomplete packet (${bytes.size} bytes). Discarding...")
+				logger.warning(TAG) {
+					"Received incomplete packet (${bytes.size} bytes). Discarding..."
+				}
 				break
 			}
 
@@ -139,7 +151,9 @@ internal class DefaultLapisPacketProcessor(
 
 			val id = dataStream.readInt()
 
-			logger.verbose(TAG, "LapisPacketProcessor: Received raw fragment for ID $id (${bytes.size} bytes)")
+			logger.verbose(TAG) {
+				"Received raw fragment for ID $id (${bytes.size} bytes)"
+			}
 			val packets = _remotePacketsById.getOrPut(id) {
 				mutableListOf()
 			}
@@ -182,7 +196,9 @@ internal class DefaultLapisPacketProcessor(
 			}
 		}
 
-		logger.verbose(TAG, "LapisPacketProcessor: Packet payload stats - Original: ${payload.size}, Processed: ${actualPayload.size}, Encrypted: $encrypted")
+		logger.verbose(TAG) {
+			"Packet payload stats - Original: ${payload.size}, Processed: ${actualPayload.size}, Encrypted: $encrypted"
+		}
 
 		val firstFragmentPayloadSize = minOf(actualPayload.size, FIRST_FRAGMENT_PAYLOAD_CAPACITY)
 		val remainingPayloadSize = actualPayload.size - firstFragmentPayloadSize
@@ -203,7 +219,9 @@ internal class DefaultLapisPacketProcessor(
 			actualPayloadSize = actualPayload.size,
 			payload = actualPayload.copyOfRange(0, firstFragmentPayloadSize),
 		)
-		logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $firstFragment")
+		logger.verbose(TAG) {
+			"Fragment queued for transmission: $firstFragment"
+		}
 		_pendingPacketToSendChannel.send(firstFragment)
 
 		for (index in 0 until numberOfFragments) {
@@ -212,9 +230,15 @@ internal class DefaultLapisPacketProcessor(
 			val fragment = BluetoothPacket.Fragment(
 				packetId = packetId,
 				index = index,
-				payload = actualPayload.copyOfRange(start, end).also { logger.verbose(TAG, "LapisPacketProcessor: Fragmentation: index $index, size ${it.size}") },
+				payload = actualPayload.copyOfRange(start, end).also {
+					logger.verbose(TAG) {
+						"Fragmentation: index $index, size ${it.size}"
+					}
+				}
 			)
-			logger.verbose(TAG, "LapisPacketProcessor: Fragment queued for transmission: $fragment")
+			logger.verbose(TAG) {
+				"Fragment queued for transmission: $fragment"
+			}
 			_pendingPacketToSendChannel.send(fragment)
 		}
 	}
@@ -271,7 +295,9 @@ internal class DefaultLapisPacketProcessor(
 			dataStream.write(bytesToWrite)
 		}
 
-		logger.verbose(TAG, "LapisPacketProcessor: Fragment transmitted successfully: $packet")
+		logger.verbose(TAG) {
+			"Fragment transmitted successfully: $packet"
+		}
 	}
 
 	private fun deserializePacket(
@@ -323,11 +349,15 @@ internal class DefaultLapisPacketProcessor(
 				if (_isDisposed) {
 					break
 				}
-				logger.verbose(TAG, "LapisPacketProcessor: Reassembling fragment: $packet")
+				logger.verbose(TAG) {
+					"Reassembling fragment: $packet"
+				}
 				ensureActive()
 				when (packet) {
 					is BluetoothPacket.FirstFragment -> {
-						logger.verbose(TAG, "LapisPacketProcessor: Received first fragment for packet ${packet.packetId} (Type: ${packet.type})")
+						logger.verbose(TAG) {
+							"Received first fragment for packet ${packet.packetId} (Type: ${packet.type})"
+						}
 						try {
 							if (packet.length == 0) {
 								var actualPayload = packet.payload
@@ -367,17 +397,23 @@ internal class DefaultLapisPacketProcessor(
 								_remoteCompletePacketChannel.send(completePacket)
 								_remotePacketsById.remove(packet.packetId)
 
-								logger.debug(TAG, "LapisPacketProcessor: Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)")
+								logger.debug(TAG) {
+									"Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)"
+								}
 							}
 						}
 						catch (e: Exception) {
 							if (e is CancellationException) throw e
-							logger.error(TAG, "Error reassembling first fragment", e)
+							logger.error(TAG, e) {
+								"Error reassembling first fragment"
+							}
 							_remoteCompletePacketChannel.close(e)
 						}
 					}
 					is BluetoothPacket.Fragment -> {
-						logger.verbose(TAG, "LapisPacketProcessor: Received fragment ${packet.index} for packet ${packet.packetId}")
+						logger.verbose(TAG) {
+							"Received fragment ${packet.index} for packet ${packet.packetId}"
+						}
 						try {
 							val packets = _remotePacketsById[packet.packetId] ?: return@launch
 
@@ -428,12 +464,18 @@ internal class DefaultLapisPacketProcessor(
 								_remoteCompletePacketChannel.send(completePacket)
 								_remotePacketsById.remove(packet.packetId)
 
-								logger.debug(TAG, "LapisPacketProcessor: Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)")
+								logger.debug(TAG) {
+									"Successfully reassembled packet ${completePacket.packetId} (${decompressedPayload.size} bytes)"
+								}
 							}
 						}
 						catch (e: Exception) {
-							if (e is CancellationException) throw e
-							logger.error(TAG, "Error reassembling fragment", e)
+							if (e is CancellationException) {
+								throw e
+							}
+							logger.error(TAG, e) {
+								"Error reassembling fragment"
+							}
 							_remoteCompletePacketChannel.close(e)
 						}
 					}

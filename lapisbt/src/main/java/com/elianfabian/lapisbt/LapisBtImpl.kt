@@ -13,6 +13,11 @@ import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.LapisLogConfig
 import com.elianfabian.lapisbt.util.LapisLogger
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.error
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.info
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.util.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import com.elianfabian.lapisbt.util.convertToScanMode
 import com.elianfabian.lapisbt.util.toModel
@@ -166,7 +171,9 @@ internal class LapisBtImpl(
 	override fun setBluetoothDeviceName(newName: String): Boolean {
 		checkIsNotDispose()
 
-		logger.debug(TAG, "setBluetoothDeviceName('$newName'): Setting name...")
+		logger.debug(TAG) {
+			"setBluetoothDeviceName('$newName'): Setting name..."
+		}
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
@@ -200,7 +207,9 @@ internal class LapisBtImpl(
 	override fun startScan(): Boolean {
 		checkIsNotDispose()
 
-		logger.info(TAG, "startScan(): Starting discovery...")
+		logger.info(TAG) {
+			"startScan(): Starting discovery..."
+		}
 
 		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
@@ -214,7 +223,9 @@ internal class LapisBtImpl(
 	override fun stopScan(): Boolean {
 		checkIsNotDispose()
 
-		logger.info(TAG, "stopScan(): Stopping discovery...")
+		logger.info(TAG) {
+			"stopScan(): Stopping discovery..."
+		}
 
 		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
@@ -232,7 +243,9 @@ internal class LapisBtImpl(
 	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
 		checkIsNotDispose()
 
-		logger.info(TAG, "startBluetoothServer('$serviceName', $serviceUuid): Starting...")
+		logger.info(TAG) {
+			"startBluetoothServer('$serviceName', $serviceUuid): Starting..."
+		}
 
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
@@ -243,7 +256,9 @@ internal class LapisBtImpl(
 	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
 		checkIsNotDispose()
 
-		logger.info(TAG, "startBluetoothServerWithoutPairing('$serviceName', $serviceUuid): Starting insecure server...")
+		logger.info(TAG) {
+			"startBluetoothServerWithoutPairing('$serviceName', $serviceUuid): Starting insecure server..."
+		}
 
 		return startBluetoothServerInternal(
 			serviceName = serviceName,
@@ -255,7 +270,9 @@ internal class LapisBtImpl(
 	override fun stopBluetoothServer(serviceUuid: UUID) {
 		checkIsNotDispose()
 
-		logger.info(TAG, "stopBluetoothServer($serviceUuid): Stopping...")
+		logger.info(TAG) {
+			"stopBluetoothServer($serviceUuid): Stopping..."
+		}
 
 		if (serviceUuid !in _bluetoothServerSocketByServiceUuid) {
 			throw IllegalStateException("Attempted to stop a Bluetooth server that was not registered or already stopped (UUID: $serviceUuid).")
@@ -271,7 +288,9 @@ internal class LapisBtImpl(
 	override suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
 		checkIsNotDispose()
 
-		logger.info(TAG, "connectToDevice($deviceAddress, $serviceUuid): Connecting...")
+		logger.info(TAG) {
+			"connectToDevice($deviceAddress, $serviceUuid): Connecting..."
+		}
 
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
@@ -282,7 +301,9 @@ internal class LapisBtImpl(
 	override suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
 		checkIsNotDispose()
 
-		logger.info(TAG, "connectToDeviceWithoutPairing($deviceAddress, $serviceUuid): Connecting insecurely...")
+		logger.info(TAG) {
+			"connectToDeviceWithoutPairing($deviceAddress, $serviceUuid): Connecting insecurely..."
+		}
 
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
@@ -297,7 +318,9 @@ internal class LapisBtImpl(
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
 		}
-		logger.debug(TAG, "disconnectFromDevice($deviceAddress): Disconnecting...")
+		logger.debug(TAG) {
+			"disconnectFromDevice($deviceAddress): Disconnecting..."
+		}
 		if (!lapisAdapter.isEnabled) {
 			return false
 		}
@@ -311,15 +334,21 @@ internal class LapisBtImpl(
 		_skipDisconnectionEventForDevices.add(deviceAddress)
 
 		val disconnectedLocally = try {
-			logger.debug(TAG, "disconnectFromDevice($deviceAddress): verifying connection by writing dummy byte...")
+			logger.debug(TAG) {
+				"disconnectFromDevice($deviceAddress): verifying connection by writing dummy byte..."
+			}
 			withContext(Dispatchers.IO) {
 				clientSocket.outputStream.write(0)
 			}
-			logger.debug(TAG, "disconnectFromDevice($deviceAddress): connection verification successful")
+			logger.debug(TAG) {
+				"disconnectFromDevice($deviceAddress): connection verification successful"
+			}
 			true
 		}
 		catch (e: IOException) {
-			logger.debug(TAG, "disconnectFromDevice($deviceAddress): verification failed (expected if already disconnected): ${e.message}")
+			logger.debug(TAG) {
+				"disconnectFromDevice($deviceAddress): verification failed (expected if already disconnected): ${e.message}"
+			}
 			if (e.message.orEmpty().contains("Broken pipe")) {
 				false
 			}
@@ -340,7 +369,9 @@ internal class LapisBtImpl(
 
 		val disconnectedDevice = getRemoteDeviceInternal(deviceAddress)
 
-		logger.info(TAG, "Device $deviceAddress disconnected (locally initiated: $disconnectedLocally)")
+		logger.info(TAG) {
+			"Device $deviceAddress disconnected (locally initiated: $disconnectedLocally)"
+		}
 
 		_events.tryEmit(
 			LapisBt.Event.OnDeviceDisconnected(
@@ -351,7 +382,9 @@ internal class LapisBtImpl(
 
 		_skipDisconnectionEventForDevices.remove(deviceAddress)
 
-		logger.debug(TAG, "disconnectFromDevice($deviceAddress) completed")
+		logger.debug(TAG) {
+			"disconnectFromDevice($deviceAddress) completed"
+		}
 
 		return true
 	}
@@ -359,7 +392,9 @@ internal class LapisBtImpl(
 	override suspend fun cancelConnectionAttempt(deviceAddress: BluetoothDevice.Address): Boolean {
 		checkIsNotDispose()
 
-		logger.debug(TAG, "Cancelling connection attempt to $deviceAddress...")
+		logger.debug(TAG) {
+			"Cancelling connection attempt to $deviceAddress..."
+		}
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
@@ -444,7 +479,9 @@ internal class LapisBtImpl(
 	override fun startDevicePairing(deviceAddress: BluetoothDevice.Address): Boolean {
 		checkIsNotDispose()
 
-		logger.debug(TAG, "startDevicePairing($deviceAddress): Starting process...")
+		logger.debug(TAG) {
+			"startDevicePairing($deviceAddress): Starting process..."
+		}
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
 		if (device.createBond()) {
@@ -467,7 +504,9 @@ internal class LapisBtImpl(
 				}
 			}
 
-			logger.debug(TAG, "Pairing process initiated for $deviceAddress")
+			logger.debug(TAG) {
+				"Pairing process initiated for $deviceAddress"
+			}
 			_pairingsStarted.add(deviceAddress)
 
 			return true
@@ -478,7 +517,9 @@ internal class LapisBtImpl(
 
 	@InternalBluetoothReflectionApi
 	override fun unpairDevice(deviceAddress: BluetoothDevice.Address): Boolean {
-		logger.debug(TAG, "unpairDevice($deviceAddress): Unpairing...")
+		logger.debug(TAG) {
+			"unpairDevice($deviceAddress): Unpairing..."
+		}
 		checkIsNotDispose()
 
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
@@ -521,9 +562,13 @@ internal class LapisBtImpl(
 					action(clientSocket.outputStream)
 				}
 				catch (e: IOException) {
-					logger.error(TAG, "sendData error", e)
+					logger.error(TAG, e) {
+						"sendData error"
+					}
 					if (!_isDisposed) {
-						logger.info(TAG, "Device disconnected during sendData: ${getRemoteDeviceInternal(deviceAddress)}")
+						logger.info(TAG) {
+							"Device disconnected during sendData: ${getRemoteDeviceInternal(deviceAddress)}"
+						}
 						_skipDisconnectionEventForDevices.add(deviceAddress)
 						if (!handleDisconnectedDevice(deviceAddress)) {
 							_skipDisconnectionEventForDevices.remove(deviceAddress)
@@ -554,7 +599,9 @@ internal class LapisBtImpl(
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 
-		logger.verbose(TAG, "receiveData($deviceAddress) = $clientSocket | isConnected = ${clientSocket?.isConnected}")
+		logger.verbose(TAG) {
+			"receiveData($deviceAddress) = $clientSocket | isConnected = ${clientSocket?.isConnected}"
+		}
 
 		if (clientSocket == null || !clientSocket.isConnected) {
 			return false
@@ -568,15 +615,21 @@ internal class LapisBtImpl(
 					action(clientSocket.inputStream)
 				}
 				catch (e: IOException) {
-					logger.error(TAG, "receiveData error($deviceAddress)", e)
+					logger.error(TAG, e) {
+						"receiveData error($deviceAddress)"
+					}
 					if (!_isDisposed) {
-						logger.info(TAG, "Device disconnected during receiveData: ${getRemoteDeviceInternal(deviceAddress)}")
+						logger.info(TAG) {
+							"Device disconnected during receiveData: ${getRemoteDeviceInternal(deviceAddress)}"
+						}
 						_skipDisconnectionEventForDevices.add(deviceAddress)
 						if (!handleDisconnectedDevice(deviceAddress)) {
 							_skipDisconnectionEventForDevices.remove(deviceAddress)
 							return@withContext false
 						}
-						logger.debug(TAG, "receiveData($deviceAddress): emitting disconnection event")
+						logger.debug(TAG) {
+							"receiveData($deviceAddress): emitting disconnection event"
+						}
 						_scope.launch {
 							try {
 								_events.emit(
@@ -587,13 +640,19 @@ internal class LapisBtImpl(
 								)
 							}
 							catch (e: CancellationException) {
-								logger.debug(TAG, "receiveData($deviceAddress): disconnection event emission cancelled: ${e.message}")
+								logger.debug(TAG) {
+									"receiveData($deviceAddress): disconnection event emission cancelled: ${e.message}"
+								}
 								throw e
 							}
 							catch (e: Throwable) {
-								logger.error(TAG, "receiveData($deviceAddress): error emitting disconnection event", e)
+								logger.error(TAG, e) {
+									"receiveData($deviceAddress): error emitting disconnection event"
+								}
 							}
-							logger.debug(TAG, "receiveData($deviceAddress): disconnection event emitted")
+							logger.debug(TAG) {
+								"receiveData($deviceAddress): disconnection event emitted"
+							}
 						}
 
 						_skipDisconnectionEventForDevices.remove(deviceAddress)
@@ -608,7 +667,9 @@ internal class LapisBtImpl(
 	}
 
 	override fun fetchUuidsWithSdp(deviceAddress: BluetoothDevice.Address): Boolean {
-		logger.debug(TAG, "fetchUuidsWithSdp($deviceAddress): Fetching UUIDs...")
+		logger.debug(TAG) {
+			"fetchUuidsWithSdp($deviceAddress): Fetching UUIDs..."
+		}
 		val lapisDevice = lapisAdapter.getRemoteDevice(deviceAddress.value)
 		return lapisDevice.fetchUuidsWithSdp()
 	}
@@ -621,7 +682,9 @@ internal class LapisBtImpl(
 
 		_isDisposed = true
 
-		logger.info(TAG, "dispose(): Disposing LapisBt instance...")
+		logger.info(TAG) {
+			"dispose(): Disposing LapisBt instance..."
+		}
 
 		_scope.cancel()
 
@@ -659,7 +722,9 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.bluetoothStateFlow.collect { state ->
-				logger.info(TAG, "Bluetooth adapter state changed: $state")
+				logger.info(TAG) {
+					"Bluetooth adapter state changed: $state"
+				}
 				when (state) {
 					BluetoothAdapter.STATE_ON -> {
 						_bluetoothState.value = LapisBt.BluetoothState.On
@@ -712,7 +777,9 @@ internal class LapisBtImpl(
 					"${device.address}|${device.bondState}"
 				}
 				.collect { bondStateChangeLapisDevice ->
-					logger.verbose(TAG, "Bond state changed for ${bondStateChangeLapisDevice.address}: ${bondStateChangeLapisDevice.bondState}")
+					logger.verbose(TAG) {
+						"Bond state changed for ${bondStateChangeLapisDevice.address}: ${bondStateChangeLapisDevice.bondState}"
+					}
 
 					val targetDeviceAddress = BluetoothDevice.Address(bondStateChangeLapisDevice.address)
 
@@ -745,7 +812,9 @@ internal class LapisBtImpl(
 					}
 					_pairedDevices.update { devices ->
 						val existingDevice = devices.firstOrNull { it.address.value == bondStateChangeLapisDevice.address }
-						logger.verbose(TAG, "bondStateChange.existing: $existingDevice")
+						logger.verbose(TAG) {
+							"bondStateChange.existing: $existingDevice"
+						}
 						if (existingDevice != null) {
 							lapisAdapter.getBondedDevices().orEmpty().map { lapisDevice ->
 								val connectionState = if (existingDevice.connectionState == BluetoothDevice.ConnectionState.Connecting) {
@@ -801,13 +870,17 @@ internal class LapisBtImpl(
 					//
 					// The bonded device in this case did not explicitly request pairing with us.
 					// We treat this as a spurious/ghost bond caused by the stack and ignore it.
-					logger.verbose(TAG, "Bonding state tracking - pending pairings: $_pairingsStarted, incoming requests: $_incomingPairingRequests")
+					logger.verbose(TAG) {
+						"Bonding state tracking - pending pairings: $_pairingsStarted, incoming requests: $_incomingPairingRequests"
+					}
 					if (
 						bondStateChangeLapisDevice.bondState == AndroidBluetoothDevice.BOND_BONDED
 						&& targetDeviceAddress !in _incomingPairingRequests
 						&& targetDeviceAddress !in _pairingsStarted
 					) {
-						logger.warning(TAG, "Unexpected bonded device ${bondStateChangeLapisDevice.address}. This is very likely a Bluetooth stack bug, and the bonded device didn't actually try to pair with this device.")
+						logger.warning(TAG) {
+							"Unexpected bonded device ${bondStateChangeLapisDevice.address}. This is very likely a Bluetooth stack bug, and the bonded device didn't actually try to pair with this device."
+						}
 
 						_events.emit(
 							LapisBt.Event.OnUnexpectedDevicePaired(getRemoteDeviceInternal(targetDeviceAddress))
@@ -838,7 +911,9 @@ internal class LapisBtImpl(
 
 				val device = getRemoteDeviceInternal(BluetoothDevice.Address(unbondReason.androidDevice.address))
 
-				logger.info(TAG, "Device ${device.address} unpaired. Reason: $reason")
+				logger.info(TAG) {
+					"Device ${device.address} unpaired. Reason: $reason"
+				}
 
 				_events.emit(
 					LapisBt.Event.OnPairingFailed(
@@ -852,7 +927,9 @@ internal class LapisBtImpl(
 			bluetoothEvents.deviceDisconnectedFlow.collect { disconnectedAndroidDevice ->
 				val targetDeviceAddress = BluetoothDevice.Address(disconnectedAndroidDevice.address)
 
-				logger.verbose(TAG, "Disconnection event received for ${targetDeviceAddress}. skipEvents=$_skipDisconnectionEventForDevices")
+				logger.verbose(TAG) {
+					"Disconnection event received for ${targetDeviceAddress}. skipEvents=$_skipDisconnectionEventForDevices"
+				}
 
 				if (targetDeviceAddress in _skipDisconnectionEventForDevices) {
 					_skipDisconnectionEventForDevices.remove(targetDeviceAddress)
@@ -873,7 +950,9 @@ internal class LapisBtImpl(
 					return@collect
 				}
 
-				logger.info(TAG, "Device $targetDeviceAddress disconnected (locally initiated: ${_unpairingsStarted.contains(targetDeviceAddress)})")
+				logger.info(TAG) {
+					"Device $targetDeviceAddress disconnected (locally initiated: ${_unpairingsStarted.contains(targetDeviceAddress)})"
+				}
 
 				_events.emit(
 					LapisBt.Event.OnDeviceDisconnected(
@@ -924,7 +1003,9 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.deviceFoundFlow.collect { (lapisDevice, rssi) ->
-				logger.verbose(TAG, "Device found: ${lapisDevice.address} (RSSI: $rssi)")
+				logger.verbose(TAG) {
+					"Device found: ${lapisDevice.address} (RSSI: $rssi)"
+				}
 				val newDevice = lapisDevice.toModel(
 					connectionState = BluetoothDevice.ConnectionState.Disconnected,
 				)
@@ -951,13 +1032,17 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.isDiscoveringFlow.collect { isDiscovering ->
-				logger.info(TAG, "Bluetooth discovery state changed: isScanning=$isDiscovering")
+				logger.info(TAG) {
+					"Bluetooth discovery state changed: isScanning=$isDiscovering"
+				}
 				_isScanning.value = isDiscovering
 			}
 		}
 		_scope.launch {
 			bluetoothEvents.scanModeFlow.collect { scanMode ->
-				logger.debug(TAG, "Bluetooth scan mode changed: $scanMode")
+				logger.debug(TAG) {
+					"Bluetooth scan mode changed: $scanMode"
+				}
 				_scanMode.value = convertToScanMode(scanMode)
 			}
 		}
@@ -984,7 +1069,9 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									logger.info(TAG, "Device ${disconnectedDevice.address} disconnected because Bluetooth was turned off")
+									logger.info(TAG) {
+										"Device ${disconnectedDevice.address} disconnected because Bluetooth was turned off"
+									}
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -1008,7 +1095,9 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									logger.info(TAG, "Scanned device ${disconnectedDevice.address} disconnected because Bluetooth was turned off")
+									logger.info(TAG) {
+										"Scanned device ${disconnectedDevice.address} disconnected because Bluetooth was turned off"
+									}
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -1033,7 +1122,9 @@ internal class LapisBtImpl(
 										return@launch
 									}
 
-									logger.info(TAG, "Connected device ${disconnectedDevice.address} disconnected because Bluetooth was turned off")
+									logger.info(TAG) {
+										"Connected device ${disconnectedDevice.address} disconnected because Bluetooth was turned off"
+									}
 
 									_events.emit(
 										LapisBt.Event.OnDeviceDisconnected(
@@ -1051,7 +1142,9 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.pairingRequestFlow.collect { event ->
-				logger.debug(TAG, "Received pairing request: $event")
+				logger.debug(TAG) {
+					"Received pairing request: $event"
+				}
 
 				val targetDeviceAddress = BluetoothDevice.Address(event.androidDevice.address)
 
@@ -1087,7 +1180,9 @@ internal class LapisBtImpl(
 
 				val initiatedLocally = _pairingsStarted.contains(targetDeviceAddress)
 
-				logger.debug(TAG, "Processing pairing request from $targetDeviceAddress (locally initiated: $initiatedLocally)")
+				logger.debug(TAG) {
+					"Processing pairing request from $targetDeviceAddress (locally initiated: $initiatedLocally)"
+				}
 				_incomingPairingRequests.add(targetDeviceAddress)
 				_pairingsStarted.remove(targetDeviceAddress)
 
@@ -1160,7 +1255,9 @@ internal class LapisBtImpl(
 					device
 				}
 				else {
-					logger.verbose(TAG, "updateDevices: removing ${device.address} from connected list as it's no longer connected")
+					logger.verbose(TAG) {
+						"updateDevices: removing ${device.address} from connected list as it's no longer connected"
+					}
 					null
 				}
 			}
@@ -1279,17 +1376,23 @@ internal class LapisBtImpl(
 		}
 		else androidDevice.createRfcommSocketToServiceRecord(serviceUuid)
 
-		logger.debug(TAG, "connectToDeviceInternal($deviceAddress): socket created")
+		logger.debug(TAG) {
+			"connectToDeviceInternal($deviceAddress): socket created"
+		}
 
 		val connectedAndroidDevice = clientSocket.remoteDevice
 		_clientSocketByAddress[BluetoothDevice.Address(connectedAndroidDevice.address)] = clientSocket
 
 
-		logger.debug(TAG, "connectToDeviceInternal($deviceAddress): attempting to connect socket...")
+		logger.debug(TAG) {
+			"connectToDeviceInternal($deviceAddress): attempting to connect socket..."
+		}
 		_skipDisconnectionEventForDevices.add(deviceAddress)
 		val isConnectionSuccessFull = clientSocket.tryConnect()
 		_skipDisconnectionEventForDevices.remove(deviceAddress)
-		logger.info(TAG, "connectToDeviceInternal($deviceAddress): connection attempt result: success=$isConnectionSuccessFull")
+		logger.info(TAG) {
+			"connectToDeviceInternal($deviceAddress): connection attempt result: success=$isConnectionSuccessFull"
+		}
 
 		if (!isConnectionSuccessFull) {
 			_pairedDevices.update { devices ->
@@ -1348,11 +1451,15 @@ internal class LapisBtImpl(
 					return@invokeOnCompletion
 				}
 				try {
-					logger.debug(TAG, "tryAccept: closing server socket because the operation was cancelled")
+					logger.debug(TAG) {
+						"tryAccept: closing server socket because the operation was cancelled"
+					}
 					this@tryAccept.close()
 				}
 				catch (e: IOException) {
-					logger.error(TAG, "tryAccept: error closing server socket", e)
+					logger.error(TAG, e) {
+						"tryAccept: error closing server socket"
+					}
 				}
 			}
 
@@ -1362,7 +1469,9 @@ internal class LapisBtImpl(
 				accept()
 			}
 			catch (e: IOException) {
-				logger.error(TAG, "tryAccept: accept failed", e)
+				logger.error(TAG, e) {
+					"tryAccept: accept failed"
+				}
 				null
 			}
 			finally {
@@ -1375,7 +1484,9 @@ internal class LapisBtImpl(
 			}
 
 			val address = BluetoothDevice.Address(clientSocket.remoteDevice.address)
-			logger.info(TAG, "tryAccept: accepted incoming connection from $address")
+			logger.info(TAG) {
+				"tryAccept: accepted incoming connection from $address"
+			}
 			_clientSocketByAddress[address] = clientSocket
 
 			return@withContext clientSocket
@@ -1438,19 +1549,25 @@ internal class LapisBtImpl(
 					ensureActive()
 
 					try {
-						logger.debug(TAG, "tryConnect: first attempt failed (timeout), retrying socket connection...")
+						logger.debug(TAG) {
+							"tryConnect: first attempt failed (timeout), retrying socket connection..."
+						}
 						connect()
 						return@withContext true
 					}
 					catch (e: IOException) {
-						logger.error(TAG, "tryConnect retry failed: ${e.message}")
+						logger.error(TAG, e) {
+							"tryConnect retry failed"
+						}
 						if (e.message == "socket closed") {
 							return@withContext false
 						}
 					}
 				}
 				close()
-				logger.error(TAG, "tryConnect failed: ${e.message}")
+				logger.error(TAG, e) {
+					"tryConnect failed"
+				}
 				return@withContext false
 			}
 			finally {
@@ -1463,12 +1580,18 @@ internal class LapisBtImpl(
 	private fun handleDisconnectedDevice(deviceAddress: BluetoothDevice.Address): Boolean {
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 		try {
-			logger.debug(TAG, "handleDisconnectedDevice($deviceAddress): closing socket and cleaning up resources...")
+			logger.debug(TAG) {
+				"handleDisconnectedDevice($deviceAddress): closing socket and cleaning up resources..."
+			}
 			clientSocket?.close()
-			logger.debug(TAG, "handleDisconnectedDevice($deviceAddress): socket closed and resources cleaned up")
+			logger.debug(TAG) {
+				"handleDisconnectedDevice($deviceAddress): socket closed and resources cleaned up"
+			}
 		}
 		catch (e: Exception) {
-			logger.error(TAG, "Error closing client socket for $deviceAddress", e)
+			logger.error(TAG, e) {
+				"Error closing client socket for $deviceAddress"
+			}
 			return false
 		}
 
@@ -1495,11 +1618,15 @@ internal class LapisBtImpl(
 			}
 		}
 		_connectedDevices.update { devices ->
-			logger.verbose(TAG, "handleDisconnectedDevice($deviceAddress): filtering out device from connected list")
+			logger.verbose(TAG) {
+				"handleDisconnectedDevice($deviceAddress): filtering out device from connected list"
+			}
 			devices.filter { it.address != deviceAddress }
 		}
 
-		logger.debug(TAG, "handleDisconnectedDevice($deviceAddress) completed")
+		logger.debug(TAG) {
+			"handleDisconnectedDevice($deviceAddress) completed"
+		}
 
 		return true
 	}
