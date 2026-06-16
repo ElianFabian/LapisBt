@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt_rpc.model
 internal sealed interface BluetoothPacket {
 
 	val packetId: Int
+	val payload: ByteArray
 
 	data class FirstFragment(
 		override val packetId: Int,
@@ -12,7 +13,7 @@ internal sealed interface BluetoothPacket {
 		val encrypted: Boolean,
 		val originalPayloadSize: Int,
 		val actualPayloadSize: Int,
-		val payload: ByteArray,
+		override val payload: ByteArray,
 	) : BluetoothPacket {
 
 		override fun equals(other: Any?): Boolean {
@@ -49,7 +50,7 @@ internal sealed interface BluetoothPacket {
 	data class Fragment(
 		override val packetId: Int,
 		val index: Int,
-		val payload: ByteArray,
+		override val payload: ByteArray,
 	) : BluetoothPacket {
 
 		override fun equals(other: Any?): Boolean {

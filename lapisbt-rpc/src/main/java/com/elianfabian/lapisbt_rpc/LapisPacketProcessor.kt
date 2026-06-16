@@ -419,10 +419,9 @@ internal class DefaultLapisPacketProcessor(
 
 							if (packet.index == firstPacket.length - 1) {
 								val fullPayloadBaos = ByteArrayOutputStream()
-								fullPayloadBaos.write(firstPacket.payload)
-								packets.filterIsInstance<BluetoothPacket.Fragment>()
-									.sortedBy { it.index }
-									.forEach { fullPayloadBaos.write(it.payload) }
+								packets.forEach { fragment ->
+									fullPayloadBaos.write(fragment.payload)
+								}
 
 								val fullPayload = fullPayloadBaos.toByteArray()
 								var actualPayload = fullPayload.copyOfRange(0, firstPacket.actualPayloadSize)
