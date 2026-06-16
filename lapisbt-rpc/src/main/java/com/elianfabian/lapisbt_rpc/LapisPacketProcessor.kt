@@ -19,7 +19,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -402,12 +401,12 @@ internal class DefaultLapisPacketProcessor(
 							val firstPacket = packets.firstOrNull() as? BluetoothPacket.FirstFragment ?: throw IllegalStateException("There should be a FirstFragment packet when processing a Fragment packet")
 
 							if (packet.index == firstPacket.length - 1) {
-								val fullPayloadBaos = ByteArrayOutputStream()
+								val fullPayload = ByteArray(firstPacket.actualPayloadSize)
+								val fullPayloadByteBuffer = ByteBuffer.wrap(fullPayload)
 								packets.forEach { fragment ->
-									fullPayloadBaos.write(fragment.payload)
+									fullPayloadByteBuffer.put(fragment.payload)
 								}
 
-								val fullPayload = fullPayloadBaos.toByteArray()
 								var actualPayload = fullPayload.copyOfRange(0, firstPacket.actualPayloadSize)
 
 								val packetType = CompleteBluetoothPacket.Type.fromByte(firstPacket.type)
