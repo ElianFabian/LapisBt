@@ -9,7 +9,6 @@ import com.elianfabian.lapisbt_rpc.exception.LapisEncryptionException
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket
 import com.elianfabian.lapisbt_rpc.util.CompressionUtil
-import com.elianfabian.lapisbt_rpc.util.padded
 import com.elianfabian.lapisbt_rpc.util.readNBytesCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,10 +21,10 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -256,46 +255,31 @@ internal class DefaultLapisPacketProcessor(
 	}
 
 
-	private fun serializePacket(
-		stream: OutputStream,
-		packet: BluetoothPacket,
-	) {
-		val byteArrayOutputStream = ByteArrayOutputStream(BLUETOOTH_PACKET_LENGTH)
-		val packetStream = DataOutputStream(byteArrayOutputStream)
+	private fun serializePacket(stream: OutputStream, packet: BluetoothPacket) {
+		val outputBuffer = ByteArray(BLUETOOTH_PACKET_LENGTH)
+		val buffer = ByteBuffer.wrap(outputBuffer)
 
 		when (packet) {
 			is BluetoothPacket.FirstFragment -> {
-				packetStream.writeInt(packet.packetId)
-				packetStream.writeByte(packet.type.toInt())
-				packetStream.writeInt(packet.length)
-				packetStream.writeBoolean(packet.compressed)
-				packetStream.writeBoolean(packet.encrypted)
-				packetStream.writeInt(packet.originalPayloadSize)
-				packetStream.writeInt(packet.actualPayloadSize)
-				packetStream.write(packet.payload)
+				buffer.putInt(packet.packetId)
+				buffer.put(packet.type)
+				buffer.putInt(packet.length)
+				buffer.put(if (packet.compressed) 1.toByte() else 0.toByte())
+				buffer.put(if (packet.encrypted) 1.toByte() else 0.toByte())
+				buffer.putInt(packet.originalPayloadSize)
+				buffer.putInt(packet.actualPayloadSize)
+				buffer.put(packet.payload)
 			}
 			is BluetoothPacket.Fragment -> {
-				packetStream.writeInt(packet.packetId)
-				packetStream.writeInt(packet.index)
-				packetStream.write(packet.payload)
+				buffer.putInt(packet.packetId)
+				buffer.putInt(packet.index)
+				buffer.put(packet.payload)
 			}
 		}
 
-		val bytesToWrite = byteArrayOutputStream.toByteArray()
-		if (bytesToWrite.size > BLUETOOTH_PACKET_LENGTH) {
-			throw IllegalStateException("The serialized packet with id ${packet.packetId} is too large to fit in a single Bluetooth packet. Size: ${bytesToWrite.size}, limit: $BLUETOOTH_PACKET_LENGTH")
-		}
-		if (bytesToWrite.size < BLUETOOTH_PACKET_LENGTH) {
-			val paddedPacket = bytesToWrite.padded(BLUETOOTH_PACKET_LENGTH)
-			stream.write(paddedPacket)
-		}
-		else {
-			stream.write(bytesToWrite)
-		}
+		stream.write(outputBuffer)
 
-		logger.verbose(TAG) {
-			"Fragment transmitted successfully: $packet"
-		}
+		logger.verbose(TAG) { "Fragment transmitted successfully: $packet" }
 	}
 
 	private fun deserializePacket(
