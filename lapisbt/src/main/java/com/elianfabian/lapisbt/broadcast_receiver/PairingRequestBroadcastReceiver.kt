@@ -15,8 +15,6 @@ public class PairingRequestBroadcastReceiver(
 			return
 		}
 
-		println("$$$ PairingRequestBroadcastReceiver.intent: ${intent.contentToString()}")
-
 		val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
 		val pairingKey = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_PAIRING_KEY, AndroidBluetoothDevice.ERROR)
 		val pairingVariant = intent.getIntExtra(AndroidBluetoothDevice.EXTRA_PAIRING_VARIANT, AndroidBluetoothDevice.ERROR)

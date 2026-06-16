@@ -95,7 +95,6 @@ internal class SimulatedLapisBluetoothEvents(
 	}
 
 	fun emitPairingRequestEvent(event: LapisBluetoothEvents.PairingRequestEvent) {
-		println("$$$ emitPairingRequestEvent: $event")
 		_pairingRequestFlow.tryEmit(event)
 	}
 

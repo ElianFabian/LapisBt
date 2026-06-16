@@ -61,15 +61,12 @@ internal class SimulatedLapisBluetoothAdapter(
 
 	override fun startDiscovery(): Boolean {
 		if (!isEnabled) {
-			println("$$$ enabled")
 			return false
 		}
 		if (!config.isBluetoothScanGranted) {
-			println("$$$ granted")
 			return false
 		}
 		if (config.needsLocationForScan && !config.isLocationEnabled) {
-			println("$$$ location")
 			return false
 		}
 

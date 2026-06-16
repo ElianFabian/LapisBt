@@ -41,7 +41,6 @@ internal class LapisBluetoothDeviceImpl(
 
 	override val bondState: Int
 		get() {
-			println("$$$ lapisDeviceImpl($address)@${hashCode()}: ${device.bondState}")
 			return device.bondState
 		}
 
