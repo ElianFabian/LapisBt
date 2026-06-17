@@ -180,7 +180,7 @@ internal object CompressionUtil {
 				return false
 			}
 
-			Log.i("CompressionUtil", "✅ deflate compression test PASSED - ready for iOS compatibility")
+			Log.i("CompressionUtil", "✅ deflate compression test PASSED")
 			return true
 
 		}
