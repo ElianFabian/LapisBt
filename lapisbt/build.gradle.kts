@@ -43,6 +43,8 @@ android {
 
 dependencies {
 
+	api(project(":lapisbt-common"))
+
 	implementation(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.kotlinReflect)
 	implementation(libs.androidx.coreKtx)

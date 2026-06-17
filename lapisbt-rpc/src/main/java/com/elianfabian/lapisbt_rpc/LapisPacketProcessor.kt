@@ -1,10 +1,10 @@
 package com.elianfabian.lapisbt_rpc
 
-import com.elianfabian.lapisbt.util.LapisLogger
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.debug
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.error
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.verbose
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.warning
+import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.error
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt_rpc.exception.LapisEncryptionException
 import com.elianfabian.lapisbt_rpc.model.BluetoothPacket
 import com.elianfabian.lapisbt_rpc.model.CompleteBluetoothPacket

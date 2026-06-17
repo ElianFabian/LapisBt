@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.util
+package com.elianfabian.lapisbt.common.util
 
 import android.util.Log
 

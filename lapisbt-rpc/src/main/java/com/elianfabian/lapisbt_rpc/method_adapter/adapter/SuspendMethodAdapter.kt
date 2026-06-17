@@ -1,9 +1,9 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import com.elianfabian.lapisbt.model.BluetoothDevice
-import com.elianfabian.lapisbt.util.LapisLogger
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.debug
-import com.elianfabian.lapisbt.util.LapisLogger.Companion.error
+import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.error
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
 import com.elianfabian.lapisbt_rpc.getLapisRequestInfo

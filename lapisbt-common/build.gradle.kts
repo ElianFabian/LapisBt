@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-	namespace = "com.elianfabian.lapisbt_rpc"
+	namespace = "com.elianfabian.lapisbt.common"
 	compileSdk = 36
 
 	defaultConfig {
@@ -21,9 +21,6 @@ android {
 			isMinifyEnabled = false
 			proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 		}
-		debug {
-			enableUnitTestCoverage = true
-		}
 	}
 	compileOptions {
 		sourceCompatibility = JavaVersion.VERSION_11
@@ -35,26 +32,9 @@ android {
 			jvmTarget = JvmTarget.JVM_11
 		}
 	}
-	testOptions {
-		unitTests {
-			isReturnDefaultValues = true
-		}
-	}
 }
 
 dependencies {
-
-	api(project(":lapisbt"))
-	implementation(project(":lapisbt-common"))
-
-	//implementation(libs.kotlinReflect)
 	implementation(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.androidx.coreKtx)
-	implementation(libs.androidx.appcompat)
-	implementation(libs.material)
-	testImplementation(libs.junit)
-	testImplementation(libs.truth)
-	testImplementation(libs.kotlinxCoroutinesTest)
-	androidTestImplementation(libs.androidx.junit)
-	androidTestImplementation(libs.androidx.espressoCore)
 }

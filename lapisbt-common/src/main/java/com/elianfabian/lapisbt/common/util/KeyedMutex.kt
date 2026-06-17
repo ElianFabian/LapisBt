@@ -1,13 +1,13 @@
-package com.elianfabian.lapisbt.util
+package com.elianfabian.lapisbt.common.util
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
-internal class KeyedMutex<K : Any> {
+public class KeyedMutex<K : Any> {
 	private val locks = ConcurrentHashMap<K, Mutex>()
 
-	suspend fun <T> withLock(key: K, block: suspend () -> T): T {
+	public suspend fun <T> withLock(key: K, block: suspend () -> T): T {
 		val mutex = locks.getOrPut(key) { Mutex() }
 		return mutex.withLock { block() }
 	}
