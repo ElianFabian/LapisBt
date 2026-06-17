@@ -12,10 +12,12 @@ sealed interface ApiBasedBluetoothCommunicationAction {
 	data object OpenDeviceInfoSettings : ApiBasedBluetoothCommunicationAction
 	data object MakeDeviceDiscoverable : ApiBasedBluetoothCommunicationAction
 
+	data class ClickConnectedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class ClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class ClickPairedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class PairDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class UnpairDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
+	data class LongClickConnectedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class LongClickPairedDevice(val device: BluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data class LongClickScannedDevice(val scannedDevice: ScannedBluetoothDevice) : ApiBasedBluetoothCommunicationAction
 	data object EditBluetoothDeviceName : ApiBasedBluetoothCommunicationAction

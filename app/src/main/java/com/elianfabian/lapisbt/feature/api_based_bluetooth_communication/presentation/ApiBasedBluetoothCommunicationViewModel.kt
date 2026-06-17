@@ -455,6 +455,16 @@ class ApiBasedBluetoothCommunicationViewModel(
 			is ApiBasedBluetoothCommunicationAction.ClickClearLogs -> {
 				_rpcTestState.update { it.copy(logs = emptyList(), latestValues = emptyMap()) }
 			}
+			is ApiBasedBluetoothCommunicationAction.ClickConnectedDevice -> {
+				_deviceSelection.value = DeviceSelection.Device(action.device)
+			}
+			is ApiBasedBluetoothCommunicationAction.LongClickConnectedDevice -> {
+				_scope.launch {
+					if (!lapisBt.disconnectFromDevice(action.device.address)) {
+						androidHelper.showToast("Could not disconnect from: ${action.device.name}")
+					}
+				}
+			}
 		}
 	}
 

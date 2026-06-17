@@ -337,7 +337,10 @@ private fun BluetoothDeviceList(
 			item { Text("No paired devices", color = Color.Gray) }
 		}
 		else {
-			items(state.pairedDevices) { device ->
+			items(
+				items = state.pairedDevices,
+				key = { device -> device.address.value + "-paired" }
+			) { device ->
 				BluetoothDeviceItem(
 					name = device.name,
 					address = device.address.value,
@@ -358,7 +361,10 @@ private fun BluetoothDeviceList(
 			item { Text("No scanned devices", color = Color.Gray) }
 		}
 		else {
-			items(state.scannedDevices) { scannedDevice ->
+			items(
+				items = state.scannedDevices,
+				key = { scannedDevice -> scannedDevice.device.address.value + "-scanned" }
+			) { scannedDevice ->
 				BluetoothDeviceItem(
 					name = scannedDevice.device.name,
 					address = scannedDevice.device.address.value,
@@ -369,6 +375,29 @@ private fun BluetoothDeviceList(
 					onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickScannedDevice(scannedDevice)) },
 					onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(scannedDevice.device)) },
 					onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(scannedDevice.device)) },
+					modifier = Modifier.fillMaxWidth()
+				)
+			}
+		}
+		item { Spacer(Modifier.height(8.dp)) }
+		item { Text("Connected Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.connectedDevices.isEmpty()) {
+			item { Text("No connected devices", color = Color.Gray) }
+		}
+		else {
+			items(
+				items = state.connectedDevices,
+				key = { device -> device.address.value + "-connected" },
+			) { connectedDevice ->
+				BluetoothDeviceItem(
+					name = connectedDevice.name,
+					address = connectedDevice.address.value,
+					connectionState = connectedDevice.connectionState,
+					pairingState = connectedDevice.pairingState,
+					onClick = { onAction(ApiBasedBluetoothCommunicationAction.ClickConnectedDevice(connectedDevice)) },
+					onLongClick = { onAction(ApiBasedBluetoothCommunicationAction.LongClickConnectedDevice(connectedDevice)) },
+					onPair = { onAction(ApiBasedBluetoothCommunicationAction.PairDevice(connectedDevice)) },
+					onUnpair = { onAction(ApiBasedBluetoothCommunicationAction.UnpairDevice(connectedDevice)) },
 					modifier = Modifier.fillMaxWidth()
 				)
 			}

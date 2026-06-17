@@ -60,6 +60,7 @@ import com.elianfabian.lapisbt.app.common.presentation.component.EnableBluetooth
 import com.elianfabian.lapisbt.app.common.presentation.component.PermissionDialog
 import com.elianfabian.lapisbt.app.common.presentation.model.BluetoothMessage
 import com.elianfabian.lapisbt.app.common.util.simplestack.compose.BasePreview
+import com.elianfabian.lapisbt.feature.api_based_bluetooth_communication.presentation.ApiBasedBluetoothCommunicationAction
 import com.elianfabian.lapisbt.model.BluetoothDevice
 
 @Composable
@@ -325,6 +326,30 @@ private fun BluetoothDeviceList(
 					content = message.content,
 					senderAddress = message.senderAddress,
 					onClick = { onAction(ManualBluetoothCommunicationAction.ClickMessage(message)) },
+				)
+			}
+		}
+
+		item { Spacer(Modifier.height(8.dp)) }
+		item { Text("Connected Devices", fontWeight = FontWeight.SemiBold) }
+		if (state.connectedDevices.isEmpty()) {
+			item { Text("No connected devices", color = Color.Gray) }
+		}
+		else {
+			items(
+				items = state.connectedDevices,
+				key = { device -> device.address.value + "-connected" },
+			) { connectedDevice ->
+				BluetoothDeviceItem(
+					name = connectedDevice.name,
+					address = connectedDevice.address.value,
+					connectionState = connectedDevice.connectionState,
+					pairingState = connectedDevice.pairingState,
+					onClick = { onAction(ManualBluetoothCommunicationAction.ClickConnectedDevice(connectedDevice)) },
+					onLongClick = { onAction(ManualBluetoothCommunicationAction.LongClickConnectedDevice(connectedDevice)) },
+					onPair = { onAction(ManualBluetoothCommunicationAction.PairDevice(connectedDevice)) },
+					onUnpair = { onAction(ManualBluetoothCommunicationAction.UnpairDevice(connectedDevice)) },
+					modifier = Modifier.fillMaxWidth()
 				)
 			}
 		}
