@@ -35,6 +35,6 @@ android {
 }
 
 dependencies {
-	implementation(libs.kotlinxCoroutinesAndroid)
+	api(libs.kotlinxCoroutinesAndroid)
 	implementation(libs.androidx.coreKtx)
 }
