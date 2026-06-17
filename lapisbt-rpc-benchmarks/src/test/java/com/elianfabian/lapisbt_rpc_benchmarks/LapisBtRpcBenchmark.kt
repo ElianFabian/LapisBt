@@ -27,7 +27,6 @@ import org.junit.Before
 import org.junit.Test
 import java.util.UUID
 
-// TODO: think about the concrete values of warmup and iterations to see if we should change them
 // We implement benchmarks manually using a test source because of the following reasons:
 // - In test sources Android classes are available, so we don't have to worry about creating fake versions of those classes
 // - I tried using JMH, but it was INSANELY slow, so it's no use
