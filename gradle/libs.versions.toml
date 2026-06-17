@@ -14,7 +14,7 @@ composeBom = "2025.11.01"
 #appcompat = "1.7.1"
 googlePlayServicesLocation = "21.3.0"
 composeMaterialIconsExtended = "1.7.8"
-kotlinReflect = "2.1.0"
+kotlinReflect = "2.2.21"
 #kotlinxSerialization = "1.9.0"
 gson = "2.13.2"
 
@@ -29,15 +29,16 @@ flowCombineTuple = "1.2.0"
 ### Testing libraries
 
 truth = "1.4.5"
-kotlinCoroutines = "1.10.2"
+kotlinCoroutines = "1.8.1"
 
 ###
 
 
 ### Plugin versions.
 
-agp = "8.10.1"
-kotlin = "2.2.21"
+agp = "8.13.2"
+kotlinApp = "2.2.21" # Kotlin version for the app sample
+kotlin = "1.9.25" # Kotlin version for the library
 kotlinParcelize = "2.2.21"
 appcompat = "1.7.1"
 material = "1.13.0"
@@ -84,7 +85,7 @@ kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinApp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 kotlinParcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlinParcelize" }
 #kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

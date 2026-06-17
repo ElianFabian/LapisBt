@@ -17,7 +17,6 @@ import com.elianfabian.lapisbt.app.common.domain.PermissionState
 import com.elianfabian.lapisbt.app.common.util.simplestack.callbacks.ApplicationBackgroundStateChangeCallback
 import com.zhuinden.simplestack.ScopedServices
 import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -35,7 +34,6 @@ abstract class BasePermissionControllerImpl(
 	private val _state by lazy {
 		val state = MutableStateFlow(getCurrentState())
 
-		@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
 		object : MutableStateFlow<PermissionState> by state {
 
 			override var value: PermissionState
@@ -118,7 +116,6 @@ abstract class BaseMultiplePermissionControllerImpl(
 	private val _state by lazy {
 		val state = MutableStateFlow(getCurrentState())
 
-		@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
 		object : MutableStateFlow<Map<String, PermissionState>> by state {
 
 			override var value: Map<String, PermissionState>
