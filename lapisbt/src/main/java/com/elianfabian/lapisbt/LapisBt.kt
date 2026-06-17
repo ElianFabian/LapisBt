@@ -378,7 +378,7 @@ public interface LapisBt {
 		 */
 		public fun newInstance(
 			context: Context,
-			logger: LapisLogger = LapisLogger.android(),
+			logger: LapisLogger = LapisLogger.Silent,
 		): LapisBt {
 			val appContext = context.applicationContext
 			val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
