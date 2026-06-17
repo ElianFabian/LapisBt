@@ -7,9 +7,6 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
-import com.elianfabian.lapisbt.model.BluetoothDevice
-import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
-import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.common.util.KeyedMutex
 import com.elianfabian.lapisbt.common.util.LapisLogConfig
 import com.elianfabian.lapisbt.common.util.LapisLogger
@@ -18,6 +15,9 @@ import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.error
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.info
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.warning
+import com.elianfabian.lapisbt.model.BluetoothDevice
+import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
+import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import com.elianfabian.lapisbt.util.convertToScanMode
 import com.elianfabian.lapisbt.util.toModel
@@ -783,6 +783,15 @@ internal class LapisBtImpl(
 
 					val targetDeviceAddress = BluetoothDevice.Address(bondStateChangeLapisDevice.address)
 
+					if (bondStateChangeLapisDevice.bondState == AndroidBluetoothDevice.BOND_NONE && !_unpairingsStarted.contains(targetDeviceAddress)) {
+						logger.warning(TAG) {
+							"Unexpected bonded device ${bondStateChangeLapisDevice.address} unbonded."
+						}
+					}
+					if (bondStateChangeLapisDevice.bondState == AndroidBluetoothDevice.BOND_NONE && _unpairingsStarted.contains(targetDeviceAddress)) {
+						_unpairingsStarted.remove(targetDeviceAddress)
+					}
+
 					_scannedDevices.update { devices ->
 						devices.map { existingScannedDevice ->
 							if (existingScannedDevice.device.address == targetDeviceAddress) {
@@ -903,7 +912,7 @@ internal class LapisBtImpl(
 					AndroidInternalConstants.UNBOND_REASON_REPEATED_ATTEMPTS -> LapisBt.Event.OnPairingFailed.Reason.RepeatedAttempts
 					AndroidInternalConstants.UNBOND_REASON_REMOTE_AUTH_CANCELED -> LapisBt.Event.OnPairingFailed.Reason.RemoteAuthCanceled
 					AndroidInternalConstants.UNBOND_REASON_REMOVED -> {
-						_unpairingsStarted.remove(BluetoothDevice.Address(unbondReason.androidDevice.address))
+						//_unpairingsStarted.remove(BluetoothDevice.Address(unbondReason.androidDevice.address))
 						LapisBt.Event.OnPairingFailed.Reason.Removed
 					}
 					else -> error("Impossible value for unbond reason: ${unbondReason.reason}")
@@ -1225,11 +1234,11 @@ internal class LapisBtImpl(
 				val targetDeviceAddress = BluetoothDevice.Address(lapisDevice.address)
 
 				lapisDevice.toModel(
-					connectionState = when (targetDeviceAddress) {
-						in _clientSocketByAddress -> {
+					connectionState = when {
+						_clientSocketByAddress[targetDeviceAddress]?.isConnected == true -> {
 							BluetoothDevice.ConnectionState.Connected
 						}
-						in devices.map { it.address } -> {
+						targetDeviceAddress in devices.map { it.address } -> {
 							devices.first { it.address == targetDeviceAddress }.connectionState
 						}
 						else -> {
@@ -1241,7 +1250,7 @@ internal class LapisBtImpl(
 		}
 		_scannedDevices.update { devices ->
 			devices.map { scannedDevice ->
-				if (_clientSocketByAddress.contains(scannedDevice.device.address)) {
+				if (_clientSocketByAddress[scannedDevice.device.address]?.isConnected == true) {
 					scannedDevice.copy(
 						device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Connected),
 					)
