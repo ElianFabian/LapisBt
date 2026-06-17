@@ -190,7 +190,7 @@ internal class SuspendMethodAdapter(
 			"Request $requestId was cancelled"
 		}
 		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
-		_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
+		//_pendingContinuationsByRequestId.remove(requestId)?.resumeWithException(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
 	override fun onResult(requestId: Int, result: Any?) {

@@ -189,8 +189,6 @@ internal class FlowMethodAdapter(
 		// We force it to be a local exception so that we don't send a cancellation message to the client
 		// Cancellation should happen from the client to the server and not the other way around
 		_activeServerJobs.remove(requestId)?.cancel(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
-
-		_pendingChannelsByRequestId.remove(requestId)?.close(RemoteCancellationException("Remote cancellation from device with address '$deviceAddress'"))
 	}
 
 	override fun onResult(requestId: Int, result: Any?) {
