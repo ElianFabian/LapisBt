@@ -7,7 +7,7 @@ plugins {
 
 android {
 	namespace = "com.elianfabian.lapisbt_rpc_benchmarks"
-	compileSdk = 36
+	compileSdk = 37
 
 	defaultConfig {
 		minSdk = 21
