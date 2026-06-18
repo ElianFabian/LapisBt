@@ -618,46 +618,48 @@ internal class LapisBtImpl(
 					logger.error(TAG, e) {
 						"receiveData error($deviceAddress)"
 					}
-					if (!_isDisposed) {
-						logger.info(TAG) {
-							"Device disconnected during receiveData: ${getRemoteDeviceInternal(deviceAddress)}"
+					if (_isDisposed) {
+						return@withContext false
+					}
+					logger.info(TAG) {
+						"Device disconnected during receiveData: ${getRemoteDeviceInternal(deviceAddress)}"
+					}
+					_skipDisconnectionEventForDevices.add(deviceAddress)
+					if (!handleDisconnectedDevice(deviceAddress)) {
+						_skipDisconnectionEventForDevices.remove(deviceAddress)
+						return@withContext false
+					}
+					logger.debug(TAG) {
+						"receiveData($deviceAddress): emitting disconnection event"
+					}
+					_scope.launch {
+						try {
+							_events.emit(
+								LapisBt.Event.OnDeviceDisconnected(
+									device = getRemoteDeviceInternal(deviceAddress),
+									disconnectedLocally = _unpairingsStarted.contains(deviceAddress),
+								)
+							)
 						}
-						_skipDisconnectionEventForDevices.add(deviceAddress)
-						if (!handleDisconnectedDevice(deviceAddress)) {
-							_skipDisconnectionEventForDevices.remove(deviceAddress)
-							return@withContext false
+						catch (e: CancellationException) {
+							logger.debug(TAG) {
+								"receiveData($deviceAddress): disconnection event emission cancelled: ${e.message}"
+							}
+							throw e
+						}
+						catch (e: Throwable) {
+							logger.error(TAG, e) {
+								"receiveData($deviceAddress): error emitting disconnection event"
+							}
 						}
 						logger.debug(TAG) {
-							"receiveData($deviceAddress): emitting disconnection event"
+							"receiveData($deviceAddress): disconnection event emitted"
 						}
-						_scope.launch {
-							try {
-								_events.emit(
-									LapisBt.Event.OnDeviceDisconnected(
-										device = getRemoteDeviceInternal(deviceAddress),
-										disconnectedLocally = _unpairingsStarted.contains(deviceAddress),
-									)
-								)
-							}
-							catch (e: CancellationException) {
-								logger.debug(TAG) {
-									"receiveData($deviceAddress): disconnection event emission cancelled: ${e.message}"
-								}
-								throw e
-							}
-							catch (e: Throwable) {
-								logger.error(TAG, e) {
-									"receiveData($deviceAddress): error emitting disconnection event"
-								}
-							}
-							logger.debug(TAG) {
-								"receiveData($deviceAddress): disconnection event emitted"
-							}
-						}
-
-						_skipDisconnectionEventForDevices.remove(deviceAddress)
-						_unpairingsStarted.remove(deviceAddress)
 					}
+
+					_skipDisconnectionEventForDevices.remove(deviceAddress)
+					_unpairingsStarted.remove(deviceAddress)
+
 					return@withContext false
 				}
 
@@ -1587,7 +1589,7 @@ internal class LapisBtImpl(
 
 	@Synchronized
 	private fun handleDisconnectedDevice(deviceAddress: BluetoothDevice.Address): Boolean {
-		val clientSocket = _clientSocketByAddress[deviceAddress]
+		val clientSocket = _clientSocketByAddress.remove(deviceAddress)
 		try {
 			logger.debug(TAG) {
 				"handleDisconnectedDevice($deviceAddress): closing socket and cleaning up resources..."

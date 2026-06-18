@@ -1,8 +1,9 @@
 package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
-import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.common.util.LapisLogger
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
 import com.elianfabian.lapisbt_rpc.exception.LocalException
 import com.elianfabian.lapisbt_rpc.exception.RemoteCancellationException
@@ -52,7 +53,11 @@ internal class FlowMethodAdapter(
 
 
 	override fun dispose() {
-		val message = "BluetoothDeviceRpc for '$deviceAddress' is being disposed"
+		val message = "Adapter for device '$deviceAddress' is being disposed"
+
+		logger.verbose(TAG) {
+			message
+		}
 
 		_scope.cancel(CancellationException(message))
 
@@ -207,7 +212,6 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
-		_scope.cancel(CancellationException("Device '$deviceAddress' disconnected"))
 		_pendingChannelsByRequestId.forEach { (_, channel) ->
 			channel.close(CancellationException("Device '$deviceAddress' disconnected"))
 		}

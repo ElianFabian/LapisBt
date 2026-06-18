@@ -1,11 +1,16 @@
 package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
-import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.common.util.LapisLogConfig
 import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -23,12 +28,28 @@ internal class LapisBtRpcImpl(
 
 	override val logConfig: LapisLogConfig get() = logger
 
+	private val _scope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+
 	private val _bluetoothClientServicesByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
 	private val _bluetoothServerServiceByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
 	private val _bluetoothDeviceRpcByAddress = ConcurrentHashMap<BluetoothDevice.Address, BluetoothDeviceRpc>()
 
 	@Volatile
 	private var _isDisposed = false
+
+
+	init {
+		_scope.launch {
+			lapisBt.events.collect { event ->
+				when (event) {
+					is LapisBt.Event.OnDeviceDisconnected -> {
+						handleDeviceDisconnected(event.device.address)
+					}
+					else -> Unit
+				}
+			}
+		}
+	}
 
 
 	override fun <T : Any> getOrCreateBluetoothClientService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>): T {
@@ -225,6 +246,8 @@ internal class LapisBtRpcImpl(
 
 		_isDisposed = true
 
+		_scope.cancel()
+
 		_bluetoothDeviceRpcByAddress.forEach { (_, bridge) ->
 			bridge.dispose()
 		}
@@ -257,10 +280,31 @@ internal class LapisBtRpcImpl(
 		}
 	}
 
+	private fun handleDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
+		_bluetoothServerServiceByAddress[deviceAddress]?.values?.forEach { server ->
+			if (server is LapisBtRpc.Registered) {
+				try {
+					server.onLapisServiceUnregistered(deviceAddress)
+				}
+				catch (e: Exception) {
+					logger.error(TAG, "Error notifying server unregistration during disconnect", e)
+				}
+			}
+		}
+
+		_bluetoothDeviceRpcByAddress.remove(deviceAddress)?.dispose()
+		_bluetoothClientServicesByAddress.remove(deviceAddress)
+		_bluetoothServerServiceByAddress.remove(deviceAddress)
+	}
+
 	private fun checkIsNotDisposed() {
 		check(!_isDisposed) {
 			"Can't call any method in ${LapisBtRpc::class.qualifiedName} since it's already disposed"
 		}
+	}
+
+	companion object {
+		private val TAG = LapisBtRpcImpl::class.java.simpleName
 	}
 }
 

@@ -83,8 +83,6 @@ class ApiBasedBluetoothCommunicationViewModel(
 						)
 					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
-						lapisBtRpc.unregisterBluetoothServerService<SimpleBluetoothRpc>(event.device.address)
-
 						androidHelper.showToast("Device disconnected: '${event.device.name}'")
 
 						_deviceSelection.update { selection ->

@@ -122,15 +122,7 @@ internal class DefaultLapisPacketProcessor(
 		}
 
 		while (!_isDisposed) {
-			val bytes = try {
-				stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
-			}
-			catch (e: IOException) {
-				logger.error(TAG, e) {
-					"Read error during data reception"
-				}
-				break
-			}
+			val bytes = stream.readNBytesCompat(BLUETOOTH_PACKET_LENGTH)
 
 			if (bytes.isEmpty()) {
 				logger.debug(TAG) {

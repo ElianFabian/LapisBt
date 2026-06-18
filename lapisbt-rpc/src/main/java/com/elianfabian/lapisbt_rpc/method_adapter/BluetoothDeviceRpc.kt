@@ -1,13 +1,13 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
 import com.elianfabian.lapisbt.LapisBt
-import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.common.util.LapisLogger
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.debug
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.error
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.info
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
 import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.warning
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.AutomaticEncryptionMarker
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.LapisEncryption
@@ -139,24 +139,17 @@ internal class BluetoothDeviceRpc(
 						}
 
 						logger.debug(TAG) {
-							"$deviceAddress: instance disconnected and cleaned up (hash: ${hashCode()})"
+							"$deviceAddress: instance disconnected"
 						}
-						internalDispose()
 					}
 					else -> Unit
 				}
 			}
 		}
 		_scope.launch {
-			while (isActive) {
-				val success = lapisBt.sendData(deviceAddress) { stream ->
+			while (isActive && !_isDisposed) {
+				lapisBt.sendData(deviceAddress) { stream ->
 					packetProcessor.sendData(stream)
-				}
-				if (success) {
-					logger.warning(TAG) {
-						"$deviceAddress: sendData loop completed unexpectedly"
-					}
-					break
 				}
 
 				logger.debug(TAG) {
@@ -172,15 +165,9 @@ internal class BluetoothDeviceRpc(
 			}
 		}
 		_scope.launch {
-			while (isActive) {
-				val success = lapisBt.receiveData(deviceAddress) { stream ->
+			while (isActive && !_isDisposed) {
+				lapisBt.receiveData(deviceAddress) { stream ->
 					packetProcessor.receiveData(stream)
-				}
-				if (success) {
-					logger.warning(TAG) {
-						"$deviceAddress: receiveData loop completed unexpectedly"
-					}
-					break
 				}
 
 				logger.debug(TAG) {
