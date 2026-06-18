@@ -386,7 +386,10 @@ public interface LapisBt {
 			return LapisBtImpl(
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
 				androidHelper = AndroidHelperImpl(appContext),
-				bluetoothEvents = LapisBluetoothEventsImpl(appContext),
+				bluetoothEvents = LapisBluetoothEventsImpl(
+					context = appContext,
+					logger = logger,
+				),
 				logger = logger,
 			)
 		}

@@ -4,16 +4,21 @@ import android.content.Context
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
+import com.elianfabian.lapisbt.common.util.LapisLogger
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 internal class SimulatedLapisBluetoothEvents(
 	context: Context? = null,
+	logger: LapisLogger,
 ) : LapisBluetoothEvents {
 
 	private val _realEvents: LapisBluetoothEvents? = if (context != null) {
-		LapisBluetoothEventsImpl(context)
+		LapisBluetoothEventsImpl(
+			context = context,
+			logger = logger,
+		)
 	}
 	else null
 

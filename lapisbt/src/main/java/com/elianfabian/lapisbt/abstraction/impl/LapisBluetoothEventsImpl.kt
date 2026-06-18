@@ -19,6 +19,8 @@ import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastRece
 import com.elianfabian.lapisbt.broadcast_receiver.DiscoveryStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.PairingRequestBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.ScanModeChangeBroadcastReceiver
+import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 
 internal class LapisBluetoothEventsImpl(
 	private val context: Context,
+	private val logger: LapisLogger,
 ) : LapisBluetoothEvents {
 
 	private val _bluetoothStateFlow = MutableSharedFlow<Int>(extraBufferCapacity = Int.MAX_VALUE)
@@ -66,6 +69,10 @@ internal class LapisBluetoothEventsImpl(
 
 
 	override fun dispose() {
+		logger.verbose(TAG) {
+			"dispose()"
+		}
+
 		val application = context.applicationContext as Application
 		application.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
 
@@ -100,6 +107,9 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _bluetoothStateChangeReceiver = BluetoothStateChangeBroadcastReceiver(
 		onStateChange = { state ->
+			logger.verbose(TAG) {
+				"onStateChange($state)"
+			}
 			_bluetoothStateFlow.tryEmit(state)
 		}
 	)
@@ -107,6 +117,9 @@ internal class LapisBluetoothEventsImpl(
 	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
 		onAliasChanged = { androidDevice, _ ->
 			if (Build.VERSION.SDK_INT >= 30) {
+				logger.verbose(TAG) {
+					"onAliasChanged($androidDevice)"
+				}
 				_deviceAliasChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 			}
 		}
@@ -114,6 +127,10 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _bondStateChangeReceiver = DeviceBondStateChangeBroadcastReceiver(
 		onStateChange = { androidDevice, oldState, newState, reason ->
+			logger.verbose(TAG) {
+				"onStateChange(device: $androidDevice, oldState: $oldState, newState: $newState, reason: $reason)"
+			}
+
 			if (newState == oldState) {
 				return@DeviceBondStateChangeBroadcastReceiver
 			}
@@ -127,8 +144,6 @@ internal class LapisBluetoothEventsImpl(
 			}
 
 			val device = LapisBluetoothDeviceImpl(androidDevice)
-
-			println("$$$$ DeviceBondStateChangeBroadcastReceiver(old: $oldState, new: $newState, reason: $reason, device: $device")
 
 			if (reason > 0) {
 				_unbondReasonFlow.tryEmit(
@@ -145,10 +160,12 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _deviceConnectionReceiver = DeviceConnectionStateChangeBroadcastReceiver(
 		onConnectionStateChange = { androidDevice, isConnected ->
+			logger.verbose(TAG) {
+				"onConnectionStateChange(device: $androidDevice, isConnected: $isConnected)"
+			}
 			// When we try to connect to a paired device, this callback executes with isConnected to true and after some small time (around 4s)
 			// it executes again with isConnected to false, so the 'true' value here it's not reliable
 			// So we only care about the false value
-			println("$$$$ DeviceConnectionStateChangeBroadcastReceiver($isConnected): ${LapisBluetoothDeviceImpl(androidDevice)}")
 			if (!isConnected) {
 				_deviceDisconnectedFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 			}
@@ -157,18 +174,27 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _deviceNameChangeReceiver = DeviceNameChangeBroadcastReceiver(
 		onNameChange = { newName ->
+			logger.verbose(TAG) {
+				"onNameChange($newName)"
+			}
 			_deviceNameFlow.tryEmit(newName)
 		}
 	)
 
 	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
-		onUuidsChange = { androidDevice, _ ->
+		onUuidsChange = { androidDevice, uuids ->
+			logger.verbose(TAG) {
+				"onUuidsChange(device: $androidDevice, uuids: $uuids)"
+			}
 			_deviceUuidsChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)
 
 	private val _deviceFoundReceiver = DeviceFoundBroadcastReceiver(
 		onDeviceFound = { androidDeviceFound, rssi ->
+			logger.verbose(TAG) {
+				"onDeviceFound(device: $androidDeviceFound, rssi: $rssi)"
+			}
 			_deviceFoundFlow.tryEmit(
 				LapisBluetoothEvents.DeviceFoundEvent(
 					androidDevice = LapisBluetoothDeviceImpl(androidDeviceFound),
@@ -180,18 +206,28 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _discoveryStateChangeReceiver = DiscoveryStateChangeBroadcastReceiver(
 		onDiscoveryStateChange = { isDiscovering ->
+			logger.verbose(TAG) {
+				"onDiscoveryStateChange($isDiscovering)"
+			}
 			_isDiscoveringFlow.tryEmit(isDiscovering)
 		}
 	)
 
 	private val _scanModeChangeReceiver = ScanModeChangeBroadcastReceiver(
-		onScanModeChanged = { _, newScanMode ->
+		onScanModeChanged = { previousScanMode, newScanMode ->
+			logger.verbose(TAG) {
+				"onScanModeChanged(previousScanMode: $previousScanMode, newScanMode: $newScanMode)"
+			}
 			_scanModeFlow.tryEmit(newScanMode)
 		}
 	)
 
 	private val _pairingRequestBroadcastReceiver = PairingRequestBroadcastReceiver(
 		onPairingRequest = { androidDevice, pairingKey, pairingVariant ->
+			logger.verbose(TAG) {
+				"onPairingRequest(device: $androidDevice, pairingKey: $pairingKey, pairingVariant: $pairingVariant)"
+			}
+
 			val lapisDevice = LapisBluetoothDeviceImpl(androidDevice)
 
 			_pairingRequestFlow.tryEmit(
@@ -212,6 +248,10 @@ internal class LapisBluetoothEventsImpl(
 
 
 	private fun initialize() {
+		logger.verbose(TAG) {
+			"initialize()"
+		}
+
 		val application = context.applicationContext as Application
 		application.registerActivityLifecycleCallbacks(_activityLifecycleCallbacks)
 
@@ -267,5 +307,10 @@ internal class LapisBluetoothEventsImpl(
 
 		// NOTES:
 		// - ACTION_ACL_DISCONNECT_REQUESTED: I haven't observed this action being fired during testing
+	}
+
+
+	companion object {
+		private val TAG = LapisBluetoothEventsImpl::class.java.simpleName
 	}
 }
