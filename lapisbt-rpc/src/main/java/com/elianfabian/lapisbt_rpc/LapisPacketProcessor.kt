@@ -103,6 +103,10 @@ internal class DefaultLapisPacketProcessor(
 	override suspend fun sendData(stream: OutputStream) = withContext(Dispatchers.IO) {
 		checkIsNotDisposed()
 
+		logger.verbose(TAG) {
+			"sendData(...)"
+		}
+
 		for (packetToSend in _pendingPacketToSendChannel) {
 			if (_isDisposed) {
 				break
@@ -165,6 +169,9 @@ internal class DefaultLapisPacketProcessor(
 		payload: ByteArray,
 		methodMetadataAnnotations: List<Annotation>,
 	) {
+		logger.verbose(TAG) {
+			"sendPacketData(type=$type, payload=${payload.size} bytes)"
+		}
 		if (_isDisposed) {
 			return
 		}
@@ -234,6 +241,9 @@ internal class DefaultLapisPacketProcessor(
 	}
 
 	override fun dispose() {
+		logger.verbose(TAG) {
+			"dispose()"
+		}
 		if (_isDisposed) {
 			return
 		}
