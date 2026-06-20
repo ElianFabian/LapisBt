@@ -38,7 +38,7 @@ public interface LapisLogger : LapisLogConfig {
 		public fun console(
 			enabled: Boolean = true,
 			minLevel: Level = Level.Verbose,
-			prefix: String = "",
+			prefix: () -> String = { "" },
 		): LapisLogger = ConsoleLogger(
 			enabled = enabled,
 			minLevel = minLevel,
@@ -138,7 +138,7 @@ internal class AndroidLogger(
 internal class ConsoleLogger(
 	override var enabled: Boolean,
 	override var minLevel: LapisLogger.Level,
-	val prefix: String,
+	val prefix: () -> String,
 ) : LapisLogger {
 
 	// ANSI Escape Codes for Colors
@@ -153,8 +153,9 @@ internal class ConsoleLogger(
 
 	override fun verbose(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
+			val prefix = prefix()
 			val actualPrefix = if (prefix.isNotBlank()) {
-				"$prefix|"
+				"${prefix}|"
 			}
 			else ""
 			println("${GRAY}V/$actualPrefix$tag: $message$RESET")
@@ -163,8 +164,9 @@ internal class ConsoleLogger(
 
 	override fun debug(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
+			val prefix = prefix()
 			val actualPrefix = if (prefix.isNotBlank()) {
-				"$prefix|"
+				"${prefix}|"
 			}
 			else ""
 			println("${CYAN}D/$actualPrefix$tag: $message$RESET")
@@ -173,8 +175,9 @@ internal class ConsoleLogger(
 
 	override fun info(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
+			val prefix = prefix()
 			val actualPrefix = if (prefix.isNotBlank()) {
-				"$prefix|"
+				"${prefix}|"
 			}
 			else ""
 			println("${GREEN}I/$actualPrefix$tag: $message$RESET")
@@ -183,8 +186,9 @@ internal class ConsoleLogger(
 
 	override fun warning(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
+			val prefix = prefix()
 			val actualPrefix = if (prefix.isNotBlank()) {
-				"$prefix|"
+				"${prefix}|"
 			}
 			else ""
 			println("${YELLOW}W/$actualPrefix$tag: $message$RESET")
@@ -193,8 +197,9 @@ internal class ConsoleLogger(
 
 	override fun error(tag: String, message: String, throwable: Throwable?) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
+			val prefix = prefix()
 			val actualPrefix = if (prefix.isNotBlank()) {
-				"$prefix|"
+				"${prefix}|"
 			}
 			else ""
 			println("${RED}E/$actualPrefix$tag: $message$RESET")
