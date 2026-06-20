@@ -40,6 +40,7 @@ public interface LapisBt {
 	public val scannedDevices: StateFlow<List<ScannedBluetoothDevice>>
 
 	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
+	// TODO: maybe we could indicate which UUID is used for every connection
 	public val connectedDevices: StateFlow<List<BluetoothDevice>>
 
 	public val bluetoothDeviceName: StateFlow<String?>
