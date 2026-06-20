@@ -2,10 +2,10 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
+import com.elianfabian.lapisbt.common.util.LapisLogger
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
-import com.elianfabian.lapisbt.common.util.LapisLogger
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
@@ -46,7 +46,7 @@ class LapisBtRpcRegularTest {
 	@Before
 	fun setUp() {
 		Dispatchers.setMain(UnconfinedTestDispatcher())
-		environment = LapisBt.newSimulatedBluetoothEnvironment()
+		environment = LapisBt.newSimulatedBluetoothEnvironment(createLogger = { LapisLogger.console() })
 		phone = environment.createDevice()
 		peripheral = environment.createDevice()
 	}
@@ -172,6 +172,32 @@ class LapisBtRpcRegularTest {
 		}.awaitAll()
 
 		assertThat(results).containsExactly(1 + 2, 2 + 3, 3 + 4)
+	}
+
+	@Test
+	fun `reconnection works`() = runTest(timeout = 20.seconds) {
+		this.setupConnection()
+		val client1 = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+		assertThat(client1.noParamWithReturn()).isEqualTo("Hello")
+
+		// Disconnect
+		phone.lapisBt.disconnectFromDevice(peripheral.address)
+		delay(500) // Ensure disconnection is processed
+
+		// Re-register and Re-connect
+		peripheralRpc.registerBluetoothServerService<RegularService>(phone.address, serviceImpl)
+
+		backgroundScope.launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("RegularService", serviceUuid)
+		}
+
+		val result = phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
+
+		// Obtain new client and verify
+		val client2 = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+		assertThat(client2.noParamWithReturn()).isEqualTo("Hello")
 	}
 }
 

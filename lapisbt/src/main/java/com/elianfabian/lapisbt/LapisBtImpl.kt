@@ -362,7 +362,7 @@ internal class LapisBtImpl(
 
 		// If we put this skip disconnection event logic inside handleDisconnectedDevice
 		// it doesn't work, probably because of concurrency issues
-		if (!handleDisconnectedDevice(deviceAddress)) {
+		if (!handleDisconnectedDevice(deviceAddress, clientSocket)) {
 			_skipDisconnectionEventForDevices.remove(deviceAddress)
 			return false
 		}
@@ -570,7 +570,7 @@ internal class LapisBtImpl(
 							"Device disconnected during sendData: ${getRemoteDeviceInternal(deviceAddress)}"
 						}
 						_skipDisconnectionEventForDevices.add(deviceAddress)
-						if (!handleDisconnectedDevice(deviceAddress)) {
+						if (!handleDisconnectedDevice(deviceAddress, clientSocket)) {
 							_skipDisconnectionEventForDevices.remove(deviceAddress)
 							return@withContext false
 						}
@@ -616,7 +616,7 @@ internal class LapisBtImpl(
 				}
 				catch (e: IOException) {
 					logger.error(TAG, e) {
-						"receiveData error($deviceAddress)"
+						"receiveData error($deviceAddress, ${clientSocket.hashCode()})"
 					}
 					if (_isDisposed) {
 						return@withContext false
@@ -625,7 +625,7 @@ internal class LapisBtImpl(
 						"Device disconnected during receiveData: ${getRemoteDeviceInternal(deviceAddress)}"
 					}
 					_skipDisconnectionEventForDevices.add(deviceAddress)
-					if (!handleDisconnectedDevice(deviceAddress)) {
+					if (!handleDisconnectedDevice(deviceAddress, clientSocket)) {
 						_skipDisconnectionEventForDevices.remove(deviceAddress)
 						return@withContext false
 					}
@@ -1388,7 +1388,7 @@ internal class LapisBtImpl(
 		else androidDevice.createRfcommSocketToServiceRecord(serviceUuid)
 
 		logger.debug(TAG) {
-			"connectToDeviceInternal($deviceAddress): socket created"
+			"connectToDeviceInternal($deviceAddress, ${clientSocket.hashCode()}): socket created"
 		}
 
 		val connectedAndroidDevice = clientSocket.remoteDevice
@@ -1588,7 +1588,27 @@ internal class LapisBtImpl(
 	}
 
 	@Synchronized
-	private fun handleDisconnectedDevice(deviceAddress: BluetoothDevice.Address): Boolean {
+	private fun handleDisconnectedDevice(
+		deviceAddress: BluetoothDevice.Address,
+		socket: LapisBluetoothSocket? = null,
+	): Boolean {
+		val callerMethodName = Throwable().stackTrace.map { it.methodName }.takeIf { it.isNotEmpty() } ?: "Unknown"
+		logger.debug(TAG) { "handleDisconnectedDevice called by: $callerMethodName" }
+
+		if (socket != null) {
+			val currentSocket = _clientSocketByAddress[deviceAddress]
+			// We check if the socket that triggered the disconnection is the same one currently stored in the map.
+			// This prevents a race condition where a reconnection established a NEW socket, but the cleanup
+			// loop of the PREVIOUS connection finally catches an exception and tries to clear the map,
+			// which would accidentally remove and close the new, healthy socket.
+			if (currentSocket != null && currentSocket !== socket) {
+				logger.debug(TAG) {
+					"handleDisconnectedDevice($deviceAddress): Ignoring disconnection cleanup for mismatched socket (current: ${currentSocket.hashCode()}, provided: ${socket.hashCode()})"
+				}
+				return false
+			}
+		}
+
 		val clientSocket = _clientSocketByAddress.remove(deviceAddress)
 		try {
 			logger.debug(TAG) {
@@ -1596,7 +1616,7 @@ internal class LapisBtImpl(
 			}
 			clientSocket?.close()
 			logger.debug(TAG) {
-				"handleDisconnectedDevice($deviceAddress): socket closed and resources cleaned up"
+				"handleDisconnectedDevice($deviceAddress, ${clientSocket.hashCode()}): socket closed and resources cleaned up"
 			}
 		}
 		catch (e: Exception) {
@@ -1606,7 +1626,6 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		_clientSocketByAddress.remove(deviceAddress)
 		_clientJobByAddress[deviceAddress]?.cancel()
 		_clientJobByAddress.remove(deviceAddress)
 

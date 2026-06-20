@@ -154,13 +154,16 @@ internal class LapisBtRpcImpl(
 		}
 		val existingServerApi = serverApiByClass[serviceInterface]
 		if (existingServerApi != null) {
-			throw IllegalStateException("Server $existingServerApi for address $deviceAddress and interface $serviceInterface already registered")
+			if (existingServerApi !== server) {
+				throw IllegalStateException("Server $existingServerApi for address $deviceAddress and interface $serviceInterface already registered")
+			}
 		}
+		else {
+			serverApiByClass[serviceInterface] = server
 
-		serverApiByClass[serviceInterface] = server
-
-		if (server is LapisBtRpc.Registered) {
-			server.onLapisServiceRegistered(deviceAddress)
+			if (server is LapisBtRpc.Registered) {
+				server.onLapisServiceRegistered(deviceAddress)
+			}
 		}
 
 		_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
@@ -281,20 +284,8 @@ internal class LapisBtRpcImpl(
 	}
 
 	private fun handleDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
-		_bluetoothServerServiceByAddress[deviceAddress]?.values?.forEach { server ->
-			if (server is LapisBtRpc.Registered) {
-				try {
-					server.onLapisServiceUnregistered(deviceAddress)
-				}
-				catch (e: Exception) {
-					logger.error(TAG, "Error notifying server unregistration during disconnect", e)
-				}
-			}
-		}
-
 		_bluetoothDeviceRpcByAddress.remove(deviceAddress)?.dispose()
 		_bluetoothClientServicesByAddress.remove(deviceAddress)
-		_bluetoothServerServiceByAddress.remove(deviceAddress)
 	}
 
 	private fun checkIsNotDisposed() {
@@ -304,7 +295,6 @@ internal class LapisBtRpcImpl(
 	}
 
 	companion object {
-		private val TAG = LapisBtRpcImpl::class.java.simpleName
 	}
 }
 
