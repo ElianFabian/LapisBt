@@ -46,7 +46,7 @@ android {
 }
 
 dependencies {
-	api(project(":lapisbt-common"))
+	api(project(":lapisbt-logger"))
 
 	implementation(libs.androidx.coreKtx)
 	testImplementation(libs.kotlinxCoroutinesTest)

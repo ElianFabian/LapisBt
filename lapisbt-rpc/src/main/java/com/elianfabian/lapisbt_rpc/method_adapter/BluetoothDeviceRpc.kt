@@ -1,12 +1,12 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
 import com.elianfabian.lapisbt.LapisBt
-import com.elianfabian.lapisbt.common.util.LapisLogger
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.debug
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.error
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.info
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.warning
+import com.elianfabian.lapisbt.logger.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.error
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.info
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.AutomaticEncryptionMarker
 import com.elianfabian.lapisbt_rpc.LapisBtRpc

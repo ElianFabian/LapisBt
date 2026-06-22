@@ -3,7 +3,7 @@ package com.elianfabian.lapisbt_rpc_benchmarks
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
-import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt_rpc.LapisBtRpc
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam

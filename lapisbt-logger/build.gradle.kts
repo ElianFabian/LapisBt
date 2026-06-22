@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-	namespace = "com.elianfabian.lapisbt.common"
+	namespace = "com.elianfabian.lapisbt.logger"
 	compileSdk = 37
 
 	defaultConfig {

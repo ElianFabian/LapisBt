@@ -7,12 +7,12 @@ import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothAdapterImpl
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
+import com.elianfabian.lapisbt.logger.LapisLogConfig
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
-import com.elianfabian.lapisbt.common.util.LapisLogConfig
-import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow

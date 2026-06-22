@@ -23,7 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = "LapisBt"
 include(":app")
 include(":lapisbt")
-include(":lapisbt-common")
+include(":lapisbt-logger")
 include(":lapisbt-testing")
 include(":lapisbt-rpc")
 include(":lapisbt-rpc-testing")

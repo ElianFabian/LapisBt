@@ -19,8 +19,8 @@ import com.elianfabian.lapisbt.broadcast_receiver.DeviceUuidsChangeBroadcastRece
 import com.elianfabian.lapisbt.broadcast_receiver.DiscoveryStateChangeBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.PairingRequestBroadcastReceiver
 import com.elianfabian.lapisbt.broadcast_receiver.ScanModeChangeBroadcastReceiver
-import com.elianfabian.lapisbt.common.util.LapisLogger
-import com.elianfabian.lapisbt.common.util.LapisLogger.Companion.verbose
+import com.elianfabian.lapisbt.logger.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.verbose
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow

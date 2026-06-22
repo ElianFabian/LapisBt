@@ -2,7 +2,7 @@ package com.elianfabian.lapisbt_rpc
 
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
-import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment

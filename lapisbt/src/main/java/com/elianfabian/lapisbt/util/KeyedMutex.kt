@@ -1,4 +1,4 @@
-package com.elianfabian.lapisbt.common.util
+package com.elianfabian.lapisbt.util
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

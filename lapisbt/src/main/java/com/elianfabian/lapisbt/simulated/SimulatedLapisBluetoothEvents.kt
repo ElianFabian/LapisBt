@@ -4,7 +4,7 @@ import android.content.Context
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
-import com.elianfabian.lapisbt.common.util.LapisLogger
+import com.elianfabian.lapisbt.logger.LapisLogger
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
