@@ -981,8 +981,15 @@ internal class LapisBtImpl(
 			}
 		}
 		_scope.launch {
-			bluetoothEvents.deviceUuidsChangeFlow.collect { lapisDevice ->
-				val targetDeviceAddress = BluetoothDevice.Address(lapisDevice.address)
+			bluetoothEvents.deviceUuidsChangeFlow.collect { event ->
+				val targetDeviceAddress = BluetoothDevice.Address(event.androidDevice.address)
+
+				if (event.isTimeout) {
+					logger.warning(TAG) { "SDP query timed out for $targetDeviceAddress. Retaining cached UUIDs." }
+					return@collect
+				}
+
+				val lapisDevice = event.androidDevice
 
 				_pairedDevices.update { devices ->
 					devices.map { device ->

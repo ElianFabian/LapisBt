@@ -49,7 +49,7 @@ internal class LapisBluetoothEventsImpl(
 	private val _deviceNameFlow = MutableSharedFlow<String?>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceNameFlow = _deviceNameFlow.asSharedFlow()
 
-	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
+	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothEvents.UuidsChangeEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceUuidsChangeFlow = _deviceUuidsChangeFlow.asSharedFlow()
 
 	private val _deviceFoundFlow = MutableSharedFlow<LapisBluetoothEvents.DeviceFoundEvent>(extraBufferCapacity = Int.MAX_VALUE)
@@ -182,11 +182,17 @@ internal class LapisBluetoothEventsImpl(
 	)
 
 	private val _deviceUuidsChangeReceiver = DeviceUuidsChangeBroadcastReceiver(
-		onUuidsChange = { androidDevice, uuids ->
+		onUuidsChange = { androidDevice, uuids, isTimeout ->
 			logger.verbose(TAG) {
-				"onUuidsChange(device: $androidDevice, uuids: $uuids)"
+				"onUuidsChange(device: $androidDevice, uuids: $uuids, isTimeout: $isTimeout)"
 			}
-			_deviceUuidsChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
+			_deviceUuidsChangeFlow.tryEmit(
+				LapisBluetoothEvents.UuidsChangeEvent(
+					androidDevice = LapisBluetoothDeviceImpl(androidDevice),
+					uuids = uuids,
+					isTimeout = isTimeout,
+				)
+			)
 		}
 	)
 

@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt.abstraction
 
 import kotlinx.coroutines.flow.SharedFlow
+import java.util.UUID
 
 internal interface LapisBluetoothEvents {
 
@@ -10,7 +11,7 @@ internal interface LapisBluetoothEvents {
 	val deviceDisconnectedFlow: SharedFlow<LapisBluetoothDevice>
 	val unbondReasonFlow: SharedFlow<UnbondReasonEvent>
 	val deviceNameFlow: SharedFlow<String?>
-	val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothDevice>
+	val deviceUuidsChangeFlow: SharedFlow<UuidsChangeEvent>
 	val deviceFoundFlow: SharedFlow<DeviceFoundEvent>
 	val isDiscoveringFlow: SharedFlow<Boolean>
 	val scanModeFlow: SharedFlow<Int>
@@ -35,5 +36,11 @@ internal interface LapisBluetoothEvents {
 	data class UnbondReasonEvent(
 		val androidDevice: LapisBluetoothDevice,
 		val reason: Int,
+	)
+
+	data class UuidsChangeEvent(
+		val androidDevice: LapisBluetoothDevice,
+		val uuids: List<UUID>?,
+		val isTimeout: Boolean,
 	)
 }

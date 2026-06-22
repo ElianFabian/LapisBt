@@ -37,8 +37,8 @@ internal class SimulatedLapisBluetoothEvents(
 	private val _deviceNameFlow = MutableSharedFlow<String?>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceNameFlow: SharedFlow<String?> = _deviceNameFlow.asSharedFlow()
 
-	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothDevice>(extraBufferCapacity = Int.MAX_VALUE)
-	override val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothDevice> = _deviceUuidsChangeFlow.asSharedFlow()
+	private val _deviceUuidsChangeFlow = MutableSharedFlow<LapisBluetoothEvents.UuidsChangeEvent>(extraBufferCapacity = Int.MAX_VALUE)
+	override val deviceUuidsChangeFlow: SharedFlow<LapisBluetoothEvents.UuidsChangeEvent> = _deviceUuidsChangeFlow.asSharedFlow()
 
 	private val _deviceFoundFlow = MutableSharedFlow<LapisBluetoothEvents.DeviceFoundEvent>(extraBufferCapacity = Int.MAX_VALUE)
 	override val deviceFoundFlow: SharedFlow<LapisBluetoothEvents.DeviceFoundEvent> = _deviceFoundFlow.asSharedFlow()
@@ -92,7 +92,13 @@ internal class SimulatedLapisBluetoothEvents(
 	}
 
 	fun emitDeviceUuidsChange(device: LapisBluetoothDevice) {
-		_deviceUuidsChangeFlow.tryEmit(device)
+		_deviceUuidsChangeFlow.tryEmit(
+			LapisBluetoothEvents.UuidsChangeEvent(
+				androidDevice = device,
+				uuids = device.uuids,
+				isTimeout = false,
+			)
+		)
 	}
 
 	fun emitActivityResumed() {
