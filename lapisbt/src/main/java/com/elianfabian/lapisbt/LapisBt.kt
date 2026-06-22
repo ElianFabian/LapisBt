@@ -242,14 +242,22 @@ public interface LapisBt {
 	 */
 	public suspend fun receiveData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: InputStream) -> Unit): Boolean
 
-	// TODO: We may convert this to a suspend function that returns the list of UUIDs instead of just returning a boolean, but for now this is enough
 	/**
-	 * Perform a service discovery on the remote device to get the UUIDs supported.
+	 * Performs a service discovery on the remote device via SDP (Service Discovery Protocol)
+	 * to fetch its supported UUIDs.
 	 *
-	 * @return False if the check fails, True if the process of initiating an ACL connection to the
-	 * remote device was started or cached UUIDs will be broadcast.
+	 * This function suspends until the discovery process completes, times out, or fails to initiate.
+	 *
+	 * **Side Effects:**
+	 * * Successful discoveries will automatically update the internal caches for paired,
+	 * scanned, and connected device flows.
+	 *
+	 * @param deviceAddress The Bluetooth address of the target device.
+	 * @return A list of discovered [UUID]s. Returns an **empty list** if the discovery succeeds
+	 * but zero services are exposed. Returns **null** if the operation times out or the hardware
+	 * fails to initiate the request.
 	 */
-	public fun fetchUuidsWithSdp(deviceAddress: BluetoothDevice.Address): Boolean
+	public suspend fun getUuidsWithSdp(deviceAddress: BluetoothDevice.Address): List<UUID>?
 
 	/**
 	 * Releases all resources held by this instance.

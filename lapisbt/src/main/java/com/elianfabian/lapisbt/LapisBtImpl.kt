@@ -26,7 +26,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.update
@@ -668,12 +671,27 @@ internal class LapisBtImpl(
 		}
 	}
 
-	override fun fetchUuidsWithSdp(deviceAddress: BluetoothDevice.Address): Boolean {
-		logger.debug(TAG) {
-			"fetchUuidsWithSdp($deviceAddress): Fetching UUIDs..."
-		}
+	// TODO: we should test this function
+	override suspend fun getUuidsWithSdp(deviceAddress: BluetoothDevice.Address): List<UUID>? = coroutineScope {
+		logger.debug(TAG) { "getUuidsWithSdp($deviceAddress): Fetching UUIDs..." }
 		val lapisDevice = lapisAdapter.getRemoteDevice(deviceAddress.value)
-		return lapisDevice.fetchUuidsWithSdp()
+
+		val sdpFetchTask = async {
+			bluetoothEvents.deviceUuidsChangeFlow.first {
+				it.androidDevice.address == deviceAddress.value
+			}
+		}
+
+		val initiated = lapisDevice.fetchUuidsWithSdp()
+		if (!initiated) {
+			logger.warning(TAG) {
+				"getUuidsWithSdp($deviceAddress): Failed to initiate SDP fetch."
+			}
+			sdpFetchTask.cancel()
+			return@coroutineScope null
+		}
+
+		return@coroutineScope sdpFetchTask.await().uuids
 	}
 
 	// TODO: check if everything in this class was garbage-collected
