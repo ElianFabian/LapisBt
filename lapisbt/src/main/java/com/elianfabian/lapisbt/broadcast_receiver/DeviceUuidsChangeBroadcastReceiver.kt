@@ -3,6 +3,7 @@ package com.elianfabian.lapisbt.broadcast_receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.ParcelUuid
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
 import java.util.UUID
 
@@ -14,7 +15,7 @@ internal class DeviceUuidsChangeBroadcastReceiver(
 	override fun onReceive(context: Context, intent: Intent) {
 		if (intent.action == AndroidBluetoothDevice.ACTION_UUID) {
 			val device = intent.getParcelableExtra<AndroidBluetoothDevice>(AndroidBluetoothDevice.EXTRA_DEVICE) ?: return
-			val uuids = intent.extras?.getParcelableArray(AndroidBluetoothDevice.EXTRA_UUID)?.map { UUID.fromString(it.toString()) }
+			val uuids = intent.getParcelableArrayExtra(AndroidBluetoothDevice.EXTRA_UUID)?.map { (it as ParcelUuid).uuid }
 
 			onUuidsChange(device, uuids)
 		}
