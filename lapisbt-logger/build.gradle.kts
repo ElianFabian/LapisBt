@@ -1,4 +1,5 @@
-import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
 	alias(libs.plugins.androidLibrary)
@@ -38,6 +39,5 @@ android {
 }
 
 dependencies {
-	api(libs.kotlinxCoroutinesAndroid)
-	implementation(libs.androidx.coreKtx)
+
 }
