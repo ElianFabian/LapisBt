@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.abstraction.impl
 
+import android.bluetooth.BluetoothStatusCodes
 import android.os.Build
 import androidx.annotation.RequiresApi
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice

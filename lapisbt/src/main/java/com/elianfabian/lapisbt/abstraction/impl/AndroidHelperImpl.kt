@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
-import androidx.core.content.getSystemService
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 
 internal class AndroidHelperImpl(
@@ -31,7 +30,7 @@ internal class AndroidHelperImpl(
 	}
 
 	override fun isLocationEnabled(): Boolean {
-		val locationManager = context.getSystemService<LocationManager>() ?: return false
+		val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
 		return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
 			locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 	}

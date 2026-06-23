@@ -1,7 +1,5 @@
 [versions]
-### region Library versions
 
-# Official Android libraries
 coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -18,23 +16,16 @@ kotlinReflect = "2.2.21"
 #kotlinxSerialization = "1.9.0"
 gson = "2.13.2"
 
-# Third-party libraries
 simpleStack = "2.9.0"
 simpleStackExtensions = "2.3.4"
 simpleStackCompose = "0.13.1"
 flowCombineTuple = "1.2.0"
 
-### endregion
-
-### Testing libraries
 
 truth = "1.4.5"
 kotlinCoroutines = "1.8.1"
 
-###
 
-
-### Plugin versions.
 
 agp = "8.13.2"
 kotlinApp = "2.2.21" # Kotlin version for the app sample
@@ -43,8 +34,8 @@ kotlinParcelize = "2.2.21"
 appcompat = "1.7.1"
 material = "1.13.0"
 activity = "1.12.0"
+annotationJvm = "1.10.0"
 
-### endregion
 
 [libraries]
 androidx-coreKtx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -63,9 +54,10 @@ androidx-ui-toolingPreview = { group = "androidx.compose.ui", name = "ui-tooling
 androidx-ui-testManifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-testJunit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-annotationJvm = { group = "androidx.annotation", name = "annotation-jvm", version.ref = "annotationJvm" }
 #androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-composeMaterialIconsExtended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "composeMaterialIconsExtended" }
-googlePlayServicesLocation = { group = "com.google.android.gms", name = "play-services-location", version.ref = "googlePlayServicesLocation" }
+#googlePlayServicesLocation = { group = "com.google.android.gms", name = "play-services-location", version.ref = "googlePlayServicesLocation" }
 kotlinReflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
 #kotlinxSerializationJson = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
