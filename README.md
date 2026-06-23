@@ -19,7 +19,7 @@ On top of this robust foundation, LapisBt provides a type-safe Remote Procedure 
 
 ## Installation
 
-Add it in your root `build.gradle.kts` at the end of repositories:
+Add it in your root `settings.gradle.kts` at the end of repositories:
 
 ```kotlin
 allprojects {
