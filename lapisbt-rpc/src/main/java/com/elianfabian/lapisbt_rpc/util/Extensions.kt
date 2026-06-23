@@ -1,6 +1,5 @@
 package com.elianfabian.lapisbt_rpc.util
 
-import kotlinx.coroutines.Dispatchers
 import java.io.InputStream
 import java.lang.reflect.Array
 import java.lang.reflect.GenericArrayType
@@ -9,12 +8,8 @@ import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
 import java.lang.reflect.TypeVariable
 import java.lang.reflect.WildcardType
-import java.util.Enumeration
 import kotlin.coroutines.Continuation
-import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
-import kotlin.coroutines.intrinsics.intercepted
 import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
-import kotlin.coroutines.resumeWithException
 import kotlin.math.min
 
 internal fun InputStream.readNBytesCompat(len: Int): ByteArray {
@@ -81,37 +76,6 @@ internal fun InputStream.readNBytesCompat(len: Int): ByteArray {
 	}
 
 	return result
-}
-
-
-/**
- * Source: Retrofit
- *
- * Force the calling coroutine to suspend before throwing [this].
- *
- * This is needed when a checked exception is synchronously caught in a [java.lang.reflect.Proxy]
- * invocation to avoid being wrapped in [java.lang.reflect.UndeclaredThrowableException].
- *
- * The implementation is derived from:
- * https://github.com/Kotlin/kotlinx.coroutines/pull/1667#issuecomment-556106349
- */
-internal suspend fun Throwable.suspendAndThrow(): Nothing {
-	suspendCoroutineUninterceptedOrReturn<Nothing> { continuation ->
-		Dispatchers.Default.dispatch(continuation.context) {
-			continuation.intercepted().resumeWithException(this@suspendAndThrow)
-		}
-		COROUTINE_SUSPENDED
-	}
-}
-
-internal fun <T> Iterator<T>.asEnumeration(): Enumeration<T> = object : Enumeration<T> {
-	override fun hasMoreElements(): Boolean {
-		return this@asEnumeration.hasNext()
-	}
-
-	override fun nextElement(): T {
-		return this@asEnumeration.next()
-	}
 }
 
 
@@ -186,15 +150,4 @@ internal fun Method.getSuspendReturnType(): Class<*> {
 
 internal fun Method.getFlowReturnType(): Class<*> {
 	return genericReturnType.extractFirstGenericArgument()
-}
-
-internal fun ByteArray.padded(
-	targetSize: Int,
-): ByteArray {
-	if (this.size >= targetSize) {
-		return this
-	}
-	val paddedArray = ByteArray(targetSize)
-	this.copyInto(paddedArray)
-	return paddedArray
 }
