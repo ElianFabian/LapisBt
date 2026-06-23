@@ -21,6 +21,11 @@ simpleStackExtensions = "2.3.4"
 simpleStackCompose = "0.13.1"
 flowCombineTuple = "1.2.0"
 
+# Project Metadata
+lapisbtVersion = "1.0.0"
+lapisbtGroup = "com.elianfabian.lapisbt"
+
+
 
 truth = "1.4.5"
 kotlinCoroutines = "1.8.1"
