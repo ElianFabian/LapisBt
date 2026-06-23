@@ -3,15 +3,14 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
 	alias(libs.plugins.androidLibrary)
-	alias(libs.plugins.kotlinAndroid)
 }
 
 android {
 	namespace = "com.elianfabian.lapisbt.logger"
-	compileSdk = 37
+	compileSdk = libs.versions.lapisCompileSdk.get().toInt()
 
 	defaultConfig {
-		minSdk = 21
+		minSdk = libs.versions.lapisMinSdk.get().toInt()
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		consumerProguardFiles("consumer-rules.pro")
