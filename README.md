@@ -1,3 +1,5 @@
+[![](https://jitpack.io/v/ElianFabian/LapisBt.svg)](https://jitpack.io/#ElianFabian/LapisBt)
+
 # LapisBt: Bluetooth Classic & RPC for Android
 
 LapisBt is a high-level, "sanitized" abstraction for Bluetooth Classic on Android. It acts as a synchronization layer that internally validates connection health and bonding states to ensure that the provided states and event streams represent actual hardware reality, not just the stack's reported (and often inconsistent) state.
