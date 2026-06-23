@@ -49,9 +49,7 @@ android {
 dependencies {
 	api(project(":lapisbt"))
 
-	implementation(libs.androidx.coreKtx)
-	implementation(libs.androidx.appcompat)
-	implementation(libs.material)
+	implementation(libs.kotlinxCoroutinesAndroid)
 	testImplementation(libs.junit)
 	testImplementation(libs.truth)
 	testImplementation(libs.kotlinxCoroutinesTest)
