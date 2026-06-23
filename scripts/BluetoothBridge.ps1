@@ -16,7 +16,7 @@ if (-not (Get-Command 'adb' -ErrorAction SilentlyContinue))
     Read-Host "Press enter to exit"
     exit
 }
-if (-not (Test-Path 'gradlew'))
+if (-not (Test-Path "$PSScriptRoot/../gradlew"))
 {
     Write-Error "Could not find gradlew"
     Read-Host "Press enter to exit"
