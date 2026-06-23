@@ -424,13 +424,11 @@ internal class BluetoothDeviceRpc(
 	fun setEncryption(encryption: LapisEncryption?) {
 		if (encryption is AutomaticEncryptionMarker) {
 			_encryptionMarker = encryption
-			packetProcessor.encryptionRequired = true
 			_handshakeReady = null // Reset handshake if encryption is set again
 		}
 		else {
 			_encryptionMarker = null
 			packetProcessor.encryption = encryption
-			packetProcessor.encryptionRequired = encryption != null
 			_handshakeReady = CompletableDeferred(Unit) // Already ready if manual encryption
 		}
 	}

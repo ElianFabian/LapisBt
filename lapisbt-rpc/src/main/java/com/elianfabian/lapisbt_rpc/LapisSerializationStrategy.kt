@@ -3,9 +3,12 @@ package com.elianfabian.lapisbt_rpc
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
 import kotlin.reflect.KClass
 
-// With this strategy, custom serializers can be provided for specific types.
-// For example, if we want to implement JSON serialization, we can create a strategy that returns JSON serializers for certain classes
-// that have specific annotations or implement specific interfaces.
+/**
+ * Strategy for selecting appropriate serializers for different types.
+ *
+ * Custom strategies can be implemented to support third-party types or specific
+ * serialization formats (like JSON) by returning custom [LapisSerializer] instances.
+ */
 public interface LapisSerializationStrategy {
 
 	/**

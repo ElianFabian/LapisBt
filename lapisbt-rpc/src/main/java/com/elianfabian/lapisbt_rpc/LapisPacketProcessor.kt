@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
-import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
@@ -29,24 +28,53 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Handles the fragmentation, assembly, compression, and encryption of Bluetooth packets.
+ *
+ * This interface is responsible for transforming raw byte streams from [LapisBt]
+ * into logical [CompleteBluetoothPacket] objects and vice-versa.
+ */
 public interface LapisPacketProcessor {
 
+	/**
+	 * A channel that emits fully reassembled and processed packets from the remote device.
+	 */
 	public val remoteCompletePackets: Channel<CompleteBluetoothPacket>
 
+	/**
+	 * Starts the process of sending queued packets to the provided [OutputStream].
+	 * This method typically runs indefinitely until disposed.
+	 */
 	public suspend fun sendData(stream: OutputStream)
 
+	/**
+	 * Starts the process of receiving raw data from the provided [InputStream].
+	 * This method typically runs indefinitely until disposed.
+	 */
 	public suspend fun receiveData(stream: InputStream)
 
+	/**
+	 * Queues payload data to be fragmented and sent as a packet.
+	 *
+	 * @param type The type of the packet.
+	 * @param payload The raw data to be sent.
+	 * @param methodMetadataAnnotations Annotations associated with the RPC method being called.
+	 */
 	public suspend fun sendPacketData(
 		type: Byte,
 		payload: ByteArray,
 		methodMetadataAnnotations: List<Annotation>,
 	)
 
+	/**
+	 * The encryption implementation used for this processor.
+	 * It is automatically set if an encryption implementation was provided to [LapisBtRpc].
+	 */
 	public var encryption: LapisEncryption?
 
-	public var encryptionRequired: Boolean
-
+	/**
+	 * Releases resources and stops processing.
+	 */
 	public fun dispose()
 }
 
@@ -89,7 +117,7 @@ internal class DefaultLapisPacketProcessor(
 
 	override var encryption: LapisEncryption? = null
 
-	override var encryptionRequired: Boolean = false
+	private val _encryptionRequired: Boolean get() = encryption != null
 
 	@Volatile
 	private var _isDisposed = false
@@ -361,7 +389,7 @@ internal class DefaultLapisPacketProcessor(
 										throw ex
 									}
 								}
-								else if (encryptionRequired && packetType != CompleteBluetoothPacket.Type.Handshake) {
+								else if (_encryptionRequired && packetType != CompleteBluetoothPacket.Type.Handshake) {
 									val ex = LapisEncryptionException("Received plaintext packet but encryption is required")
 									_remoteCompletePacketChannel.close(ex)
 									throw ex
@@ -427,7 +455,7 @@ internal class DefaultLapisPacketProcessor(
 										throw ex
 									}
 								}
-								else if (encryptionRequired && packetType != CompleteBluetoothPacket.Type.Handshake) {
+								else if (_encryptionRequired && packetType != CompleteBluetoothPacket.Type.Handshake) {
 									val ex = LapisEncryptionException("Received plaintext packet but encryption is required")
 									_remoteCompletePacketChannel.close(ex)
 									throw ex
