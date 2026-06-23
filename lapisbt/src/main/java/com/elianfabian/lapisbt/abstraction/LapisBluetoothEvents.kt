@@ -11,7 +11,7 @@ internal interface LapisBluetoothEvents {
 	val deviceDisconnectedFlow: SharedFlow<LapisBluetoothDevice>
 	val unbondReasonFlow: SharedFlow<UnbondReasonEvent>
 	val deviceNameFlow: SharedFlow<String?>
-	val deviceUuidsChangeFlow: SharedFlow<UuidsChangeEvent>
+	val deviceUuidsChangedFlow: SharedFlow<UuidsChangedEvent>
 	val deviceFoundFlow: SharedFlow<DeviceFoundEvent>
 	val isDiscoveringFlow: SharedFlow<Boolean>
 	val scanModeFlow: SharedFlow<Int>
@@ -38,7 +38,7 @@ internal interface LapisBluetoothEvents {
 		val reason: Int,
 	)
 
-	data class UuidsChangeEvent(
+	data class UuidsChangedEvent(
 		val androidDevice: LapisBluetoothDevice,
 		val uuids: List<UUID>?,
 		val isTimeout: Boolean,

@@ -677,7 +677,7 @@ internal class LapisBtImpl(
 		val lapisDevice = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
 		val sdpFetchTask = async {
-			bluetoothEvents.deviceUuidsChangeFlow.first {
+			bluetoothEvents.deviceUuidsChangedFlow.first {
 				it.androidDevice.address == deviceAddress.value
 			}
 		}
@@ -999,7 +999,7 @@ internal class LapisBtImpl(
 			}
 		}
 		_scope.launch {
-			bluetoothEvents.deviceUuidsChangeFlow.collect { event ->
+			bluetoothEvents.deviceUuidsChangedFlow.collect { event ->
 				val targetDeviceAddress = BluetoothDevice.Address(event.androidDevice.address)
 
 				if (event.isTimeout) {
