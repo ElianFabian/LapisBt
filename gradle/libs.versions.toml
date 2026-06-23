@@ -1,8 +1,8 @@
 [versions]
 
 # Project Metadata
-lapisbtVersion = "1.0.0"
-lapisbtGroup = "com.elianfabian.lapisbt"
+lapisbtVersion = "1.0.5"
+lapisbtGroup = "com.github.ElianFabian.LapisBt"
 lapisCompileSdk = "35"
 lapisMinSdk = "21"
 
