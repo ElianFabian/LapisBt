@@ -35,8 +35,7 @@ kotlinCoroutines = "1.8.1"
 
 
 agp = "9.2.1"
-kotlinApp = "2.2.21" # Kotlin version for the app sample
-kotlin = "1.9.25" # Kotlin version for the library
+kotlin = "2.2.21"
 kotlinParcelize = "2.2.21"
 appcompat = "1.7.1"
 material = "1.13.0"
@@ -83,7 +82,7 @@ kotlinxCoroutinesAndroid = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinApp" }
+kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 kotlinParcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlinParcelize" }
 #kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
