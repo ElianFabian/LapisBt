@@ -35,10 +35,10 @@ Add the dependencies in your module's `build.gradle.kts`:
 ```kotlin
 dependencies {
     // Core Bluetooth synchronization layer
-    implementation("com.github.elianfabian:LapisBt:lapisbt:$version")
+    implementation("com.github.elianfabian.LapisBt:lapisbt:$version")
     
     // Type-safe RPC layer (includes lapisbt)
-    implementation("com.github.elianfabian:LapisBt:lapisbt-rpc:$version")
+    implementation("com.github.elianfabian.LapisBt:lapisbt-rpc:$version")
 }
 ```
 
