@@ -4,9 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--Permissions-->
-    <uses-permission
-        android:name="android.permission.BLUETOOTH"
-        android:maxSdkVersion="30" />
+
+    <!-- https://stackoverflow.com/questions/71552331/got-lacks-permission-android-permission-bluetooth-on-specific-device-after-and -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
