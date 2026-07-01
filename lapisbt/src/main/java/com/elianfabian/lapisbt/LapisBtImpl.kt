@@ -7,7 +7,6 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothServerSocket
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
-import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.logger.LapisLogConfig
 import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.logger.LapisLogger.Companion.debug
@@ -18,6 +17,7 @@ import com.elianfabian.lapisbt.logger.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import com.elianfabian.lapisbt.util.convertToScanMode
 import com.elianfabian.lapisbt.util.toModel
@@ -205,8 +205,11 @@ internal class LapisBtImpl(
 		return lapisAdapter.setName(newName)
 	}
 
-	// On some devices like Xiaomi Mi MIX 2S - API 29
-	// This won't work unless the location is enabled
+	// Some devices need the location to be enabled to start discovery, like:
+	// - Google Pixel 5, API 30
+	// - Motorola G20, API 30
+	// - Xiaomi Mi MIX 2S, API 29
+	// Other devices like Realme 6, API 30, don't need the location to be enabled to start discovery.
 	override fun startScan(): Boolean {
 		checkIsNotDispose()
 
