@@ -61,7 +61,65 @@ The RPC layer allows you to define a Kotlin interface and call its methods on a 
 
 ## Usage
 
-### 1. Define your RPC Interface
+### 1. Core Bluetooth Usage (`LapisBt`)
+
+#### Initialization and State Observation
+```kotlin
+val lapisBt = LapisBt.newInstance(context)
+
+// Observe Bluetooth state (On, Off, etc.)
+lapisBt.state.collect { state ->
+    println("Bluetooth state: $state")
+}
+
+// Observe events like connections, disconnections, and scans
+lapisBt.events.collect { event ->
+    when (event) {
+        is LapisBt.Event.OnDeviceConnected -> println("Connected to: ${event.device.name}")
+        is LapisBt.Event.OnDeviceDisconnected -> println("Disconnected from: ${event.device.name}")
+        else -> Unit
+    }
+}
+```
+
+#### Scanning and Connecting
+```kotlin
+// Start scanning for devices
+lapisBt.startScan()
+
+// Observe scanned devices
+lapisBt.scannedDevices.collect { devices ->
+    devices.forEach { scanned ->
+        println("Found device: ${scanned.device.name} (${scanned.rssi} dBm)")
+    }
+}
+
+// Connect to a device
+val result = lapisBt.connectToDevice(deviceAddress, serviceUuid)
+if (result is LapisBt.ConnectionResult.ConnectionEstablished) {
+    println("Successfully connected!")
+}
+```
+
+#### Sending and Receiving Data
+```kotlin
+// Send data to a connected device
+lapisBt.sendData(deviceAddress) { outputStream ->
+    outputStream.write("Hello Lapis!".encodeToByteArray())
+}
+
+// Receive data from a connected device
+lapisBt.receiveData(deviceAddress) { inputStream ->
+    val buffer = ByteArray(1024)
+    val bytesRead = inputStream.read(buffer)
+    val message = String(buffer, 0, bytesRead)
+    println("Received: $message")
+}
+```
+
+### 2. RPC Usage (`LapisBtRpc`)
+
+#### 1. Define your RPC Interface
 
 ```kotlin
 @LapisRpc("MyService")
@@ -78,10 +136,11 @@ interface MyService {
 }
 ```
 
-### 2. Implement and Register the Server
+#### 2. Implement and Register the Server
 
 ```kotlin
 class MyServiceServer : MyService {
+
     override suspend fun greet(name: String) = "Hello, $name!"
     
     override fun sensorData(): Flow<Float> = flow {
@@ -99,7 +158,7 @@ lapisBtRpc.registerBluetoothServerService<MyService>(
 )
 ```
 
-### 3. Call from the Client
+#### 3. Call from the Client
 
 ```kotlin
 val service = lapisBtRpc.getOrCreateBluetoothClientService<MyService>(remoteDeviceAddress)
