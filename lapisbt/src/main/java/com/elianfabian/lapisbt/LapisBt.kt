@@ -82,7 +82,7 @@ public interface LapisBt {
 	 *
 	 * @see stopScan
 	 */
-	public fun startScan(): Boolean
+	public fun startScan(): ScanResult
 
 	/**
 	 * Cancel the current scanning process.
@@ -376,6 +376,18 @@ public interface LapisBt {
 		) : Event
 	}
 
+	public sealed interface ScanResult {
+		public data object Success : ScanResult
+		public data object BluetoothNotSupported : ScanResult
+		public data object BluetoothDisabled : ScanResult
+		public data object MissingBluetoothScanPermission : ScanResult
+		public data object MissingLocationPermission : ScanResult
+		public data object MissingBackgroundLocationPermission : ScanResult
+		public data object LocationDisabled : ScanResult
+		public data object ScanAlreadyInProgress : ScanResult
+		public data object BackgroundScanRestricted :  ScanResult
+		public data object UnknownError : ScanResult
+	}
 
 	public companion object {
 

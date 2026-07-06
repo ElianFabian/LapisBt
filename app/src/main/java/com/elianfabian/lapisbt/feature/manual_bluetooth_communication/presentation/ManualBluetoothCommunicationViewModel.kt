@@ -196,7 +196,8 @@ class ManualBluetoothCommunicationViewModel(
 						}
 					}
 					requestPermissionsBeforeExecuting {
-						if (!lapisBt.startScan()) {
+						// TODO: update the example to use the new scan result type
+						if (lapisBt.startScan() != LapisBt.ScanResult.Success) {
 							if (androidHelper.openLocationSettings()) {
 								lapisBt.clearScannedDevices()
 								lapisBt.startScan()

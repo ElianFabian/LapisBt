@@ -23,7 +23,23 @@ internal class SimulatedAndroidHelper(
 		return realHelper?.isBluetoothScanGranted() ?: config.isBluetoothScanGranted
 	}
 
+	override fun isAccessFineLocationGranted(): Boolean {
+		return realHelper?.isAccessFineLocationGranted() ?: config.isAccessFineLocationGranted
+	}
+
+	override fun isAccessCoarseLocationGranted(): Boolean {
+		return realHelper?.isAccessCoarseLocationGranted() ?: config.isAccessCoarseLocationGranted
+	}
+
+	override fun isAccessBackgroundLocationGranted(): Boolean {
+		return realHelper?.isAccessBackgroundLocationGranted() ?: config.isAccessBackgroundLocationGranted
+	}
+
 	override fun isLocationEnabled(): Boolean {
 		return realHelper?.isLocationEnabled() ?: config.isLocationEnabled
+	}
+
+	override fun isProcessReadyForClassicScan(): Boolean {
+		return realHelper?.isProcessReadyForClassicScan() ?: config.isProcessReadyForClassicScan
 	}
 }

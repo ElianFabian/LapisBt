@@ -22,4 +22,10 @@
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />
 
+    <!--    In case you want to scan devices in your app you should app this permission for API 29 and 30:-->
+    <!--    <uses-permission-->
+    <!--        android:name="android.permission.ACCESS_BACKGROUND_LOCATION"-->
+    <!--        android:maxSdkVersion="30"-->
+    <!--        android:minSdkVersion="29" />-->
+
 </manifest>

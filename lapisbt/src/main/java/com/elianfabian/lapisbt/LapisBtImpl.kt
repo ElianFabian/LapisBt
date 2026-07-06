@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt
 
 import android.bluetooth.BluetoothAdapter
+import android.os.Build
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
@@ -172,7 +173,7 @@ internal class LapisBtImpl(
 
 
 	override fun setBluetoothDeviceName(newName: String): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.debug(TAG) {
 			"setBluetoothDeviceName('$newName'): Setting name..."
@@ -205,49 +206,118 @@ internal class LapisBtImpl(
 		return lapisAdapter.setName(newName)
 	}
 
-	// Some devices need the location to be enabled to start discovery, like:
-	// - Google Pixel 5, API 30
-	// - Motorola G20, API 30
-	// - Xiaomi Mi MIX 2S, API 29
-	// Other devices like Realme 6, API 30, don't need the location to be enabled to start discovery.
-	override fun startScan(): Boolean {
-		checkIsNotDispose()
+	// TODO: We should test this
+	override fun startScan(): LapisBt.ScanResult {
+		checkIsNotDisposed()
 
-		logger.info(TAG) {
-			"startScan(): Starting discovery..."
+		logger.info(TAG) { "startScan(): Starting discovery..." }
+
+		// Hardware and State Checks
+		if (!androidHelper.isBluetoothClassicSupported()) {
+			return LapisBt.ScanResult.BluetoothNotSupported
+		}
+		if (!lapisAdapter.isEnabled) {
+			return LapisBt.ScanResult.BluetoothDisabled
+		}
+		if (lapisAdapter.isDiscovering) {
+			return LapisBt.ScanResult.ScanAlreadyInProgress
 		}
 
-		if (!androidHelper.isBluetoothScanGranted()) {
-			return false
+		val currentSdk = Build.VERSION.SDK_INT
+
+		when {
+			currentSdk >= 31 -> {
+				// Because your manifest uses 'neverForLocation' and maxSdkVersion="30" for location,
+				// Android 12+ DOES NOT require any location permission for background scans.
+				// Just BLUETOOTH_SCAN is enough!
+				if (!androidHelper.isBluetoothScanGranted()) {
+					return LapisBt.ScanResult.MissingBluetoothScanPermission
+				}
+
+				// On Android 12+, Classic Bluetooth discovery will fail silently
+				// if not invoked from a visible Activity or a Foreground Service.
+				if (!androidHelper.isProcessReadyForClassicScan()) {
+					return LapisBt.ScanResult.BackgroundScanRestricted
+				}
+			}
+			currentSdk in 29..30 -> {
+				// Foreground location check (Mandatory for API 29-30)
+				if (!androidHelper.isAccessFineLocationGranted()) {
+					return LapisBt.ScanResult.MissingLocationPermission
+				}
+
+				// On Android 10-11, if the process is completely in the background,
+				// the explicit background location permission is strictly required.
+				if (!androidHelper.isProcessReadyForClassicScan() && !androidHelper.isAccessBackgroundLocationGranted()) {
+					return LapisBt.ScanResult.MissingBackgroundLocationPermission
+				}
+			}
+			currentSdk in 23..28 -> {
+				// Legacy check (Coarse or Fine covers both foreground and background)
+				if (!androidHelper.isAccessCoarseLocationGranted() && !androidHelper.isAccessFineLocationGranted()) {
+					return LapisBt.ScanResult.MissingLocationPermission
+				}
+			}
+		}
+
+		try {
+			if (!lapisAdapter.startDiscovery()) {
+				// On most devices location is required to scan, but others like Realme 6 API 30 don't require it
+				if (currentSdk in 23..30 && !androidHelper.isLocationEnabled()) {
+					return LapisBt.ScanResult.LocationDisabled
+				}
+				return LapisBt.ScanResult.UnknownError
+			}
+		}
+		catch (e: SecurityException) {
+			logger.error(TAG, e) { "startScan(): SecurityException triggered during startDiscovery." }
+
+			return LapisBt.ScanResult.UnknownError
 		}
 
 		updateDevices()
 
-		return lapisAdapter.startDiscovery()
+		return LapisBt.ScanResult.Success
 	}
 
 	override fun stopScan(): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
-		logger.info(TAG) {
-			"stopScan(): Stopping discovery..."
+		logger.info(TAG) { "stopScan(): Stopping discovery..." }
+
+		// Fast-path: If Bluetooth is disabled or not supported, it's already stopped.
+		if (!androidHelper.isBluetoothClassicSupported() || !lapisAdapter.isEnabled) {
+			return false
 		}
 
+		// Optimization: If it's not even discovering, consider it a success.
+		if (!lapisAdapter.isDiscovering) {
+			return true
+		}
+
+		// Strict Permission Check (Only required for API 31+)
 		if (!androidHelper.isBluetoothScanGranted()) {
 			return false
 		}
 
-		return lapisAdapter.cancelDiscovery()
+		// Execution with defensive try-catch
+		try {
+			return lapisAdapter.cancelDiscovery()
+		}
+		catch (e: SecurityException) {
+			logger.error(TAG, e) { "stopScan(): SecurityException triggered during cancelDiscovery." }
+			return false
+		}
 	}
 
 	override fun clearScannedDevices() {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		_scannedDevices.value = emptyList()
 	}
 
 	override suspend fun startBluetoothServer(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.info(TAG) {
 			"startBluetoothServer('$serviceName', $serviceUuid): Starting..."
@@ -260,7 +330,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun startBluetoothServerWithoutPairing(serviceName: String, serviceUuid: UUID): LapisBt.ConnectionResult {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.info(TAG) {
 			"startBluetoothServerWithoutPairing('$serviceName', $serviceUuid): Starting insecure server..."
@@ -274,7 +344,7 @@ internal class LapisBtImpl(
 	}
 
 	override fun stopBluetoothServer(serviceUuid: UUID) {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.info(TAG) {
 			"stopBluetoothServer($serviceUuid): Stopping..."
@@ -292,7 +362,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.info(TAG) {
 			"connectToDevice($deviceAddress, $serviceUuid): Connecting..."
@@ -305,7 +375,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.info(TAG) {
 			"connectToDeviceWithoutPairing($deviceAddress, $serviceUuid): Connecting insecurely..."
@@ -319,7 +389,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun disconnectFromDevice(deviceAddress: BluetoothDevice.Address): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
@@ -396,7 +466,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun cancelConnectionAttempt(deviceAddress: BluetoothDevice.Address): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.debug(TAG) {
 			"Cancelling connection attempt to $deviceAddress..."
@@ -448,13 +518,13 @@ internal class LapisBtImpl(
 	}
 
 	override fun getRemoteDevice(deviceAddress: BluetoothDevice.Address): BluetoothDevice {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		return getRemoteDeviceInternal(deviceAddress)
 	}
 
 	private fun getRemoteDeviceInternal(deviceAddress: BluetoothDevice.Address): BluetoothDevice {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		val pairedDevice = _pairedDevices.value.find { it.address == deviceAddress }
 		if (pairedDevice != null) {
@@ -483,7 +553,7 @@ internal class LapisBtImpl(
 	}
 
 	override fun startDevicePairing(deviceAddress: BluetoothDevice.Address): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		logger.debug(TAG) {
 			"startDevicePairing($deviceAddress): Starting process..."
@@ -526,7 +596,7 @@ internal class LapisBtImpl(
 		logger.debug(TAG) {
 			"unpairDevice($deviceAddress): Unpairing..."
 		}
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
@@ -540,7 +610,7 @@ internal class LapisBtImpl(
 
 	@InternalBluetoothReflectionApi
 	override fun cancelPairingAttempt(deviceAddress: BluetoothDevice.Address): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
@@ -552,7 +622,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun sendData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: OutputStream) -> Unit): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 
@@ -601,7 +671,7 @@ internal class LapisBtImpl(
 	}
 
 	override suspend fun receiveData(deviceAddress: BluetoothDevice.Address, action: suspend (stream: InputStream) -> Unit): Boolean {
-		checkIsNotDispose()
+		checkIsNotDisposed()
 
 		val clientSocket = _clientSocketByAddress[deviceAddress]
 
@@ -1689,7 +1759,7 @@ internal class LapisBtImpl(
 		return true
 	}
 
-	private fun checkIsNotDispose() {
+	private fun checkIsNotDisposed() {
 		check(!_isDisposed) {
 			"Can't no longer use this ${LapisBt::class.simpleName} since it was disposed."
 		}

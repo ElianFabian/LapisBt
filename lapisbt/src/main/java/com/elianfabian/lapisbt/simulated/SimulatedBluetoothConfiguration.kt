@@ -17,7 +17,11 @@ public data class SimulatedBluetoothConfiguration(
 	public var bluetoothState: LapisBt.BluetoothState = LapisBt.BluetoothState.On,
 	public var isBluetoothConnectGranted: Boolean = true,
 	public var isBluetoothScanGranted: Boolean = true,
+	public var isAccessFineLocationGranted: Boolean = true,
+	public var isAccessCoarseLocationGranted: Boolean = true,
+	public var isAccessBackgroundLocationGranted: Boolean = true,
 	public var isLocationEnabled: Boolean = true,
+	public var isProcessReadyForClassicScan: Boolean = true,
 	public var needsLocationForScan: Boolean = false,
 	public var scanMode: Int = BluetoothAdapter.SCAN_MODE_NONE,
 
