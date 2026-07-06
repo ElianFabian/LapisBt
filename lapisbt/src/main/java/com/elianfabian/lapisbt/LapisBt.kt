@@ -456,8 +456,8 @@ public interface LapisBt {
 		public fun newSimulatedBluetoothEnvironment(
 			seed: Long = 1L,
 			context: Context? = null,
-			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
 			createLogger: (deviceAddress: BluetoothDevice.Address) -> LapisLogger = { LapisLogger.console() },
+			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
 		): SimulatedBluetoothEnvironment {
 			return SimulatedBluetoothEnvironment(
 				context = context,
