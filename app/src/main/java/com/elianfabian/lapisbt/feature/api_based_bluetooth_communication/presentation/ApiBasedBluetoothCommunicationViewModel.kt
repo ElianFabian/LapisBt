@@ -206,18 +206,17 @@ class ApiBasedBluetoothCommunicationViewModel(
 						}
 					}
 					requestPermissionsBeforeExecuting {
-						// TODO: update the example to use the new scan result type
-						if (lapisBt.startScan() != LapisBt.ScanResult.Success) {
-							if (androidHelper.openLocationSettings()) {
-								lapisBt.clearScannedDevices()
-								lapisBt.startScan()
+						when (lapisBt.startScan()) {
+							is LapisBt.ScanResult.LocationDisabled -> {
+								if (androidHelper.openLocationSettings()) {
+									lapisBt.clearScannedDevices()
+									lapisBt.startScan()
+								}
+								else {
+									androidHelper.showToast("Location is needed for scan to work")
+								}
 							}
-							else {
-								androidHelper.showToast("Location is needed for scan to work")
-							}
-						}
-						else {
-							lapisBt.clearScannedDevices()
+							else -> Unit
 						}
 					}
 				}
