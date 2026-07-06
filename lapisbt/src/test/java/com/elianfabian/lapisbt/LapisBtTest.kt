@@ -53,7 +53,8 @@ class LapisBtTest {
 
 		// Peripheral starts server
 		val serverJob = launch {
-			peripheral.lapisBt.startBluetoothServer("TestService", serviceUuid)
+			val result = peripheral.lapisBt.startBluetoothServer("TestService", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 
 		// Wait for server to be registered
@@ -112,8 +113,9 @@ class LapisBtTest {
 		val peripheral = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
 
-		launch {
-			peripheral.lapisBt.startBluetoothServer("TestService", serviceUuid)
+		val serverJob = launch {
+			val result = peripheral.lapisBt.startBluetoothServer("TestService", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 
 		// Wait for server to be registered
@@ -129,6 +131,8 @@ class LapisBtTest {
 		// Verify both sides see disconnection
 		phone.lapisBt.connectedDevices.first { it.isEmpty() }
 		peripheral.lapisBt.connectedDevices.first { it.isEmpty() }
+
+		serverJob.cancel()
 	}
 
 	// --- Security Tests ---
@@ -140,13 +144,16 @@ class LapisBtTest {
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
 
-		launch {
-			server.lapisBt.startBluetoothServerWithoutPairing("Test", serviceUuid)
+		val serverJob = launch {
+			val result = server.lapisBt.startBluetoothServerWithoutPairing("Test", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 		server.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
 
 		val result = client.lapisBt.connectToDeviceWithoutPairing(server.address, serviceUuid)
 		assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
+
+		serverJob.cancel()
 	}
 
 	@Test
@@ -157,13 +164,8 @@ class LapisBtTest {
 		val serviceUuid = UUID.randomUUID()
 
 		val serverJob = launch {
-			try {
-				server.lapisBt.startBluetoothServer("Test", serviceUuid)
-			}
-			catch (e: Exception) {
-				println("Server error: ${e.message}")
-				e.printStackTrace()
-			}
+			val result = server.lapisBt.startBluetoothServer("Test", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 		server.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
 
@@ -189,13 +191,8 @@ class LapisBtTest {
 		environment.bondDevices(client.address.value, server.address.value)
 
 		val serverJob = launch {
-			try {
-				server.lapisBt.startBluetoothServer("Test", serviceUuid)
-			}
-			catch (e: Exception) {
-				println("Server error: ${e.message}")
-				e.printStackTrace()
-			}
+			val result = server.lapisBt.startBluetoothServer("Test", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 		server.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
 
@@ -213,13 +210,8 @@ class LapisBtTest {
 		val serviceUuid = UUID.randomUUID()
 
 		val serverJob = launch {
-			try {
-				server.lapisBt.startBluetoothServerWithoutPairing("Test", serviceUuid)
-			}
-			catch (e: Exception) {
-				println("Server error: ${e.message}")
-				e.printStackTrace()
-			}
+			val result = server.lapisBt.startBluetoothServerWithoutPairing("Test", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 		server.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
 
@@ -262,11 +254,11 @@ class LapisBtTest {
 		device.config.isLocationEnabled = false
 
 		val started = device.lapisBt.startScan()
-		assertThat(started).isFalse()
+		assertThat(started).isNotEqualTo(LapisBt.ScanResult.Success)
 
 		device.setLocationEnabled(true)
 		val startedWithLocation = device.lapisBt.startScan()
-		assertThat(startedWithLocation).isTrue()
+		assertThat(startedWithLocation).isEqualTo(LapisBt.ScanResult.Success)
 	}
 
 	@Test
@@ -276,11 +268,11 @@ class LapisBtTest {
 
 		device.setPermissions(connect = false, scan = false)
 
-		// LapisBtImpl.startScan returns false if scan permission is not granted
-		assertThat(device.lapisBt.startScan()).isFalse()
+		// LapisBtImpl.startScan returns a failure result if scan permission is not granted
+		assertThat(device.lapisBt.startScan()).isNotEqualTo(LapisBt.ScanResult.Success)
 
 		device.setPermissions(connect = true, scan = true)
-		assertThat(device.lapisBt.startScan()).isTrue()
+		assertThat(device.lapisBt.startScan()).isEqualTo(LapisBt.ScanResult.Success)
 	}
 
 	@Test
@@ -351,8 +343,9 @@ class LapisBtTest {
 		val serviceUuid = UUID.randomUUID()
 
 		// Setup connection
-		launch {
-			peripheral.lapisBt.startBluetoothServer("Test", serviceUuid)
+		val serverJob = launch {
+			val result = peripheral.lapisBt.startBluetoothServer("Test", serviceUuid)
+			assertThat(result).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
 		}
 		peripheral.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
 
@@ -371,5 +364,7 @@ class LapisBtTest {
 		// Verify connection is closed on both sides
 		phone.lapisBt.connectedDevices.first { it.isEmpty() }
 		peripheral.lapisBt.connectedDevices.first { it.isEmpty() }
+
+		serverJob.cancel()
 	}
 }

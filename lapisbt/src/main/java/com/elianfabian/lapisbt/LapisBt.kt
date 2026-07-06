@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A high-level, "sanitized" abstraction for Bluetooth Classic on Android.
@@ -149,32 +151,51 @@ public interface LapisBt {
 	public fun stopBluetoothServer(serviceUuid: UUID)
 
 	/**
-	 * Tries to connect with the given device and service uuid.
+	 * Tries to establish a secure RFCOMM connection with the specified remote device and service UUID.
 	 *
-	 * NOTES:
-	 * - Sometimes even when everything is okay the connection attempt will fail, in that case
-	 * just try calling the function again.
+	 * If the target device is not already paired, this call will automatically trigger the system's
+	 * pairing dialog overlay (provided the underlying connection mechanism requires authentication).
+	 *
+	 * ### Retry Mechanism:
+	 * Bluetooth socket establishment on Android can occasionally fail due to internal issues
+	 * (e.g., "read failed, socket might be closed or timeout").
+	 * This function automatically handles these flaky scenarios under the hood by retrying up to [maxRetries] times,
+	 * backing off by [retryDelay] between attempts to give the Bluetooth controller time to stabilize.
 	 *
 	 * @see startBluetoothServer
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDevice(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int = 3,
+		retryDelay: Duration = 250.milliseconds,
+	): ConnectionResult
 
 	/**
-	 * Tries to connect with the given device and service uuid without pairing.
+	 * Tries to establish an insecure, unauthenticated RFCOMM connection with the specified remote device
+	 * and service UUID without triggering a system pairing prompt.
 	 *
-	 * This will only work if the other device connects with us by calling startBluetoothServerWithoutPairing(...).
+	 * **Crucial Constraint:** This unencrypted channel will only succeed if the remote peer is actively
+	 * listening for incoming unauthenticated connections via `startBluetoothServerWithoutPairing(...)`.
 	 *
-	 * NOTES:
-	 * - Sometimes even when everything is okay the connection attempt will fail, in that case
-	 * just try calling the function again.
+	 * ### Retry Mechanism:
+	 * Bluetooth socket establishment on Android can occasionally fail due to internal issues
+	 * (e.g., "read failed, socket might be closed or timeout").
+	 * This function automatically handles these flaky scenarios under the hood by retrying up to [maxRetries] times,
+	 * backing off by [retryDelay] between attempts to give the Bluetooth controller time to stabilize.
 	 *
 	 * @see startBluetoothServerWithoutPairing
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDeviceWithoutPairing(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int = 3,
+		retryDelay: Duration = 250.milliseconds,
+	): ConnectionResult
 
 	/**
 	 * Disconnects from the remote device.
@@ -300,6 +321,8 @@ public interface LapisBt {
 	public sealed interface ConnectionResult {
 
 		public data class ConnectionEstablished(val device: BluetoothDevice) : ConnectionResult
+		public data object BluetoothDisabled : ConnectionResult
+		public data object MissingPermission : ConnectionResult
 		public data object CouldNotConnect : ConnectionResult
 	}
 

@@ -30,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +52,7 @@ import java.io.OutputStream
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration
 
 internal class LapisBtImpl(
 	private val lapisAdapter: LapisBluetoothAdapter,
@@ -361,7 +363,12 @@ internal class LapisBtImpl(
 		serverSocket.close()
 	}
 
-	override suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
+	override suspend fun connectToDevice(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int,
+		retryDelay: Duration,
+	): LapisBt.ConnectionResult {
 		checkIsNotDisposed()
 
 		logger.info(TAG) {
@@ -371,10 +378,17 @@ internal class LapisBtImpl(
 		return connectToDeviceInternal(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
+			maxRetries = maxRetries,
+			retryDelay = retryDelay,
 		)
 	}
 
-	override suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): LapisBt.ConnectionResult {
+	override suspend fun connectToDeviceWithoutPairing(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int,
+		retryDelay: Duration,
+	): LapisBt.ConnectionResult {
 		checkIsNotDisposed()
 
 		logger.info(TAG) {
@@ -385,6 +399,8 @@ internal class LapisBtImpl(
 			deviceAddress = deviceAddress,
 			serviceUuid = serviceUuid,
 			insecure = true,
+			maxRetries = maxRetries,
+			retryDelay = retryDelay,
 		)
 	}
 
@@ -1380,10 +1396,10 @@ internal class LapisBtImpl(
 		insecure: Boolean = false,
 	): LapisBt.ConnectionResult {
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
+			return LapisBt.ConnectionResult.MissingPermission
 		}
 		if (!lapisAdapter.isEnabled) {
-			throw IllegalStateException("Can't start bluetooth server when bluetooth is off")
+			return LapisBt.ConnectionResult.BluetoothDisabled
 		}
 
 		_bluetoothServerSocketByServiceUuid[serviceUuid]?.also { serverSocket ->
@@ -1450,13 +1466,14 @@ internal class LapisBtImpl(
 		deviceAddress: BluetoothDevice.Address,
 		serviceUuid: UUID,
 		insecure: Boolean = false,
+		maxRetries: Int,
+		retryDelay: Duration,
 	): LapisBt.ConnectionResult {
-
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
+			return LapisBt.ConnectionResult.MissingPermission
 		}
-		if (!_bluetoothState.value.isOn) {
-			throw IllegalStateException("Can't connect to device when bluetooth if off")
+		if (!lapisAdapter.isEnabled) {
+			return LapisBt.ConnectionResult.BluetoothDisabled
 		}
 
 		_pairedDevices.update { devices ->
@@ -1497,13 +1514,26 @@ internal class LapisBtImpl(
 			"connectToDeviceInternal($deviceAddress): attempting to connect socket..."
 		}
 		_skipDisconnectionEventForDevices.add(deviceAddress)
-		val isConnectionSuccessFull = clientSocket.tryConnect()
-		_skipDisconnectionEventForDevices.remove(deviceAddress)
+		val isConnectionSuccessFull = try {
+			clientSocket.tryConnect(
+				maxRetries = maxRetries,
+				retryDelay = retryDelay,
+			)
+		}
+		catch (e: Exception) {
+			logger.error(TAG, e) { "connectToDeviceInternal($deviceAddress): Unexpected crash during connection loop" }
+			false
+		}
+		finally {
+			_skipDisconnectionEventForDevices.remove(deviceAddress)
+		}
 		logger.info(TAG) {
 			"connectToDeviceInternal($deviceAddress): connection attempt result: success=$isConnectionSuccessFull"
 		}
 
 		if (!isConnectionSuccessFull) {
+			_bluetoothServerSocketByServiceUuid.remove(serviceUuid)
+
 			_pairedDevices.update { devices ->
 				devices.map { device ->
 					if (device.address == deviceAddress) {
@@ -1602,81 +1632,57 @@ internal class LapisBtImpl(
 		}
 	}
 
-//	private suspend fun LapisBluetoothServerSocket.tryAccept(): LapisBluetoothSocket? {
-//		return try {
-//			suspendCancellableCoroutine<LapisBluetoothSocket?> { continuation ->
-//				// This hook triggers INSTANTLY when cancelled, breaking the blocking accept()
-//				continuation.invokeOnCancellation {
-//					try {
-//						this@tryAccept.close()
-//					} catch (_: IOException) { }
-//				}
-//
-//				// Move the blocking work to the IO thread pool
-//				try {
-//					// Since accept() is blocking, we still execute it on IO
-//					val socket = this@tryAccept.accept()
-//					continuation.resume(socket)
-//				} catch (e: IOException) {
-//					// If closed via invokeOnCancellation, accept() throws IOException
-//					if (continuation.isCancelled) return@suspendCancellableCoroutine
-//					continuation.resume(null)
-//				}
-//			}
-//		} catch (e: CancellationException) {
-//			null
-//		}?.also { clientSocket ->
-//			_clientSocketByAddress[BluetoothDevice.Address(clientSocket.remoteDevice.address)] = clientSocket
-//		}
-//	}
-
-	private suspend fun LapisBluetoothSocket.tryConnect(): Boolean {
+	private suspend fun LapisBluetoothSocket.tryConnect(
+		maxRetries: Int,
+		retryDelay: Duration,
+	): Boolean {
 		return withContext(Dispatchers.IO) {
 			val cancelHandler = coroutineContext.job.invokeOnCompletion { throwable ->
-				if (throwable !is CancellationException) {
-					return@invokeOnCompletion
-				}
-				try {
-					this@tryConnect.close()
-				}
-				catch (_: IOException) {
+				if (throwable is CancellationException) {
+					runCatching { this@tryConnect.close() }
 				}
 			}
 
 			try {
-				ensureActive()
+				val totalAttempts = maxRetries + 1
 
-				// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
-				connect()
-				return@withContext true
-			}
-			catch (e: IOException) {
-				// This message can happen when you try to connect to a device that is not acting as a server (and probably in more cases),
-				// but also sometimes it just throws the error when you try to connect, because of this
-				// we try to connect again.
-				if (e.message.orEmpty().contains("read failed, socket might closed or timeout")) {
+				for (attempt in 1..totalAttempts) {
 					ensureActive()
 
 					try {
-						logger.debug(TAG) {
-							"tryConnect: first attempt failed (timeout), retrying socket connection..."
+						if (attempt > 1) {
+							logger.debug(TAG) {
+								"tryConnect: Attempt $attempt/$totalAttempts, retrying socket connection..."
+							}
+							// Giving the Android Bluetooth stack some time to recover before retrying
+							delay(retryDelay)
+							ensureActive()
 						}
+
+						// If device is not paired it will show a pop-up dialog to pair it (if the connection is done securely)
 						connect()
 						return@withContext true
 					}
 					catch (e: IOException) {
-						logger.error(TAG, e) {
-							"tryConnect retry failed"
-						}
-						if (e.message == "socket closed") {
-							return@withContext false
+						val message = e.message.orEmpty()
+						logger.error(TAG, e) { "tryConnect: Attempt $attempt/$totalAttempts failed. Message: $message" }
+
+						val isTimeoutError = message.contains("read failed, socket might closed or timeout")
+						val hasRemainingRetries = attempt < totalAttempts
+
+						// We only retry if it's the specific timeout error, and we haven't exhausted our attempts
+						if (!isTimeoutError || !hasRemainingRetries) {
+							if (message == "socket closed") {
+								return@withContext false
+							}
+							break
 						}
 					}
 				}
+
+				// If we reached this point, all allowed attempts failed
 				close()
-				logger.error(TAG, e) {
-					"tryConnect failed"
-				}
+				logger.warning(TAG) { "tryConnect failed after $totalAttempts attempts" }
 				return@withContext false
 			}
 			finally {
