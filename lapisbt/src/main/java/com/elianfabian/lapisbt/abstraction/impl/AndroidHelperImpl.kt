@@ -2,7 +2,6 @@ package com.elianfabian.lapisbt.abstraction.impl
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
@@ -50,29 +49,11 @@ internal class AndroidHelperImpl(
 		return true
 	}
 
-	override fun isAccessBackgroundLocationGranted(): Boolean {
-		if (getApiLevelInternal() >= 29) {
-			return context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-		}
-		return true
-	}
-
 	override fun isLocationEnabled(): Boolean {
 		val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
 		return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
 			locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 	}
-
-	@SuppressLint("InlinedApi")
-	override fun isProcessReadyForClassicScan(): Boolean {
-		val processInfo = ActivityManager.RunningAppProcessInfo()
-		ActivityManager.getMyMemoryState(processInfo)
-
-		val importance = processInfo.importance
-		return importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-			|| importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE
-	}
-
 
 	private fun getApiLevelInternal(): Int {
 		return Build.VERSION.SDK_INT

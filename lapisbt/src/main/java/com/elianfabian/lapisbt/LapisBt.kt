@@ -39,6 +39,16 @@ public interface LapisBt {
 
 	public val pairedDevices: StateFlow<List<BluetoothDevice>>
 
+	/**
+	 * Convenient state to represent the devices that have been scanned.
+	 *
+	 * Clear the state using [clearScannedDevices].
+	 *
+	 * In case you need a custom state for scanned devices consider observing the [Event.OnDeviceScanned] event
+	 * from the [events] property.
+	 *
+	 * @see clearScannedDevices
+	 */
 	public val scannedDevices: StateFlow<List<ScannedBluetoothDevice>>
 
 	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
@@ -62,7 +72,7 @@ public interface LapisBt {
 	 * Sets the bluetooth name of the device.
 	 *
 	 * NOTES:
-	 * - This doesn't work for all devices
+	 * - This doesn't work the same way for all devices
 	 * - For devices that don't support this you will see that it apparently works
 	 * but when you go to bluetooth settings and go back to the app you will see
 	 * the previous name, it seems there's no reliable way to detect this.
@@ -80,20 +90,19 @@ public interface LapisBt {
 	 *
 	 * ### Platform and Permission Requirements:
 	 * - **Android 12 (API 31) and higher:** Requires [android.Manifest.permission.BLUETOOTH_SCAN].
-	 * Scans initiated from the background will fail silently or return [ScanResult.BackgroundScanRestricted]
-	 * unless executed from a visible Activity or an authorized Foreground Service.
-	 * - **Android 14 (API 34) and higher:** Background scans executed from a Foreground Service strictly
-	 * require the service to declare `android:foregroundServiceType="connectedDevice"` in the manifest.
-	 * - **Android 10 to 11 (API 29-30):** Requires [android.Manifest.permission.ACCESS_FINE_LOCATION] in the foreground.
-	 * If the process is completely in the background, [android.Manifest.permission.ACCESS_BACKGROUND_LOCATION] is mandatory.
 	 * - **Android 6 to 9 (API 23-28):** Requires either [android.Manifest.permission.ACCESS_COARSE_LOCATION]
-	 * or [android.Manifest.permission.ACCESS_FINE_LOCATION].
-	 *
+	 * or [android.Manifest.permission.ACCESS_FINE_LOCATION] (prefer [android.Manifest.permission.ACCESS_FINE_LOCATION] since
+	 * it works in a wider range of API levels).
+	 * - **Android 10 to 11 (API 29-30):** Requires [android.Manifest.permission.ACCESS_FINE_LOCATION] only.
 	 * ### OEM Quirks & Location Services:
 	 * For devices running APIs 23 to 30, system-wide location services must generally be enabled.
 	 * However, due to vendor-specific customization (e.g., Realme), some devices do not strictly enforce
 	 * this. This method diagnoses this reactively: if the underlying discovery fails and location services
 	 * are disabled, it returns [ScanResult.LocationDisabled].
+	 *
+	 * When scanning in the background Android 6+ removes programmatic access to the device’s local hardware identifier
+	 * for apps using the Bluetooth API.
+	 * Check this link for more information: https://developer.android.com/about/versions/marshmallow/android-6.0-changes#behavior-hardware-id
 	 *
 	 * @return A [ScanResult] detailing the outcome of the initialization (e.g., [ScanResult.Success],
 	 * [ScanResult.MissingBluetoothScanPermission], [ScanResult.LocationDisabled], etc.).
@@ -421,10 +430,8 @@ public interface LapisBt {
 		public data object BluetoothDisabled : ScanResult
 		public data object MissingBluetoothScanPermission : ScanResult
 		public data object MissingLocationPermission : ScanResult
-		public data object MissingBackgroundLocationPermission : ScanResult
 		public data object LocationDisabled : ScanResult
 		public data object ScanAlreadyInProgress : ScanResult
-		public data object BackgroundScanRestricted : ScanResult
 		public data object UnknownError : ScanResult
 	}
 

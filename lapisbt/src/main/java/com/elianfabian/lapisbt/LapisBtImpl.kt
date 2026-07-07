@@ -182,7 +182,7 @@ internal class LapisBtImpl(
 		}
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
+			return false
 		}
 
 		// Not all devices support changing the Bluetooth name, and there doesn't seem to be a way to check it
@@ -208,7 +208,6 @@ internal class LapisBtImpl(
 		return lapisAdapter.setName(newName)
 	}
 
-	// TODO: We should test this
 	override fun startScan(): LapisBt.ScanResult {
 		checkIsNotDisposed()
 
@@ -235,27 +234,13 @@ internal class LapisBtImpl(
 				if (!androidHelper.isBluetoothScanGranted()) {
 					return LapisBt.ScanResult.MissingBluetoothScanPermission
 				}
-
-				// On Android 12+, Classic Bluetooth discovery will fail silently
-				// if not invoked from a visible Activity or a Foreground Service.
-				if (!androidHelper.isProcessReadyForClassicScan()) {
-					return LapisBt.ScanResult.BackgroundScanRestricted
-				}
 			}
 			apiLevel in 29..30 -> {
-				// Foreground location check (Mandatory for API 29-30)
 				if (!androidHelper.isAccessFineLocationGranted()) {
 					return LapisBt.ScanResult.MissingLocationPermission
 				}
-
-				// On Android 10-11, if the process is completely in the background,
-				// the explicit background location permission is strictly required.
-				if (!androidHelper.isProcessReadyForClassicScan() && !androidHelper.isAccessBackgroundLocationGranted()) {
-					return LapisBt.ScanResult.MissingBackgroundLocationPermission
-				}
 			}
 			apiLevel in 23..28 -> {
-				// Legacy check (Coarse or Fine covers both foreground and background)
 				if (!androidHelper.isAccessCoarseLocationGranted() && !androidHelper.isAccessFineLocationGranted()) {
 					return LapisBt.ScanResult.MissingLocationPermission
 				}
@@ -266,6 +251,8 @@ internal class LapisBtImpl(
 			if (!lapisAdapter.startDiscovery()) {
 				// On most devices location is required to scan, but others like Realme 6 API 30 don't require it
 				if (apiLevel in 23..30 && !androidHelper.isLocationEnabled()) {
+					// It would be cool to know if the current device needs location to scan or not,
+					// but for now we'll just keep it like this
 					return LapisBt.ScanResult.LocationDisabled
 				}
 				return LapisBt.ScanResult.UnknownError
@@ -278,6 +265,8 @@ internal class LapisBtImpl(
 		}
 
 		updateDevices()
+
+		_isScanning.value = true
 
 		return LapisBt.ScanResult.Success
 	}
@@ -304,7 +293,11 @@ internal class LapisBtImpl(
 
 		// Execution with defensive try-catch
 		try {
-			return lapisAdapter.cancelDiscovery()
+			if (lapisAdapter.cancelDiscovery()) {
+				_isScanning.value = false
+				return true
+			}
+			return false
 		}
 		catch (e: SecurityException) {
 			logger.error(TAG, e) { "stopScan(): SecurityException triggered during cancelDiscovery." }
@@ -408,7 +401,7 @@ internal class LapisBtImpl(
 		checkIsNotDisposed()
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
+			return false
 		}
 		logger.debug(TAG) {
 			"disconnectFromDevice($deviceAddress): Disconnecting..."
@@ -489,7 +482,7 @@ internal class LapisBtImpl(
 		}
 
 		if (!androidHelper.isBluetoothConnectGranted()) {
-			throw SecurityException("BLUETOOTH_CONNECT permission was not granted.")
+			return false
 		}
 		if (!lapisAdapter.isEnabled) {
 			return false

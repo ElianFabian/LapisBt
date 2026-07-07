@@ -8,7 +8,5 @@ internal interface AndroidHelper {
 	fun isBluetoothScanGranted(): Boolean
 	fun isAccessFineLocationGranted(): Boolean
 	fun isAccessCoarseLocationGranted(): Boolean
-	fun isAccessBackgroundLocationGranted(): Boolean
 	fun isLocationEnabled(): Boolean
-	fun isProcessReadyForClassicScan(): Boolean
 }

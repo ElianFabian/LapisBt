@@ -35,15 +35,7 @@ internal class SimulatedAndroidHelper(
 		return realHelper?.isAccessCoarseLocationGranted() ?: config.isAccessCoarseLocationGranted
 	}
 
-	override fun isAccessBackgroundLocationGranted(): Boolean {
-		return realHelper?.isAccessBackgroundLocationGranted() ?: config.isAccessBackgroundLocationGranted
-	}
-
 	override fun isLocationEnabled(): Boolean {
 		return realHelper?.isLocationEnabled() ?: config.isLocationEnabled
-	}
-
-	override fun isProcessReadyForClassicScan(): Boolean {
-		return realHelper?.isProcessReadyForClassicScan() ?: config.isProcessReadyForClassicScan
 	}
 }
