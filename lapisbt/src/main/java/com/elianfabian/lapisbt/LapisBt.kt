@@ -72,10 +72,9 @@ public interface LapisBt {
 	 * Sets the bluetooth name of the device.
 	 *
 	 * NOTES:
-	 * - This doesn't work the same way for all devices
-	 * - For devices that don't support this you will see that it apparently works
-	 * but when you go to bluetooth settings and go back to the app you will see
-	 * the previous name, it seems there's no reliable way to detect this.
+	 * - It doesn't work as expected in all devices, for some of them you will see that it apparently works,
+	 * it will persist across phone restarts, but when you go to bluetooth settings
+	 * and go back to the app you will see the previous name.
 	 */
 	public fun setBluetoothDeviceName(newName: String): Boolean
 
