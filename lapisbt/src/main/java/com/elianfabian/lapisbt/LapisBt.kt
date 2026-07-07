@@ -33,10 +33,19 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 public interface LapisBt {
 
+	/**
+	 * Emits the current global hardware state of the Bluetooth adapter.
+	 */
 	public val state: StateFlow<BluetoothState>
 
+	/**
+	 * A hot, asynchronous stream of one-off lifecycle notifications and transport-level events.
+	 */
 	public val events: SharedFlow<Event>
 
+	/**
+	 * Emits the list of currently bonded (paired) Bluetooth devices cached by the Android operating system.
+	 */
 	public val pairedDevices: StateFlow<List<BluetoothDevice>>
 
 	/**
@@ -53,18 +62,52 @@ public interface LapisBt {
 
 	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
 	// TODO: maybe we could indicate which UUID is used for every connection
+	/**
+	 * Emits the list of remote devices that are actively connected via an open RFCOMM socket.
+	 *
+	 * **Platform Limitation:** The underlying Android Bluetooth stack (Bluedroid/Fluoride) enforces a strict
+	 * hardware limitation of up to 7 concurrent active classic connections. Attempting more will result in
+	 * connection failures.
+	 */
 	public val connectedDevices: StateFlow<List<BluetoothDevice>>
 
+	/**
+	 * Emits the friendly, user-visible Bluetooth name of the local adapter, or null if the adapter
+	 * is unavailable or disabled.
+	 *
+	 * @see setBluetoothDeviceName
+	 */
 	public val bluetoothDeviceName: StateFlow<String?>
 
+	/**
+	 * A read-only capability flag indicating whether the host Android device's chipset supports
+	 * Bluetooth Classic (BR/EDR).
+	 */
 	public val isBluetoothClassicSupported: Boolean
 
+	/**
+	 * Emits true if a heavyweight device discovery/scan process is currently in progress, and false otherwise.
+	 *
+	 * @see startScan
+	 * @see stopScan
+	 */
 	public val isScanning: StateFlow<Boolean>
 
+	/**
+	 * Emits the current discoverability and connectability mode of the local Bluetooth adapter.
+	 */
 	public val scanMode: StateFlow<ScanMode>
 
+	/**
+	 * Emits the list of unique service UUIDs representing the local RFCOMM server sockets currently open
+	 * and actively listening for incoming peer connection attempts.
+	 */
 	public val activeBluetoothServersUuids: StateFlow<List<UUID>>
 
+	/**
+	 * The internal logger configuration specifying thresholds, verbosity, and routing targets
+	 * for diagnostic logs emitted by the sync layer.
+	 */
 	public val logConfig: LapisLogConfig
 
 
@@ -75,6 +118,8 @@ public interface LapisBt {
 	 * - It doesn't work as expected in all devices, for some of them you will see that it apparently works,
 	 * it will persist across phone restarts, but when you go to bluetooth settings
 	 * and go back to the app you will see the previous name.
+	 *
+	 * @see bluetoothDeviceName
 	 */
 	public fun setBluetoothDeviceName(newName: String): Boolean
 
@@ -337,28 +382,57 @@ public interface LapisBt {
 
 	public sealed interface Event {
 
+		/**
+		 * The target remote [BluetoothDevice] associated with this event.
+		 */
 		public val device: BluetoothDevice
 
 
+		/**
+		 * Triggered when an RFCOMM connection is successfully established with a remote device.
+		 *
+		 * @property device The newly connected remote device model.
+		 * @property connectedLocally Indicates the connection's origin. True if this client initiated the connection via
+		 * `connectToDevice`, or false if it was accepted by a local server instance.
+		 */
 		public data class OnDeviceConnected(
 			override val device: BluetoothDevice,
-			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
 			val connectedLocally: Boolean,
 		) : Event
 
+		/**
+		 * Triggered when an active RFCOMM connection is terminated.
+		 *
+		 * @property device The remote device that was disconnected.
+		 * @property disconnectedLocally True only if the local user explicitly initiated the tear-down.
+		 * Note that if the local user intends to disconnect but the remote peer drops the link first,
+		 * this will evaluate to false.
+		 */
 		public data class OnDeviceDisconnected(
 			override val device: BluetoothDevice,
-			// This indicates if was the current user who intentionally disconnected the device
-			// In the case the user intentionally disconnects from the device, but it was the other device
-			// who disconnected from us, it will count as not manually disconnected
 			public val disconnectedLocally: Boolean,
 		) : Event
 
+		/**
+		 * Triggered whenever a classic Bluetooth device is discovered during an active scan.
+		 *
+		 * @property device The discovered remote device containing its current cached snapshot state.
+		 * @property rssi The Received Signal Strength Indication (RSSI) in dBm, representing signal strength.
+		 */
 		public data class OnDeviceScanned(
 			override val device: BluetoothDevice,
 			val rssi: Short,
 		) : Event
 
+		/**
+		 * Triggered when the Android OS intercepts or requests a low-level bonding (pairing) handshake
+		 * that requires user verification.
+		 *
+		 * @property device The remote device requesting authentication.
+		 * @property pairingKey The passkey or PIN code (if applicable to the [pairingVariant]) to display or confirm.
+		 * @property pairingVariant The visual or behavioral style of confirmation dialog requested by the OS.
+		 * @property initiatedLocally True if the local device started the pairing sequence, false if responding to a remote peer.
+		 */
 		public data class OnPairingRequest(
 			override val device: BluetoothDevice,
 			val pairingKey: Int,
@@ -389,6 +463,17 @@ public interface LapisBt {
 		// but the pairing just randomly failed, the dialog didn't even show up.
 		// - Value Removed (9) was received by the remote device when it canceled the request and also
 		// when a device unbonded another device.
+
+		/**
+		 * Triggered when an ongoing bonding (pairing) handshake fails or is aborted.
+		 *
+		 * **Warning:** This event relies on undocumented or internal Android API hooks and telemetry behavior
+		 * across different API levels. Use it with caution as its payload consistency varies by vendor,
+		 * and it may be deprecated or overhauled in future releases.
+		 *
+		 * @property device The remote device whose bonding sequence failed.
+		 * @property reason The diagnosed root cause inferred from the OS broadcast flags.
+		 */
 		public data class OnPairingFailed(
 			override val device: BluetoothDevice,
 
