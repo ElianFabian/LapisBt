@@ -1,8 +1,10 @@
 package com.elianfabian.lapisbt
 
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
+import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
+import com.elianfabian.lapisbt.util.AndroidInternalConstants
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,13 +18,25 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.util.UUID
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class, InternalBluetoothReflectionApi::class)
 class LapisBtTest {
 
+	lateinit var environment: SimulatedBluetoothEnvironment
+
 	@Before
 	fun setUp() {
 		Dispatchers.setMain(UnconfinedTestDispatcher())
+		environment = LapisBt.newSimulatedBluetoothEnvironment(
+			createLogger = { address ->
+				LapisLogger.console(
+					prefix = {
+						"$address"
+					}
+				)
+			}
+		)
 	}
 
 	@After
@@ -34,7 +48,6 @@ class LapisBtTest {
 
 	@Test
 	fun `devices can discover each other`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 
@@ -46,7 +59,6 @@ class LapisBtTest {
 
 	@Test
 	fun `devices can connect and communicate`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -108,7 +120,6 @@ class LapisBtTest {
 
 	@Test
 	fun `disconnection is reflected on both sides`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -139,7 +150,6 @@ class LapisBtTest {
 
 	@Test
 	fun `insecure connection works without bonding`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val client = environment.createDevice()
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -158,7 +168,6 @@ class LapisBtTest {
 
 	@Test
 	fun `secure connection triggers automatic pairing if not bonded`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val client = environment.createDevice()
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -182,7 +191,6 @@ class LapisBtTest {
 
 	@Test
 	fun `secure connection works if bonded`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val client = environment.createDevice()
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -204,7 +212,6 @@ class LapisBtTest {
 
 	@Test
 	fun `mixed security connection triggers automatic pairing if not bonded`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val client = environment.createDevice()
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -230,7 +237,6 @@ class LapisBtTest {
 
 	@Test
 	fun `bluetooth state transitions are reflected`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val device = environment.createDevice()
 
 		assertThat(device.lapisBt.state.value).isEqualTo(LapisBt.BluetoothState.On)
@@ -246,7 +252,6 @@ class LapisBtTest {
 
 	@Test
 	fun `scan fails when location is required but disabled`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val device = environment.createDevice()
 
 		// Xiaomi-like behavior
@@ -263,7 +268,6 @@ class LapisBtTest {
 
 	@Test
 	fun `permissions can be toggled at runtime`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val device = environment.createDevice()
 
 		device.setPermissions(connect = false, scan = false)
@@ -277,7 +281,6 @@ class LapisBtTest {
 
 	@Test
 	fun `forced connection failure`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val client = environment.createDevice()
 		val server = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -305,7 +308,6 @@ class LapisBtTest {
 
 	@Test
 	fun `environment onActivityResumed notifies all devices`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		environment.createDevice()
 		environment.createDevice()
 
@@ -317,7 +319,6 @@ class LapisBtTest {
 
 	@Test
 	fun `unpairing is asymmetric`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 
@@ -337,7 +338,6 @@ class LapisBtTest {
 
 	@Test
 	fun `unpairing forces disconnection`() = runTest {
-		val environment = LapisBt.newSimulatedBluetoothEnvironment()
 		val phone = environment.createDevice()
 		val peripheral = environment.createDevice()
 		val serviceUuid = UUID.randomUUID()
@@ -366,5 +366,130 @@ class LapisBtTest {
 		peripheral.lapisBt.connectedDevices.first { it.isEmpty() }
 
 		serverJob.cancel()
+	}
+
+	// --- Failure Scenarios Tests ---
+
+	@Test
+	fun `scan fails when bluetooth is disabled`() = runTest {
+		val device = environment.createDevice()
+
+		device.setBluetoothState(LapisBt.BluetoothState.Off)
+
+		val result = device.lapisBt.startScan()
+		assertThat(result).isEqualTo(LapisBt.ScanResult.BluetoothDisabled)
+	}
+
+	@Test
+	fun `scan fails when bluetooth is not supported`() = runTest {
+		val device = environment.createDevice()
+
+		device.config.isBluetoothSupported = false
+
+		val result = device.lapisBt.startScan()
+		assertThat(result).isEqualTo(LapisBt.ScanResult.BluetoothNotSupported)
+	}
+
+	@Test
+	fun `scan fails when bluetooth scan permission is missing`() = runTest {
+		val device = environment.createDevice()
+
+		device.config.isBluetoothScanGranted = false
+		device.config.isAccessFineLocationGranted = false
+		device.config.isAccessCoarseLocationGranted = false
+
+		val result = device.lapisBt.startScan()
+		assertThat(result).isAnyOf(
+			LapisBt.ScanResult.MissingBluetoothScanPermission,
+			LapisBt.ScanResult.MissingLocationPermission
+		)
+	}
+
+	@Test
+	fun `scan fails when scan is already in progress`() = runTest {
+		val device = environment.createDevice()
+
+		device.lapisBt.startScan()
+		val result = device.lapisBt.startScan()
+		assertThat(result).isEqualTo(LapisBt.ScanResult.ScanAlreadyInProgress)
+	}
+
+	@Test
+	fun `connection fails when bluetooth is disabled`() = runTest {
+		val client = environment.createDevice()
+		val server = environment.createDevice()
+		val serviceUuid = UUID.randomUUID()
+
+		client.setBluetoothState(LapisBt.BluetoothState.Off)
+
+		val result = client.lapisBt.connectToDevice(server.address, serviceUuid)
+		assertThat(result).isEqualTo(LapisBt.ConnectionResult.BluetoothDisabled)
+	}
+
+	@Test
+	fun `connection fails when permission is missing`() = runTest {
+		val client = environment.createDevice()
+		val server = environment.createDevice()
+		val serviceUuid = UUID.randomUUID()
+
+		client.config.isBluetoothConnectGranted = false
+
+		val result = client.lapisBt.connectToDevice(server.address, serviceUuid)
+		assertThat(result).isEqualTo(LapisBt.ConnectionResult.MissingPermission)
+	}
+
+	@Test
+	fun `connection fails when bluetooth is not supported`() = runTest {
+		val client = environment.createDevice()
+		val server = environment.createDevice()
+		val serviceUuid = UUID.randomUUID()
+
+		client.config.isBluetoothSupported = false
+
+		val result = client.lapisBt.connectToDevice(server.address, serviceUuid)
+		assertThat(result).isEqualTo(LapisBt.ConnectionResult.BluetoothNotSupported)
+	}
+
+	@Test
+	fun `connection fails when server cannot accept`() = runTest {
+		val client = environment.createDevice()
+		val server = environment.createDevice()
+		val serviceUuid = UUID.randomUUID()
+
+		// Force server side connection failure
+		server.config.connectionResult = SimulatedBluetoothConfiguration.ConnectionResult.CouldNotConnect
+
+		val result = client.lapisBt.connectToDevice(server.address, serviceUuid)
+		assertThat(result).isEqualTo(LapisBt.ConnectionResult.CouldNotConnect)
+	}
+
+	@Test
+	fun `pairing fails when forced via config`() = runTest(timeout = 15.seconds) {
+		val client = environment.createDevice()
+		val server = environment.createDevice()
+		val serviceUuid = UUID.randomUUID()
+
+		client.config.pairingResult = SimulatedBluetoothConfiguration.PairingResult.Failure(reason = AndroidInternalConstants.UNBOND_REASON_AUTH_FAILED)
+
+		// Use connectToDevice to trigger pairing
+		val serverJob = launch {
+			server.lapisBt.startBluetoothServer("Test", serviceUuid)
+		}
+		server.lapisBt.activeBluetoothServersUuids.first { it.contains(serviceUuid) }
+
+		val result = client.lapisBt.connectToDevice(server.address, serviceUuid)
+
+		assertThat(result).isInstanceOf(LapisBt.ConnectionResult.CouldNotConnect::class.java)
+		serverJob.cancel()
+	}
+
+	@Test
+	fun `isBluetoothClassicSupported reflects hardware state`() = runTest {
+		val device = environment.createDevice()
+
+		assertThat(device.lapisBt.isBluetoothClassicSupported).isTrue()
+
+		device.config.isBluetoothSupported = false
+		assertThat(device.lapisBt.isBluetoothClassicSupported).isFalse()
 	}
 }

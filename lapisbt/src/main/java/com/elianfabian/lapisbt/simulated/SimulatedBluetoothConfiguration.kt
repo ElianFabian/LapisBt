@@ -1,6 +1,7 @@
 package com.elianfabian.lapisbt.simulated
 
 import android.bluetooth.BluetoothAdapter
+import android.os.Build
 import com.elianfabian.lapisbt.LapisBt
 
 /**
@@ -13,6 +14,7 @@ import com.elianfabian.lapisbt.LapisBt
  */
 public data class SimulatedBluetoothConfiguration(
 	// Global Hardware State (Used in UnitTest Mode only)
+	public var apiLevel: Int = 35,
 	public var isBluetoothSupported: Boolean = true,
 	public var bluetoothState: LapisBt.BluetoothState = LapisBt.BluetoothState.On,
 	public var isBluetoothConnectGranted: Boolean = true,

@@ -1,12 +1,13 @@
 package com.elianfabian.lapisbt.abstraction.impl
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
+import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothDevice
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
 import com.elianfabian.lapisbt.broadcast_receiver.BluetoothStateChangeBroadcastReceiver
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 internal class LapisBluetoothEventsImpl(
 	private val context: Context,
 	private val logger: LapisLogger,
+	private val androidHelper: AndroidHelper,
 ) : LapisBluetoothEvents {
 
 	private val _bluetoothStateFlow = MutableSharedFlow<Int>(extraBufferCapacity = Int.MAX_VALUE)
@@ -77,7 +79,7 @@ internal class LapisBluetoothEventsImpl(
 		application.unregisterActivityLifecycleCallbacks(_activityLifecycleCallbacks)
 
 		context.unregisterReceiver(_bluetoothStateChangeReceiver)
-		if (Build.VERSION.SDK_INT >= 30) {
+		if (androidHelper.getApiLevel() >= 30) {
 			context.unregisterReceiver(_deviceAliasChangeReceiver)
 		}
 		context.unregisterReceiver(_bondStateChangeReceiver)
@@ -116,12 +118,10 @@ internal class LapisBluetoothEventsImpl(
 
 	private val _deviceAliasChangeReceiver = DeviceAliasChangeBroadcastReceiver(
 		onAliasChanged = { androidDevice, _ ->
-			if (Build.VERSION.SDK_INT >= 30) {
-				logger.verbose(TAG) {
-					"onAliasChanged($androidDevice)"
-				}
-				_deviceAliasChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
+			logger.verbose(TAG) {
+				"onAliasChanged($androidDevice)"
 			}
+			_deviceAliasChangeFlow.tryEmit(LapisBluetoothDeviceImpl(androidDevice))
 		}
 	)
 
@@ -253,6 +253,7 @@ internal class LapisBluetoothEventsImpl(
 	}
 
 
+	@SuppressLint("InlinedApi")
 	private fun initialize() {
 		logger.verbose(TAG) {
 			"initialize()"
@@ -265,7 +266,7 @@ internal class LapisBluetoothEventsImpl(
 			_bluetoothStateChangeReceiver,
 			IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
 		)
-		if (Build.VERSION.SDK_INT >= 30) {
+		if (androidHelper.getApiLevel() >= 30) {
 			context.registerReceiver(
 				_deviceAliasChangeReceiver,
 				IntentFilter(AndroidBluetoothDevice.ACTION_ALIAS_CHANGED),

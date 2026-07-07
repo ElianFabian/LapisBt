@@ -65,22 +65,22 @@ public class SimulatedBluetoothEnvironment internal constructor(
 
 	public fun createDeviceWithAndroidState(
 		address: String = generateAddress(),
-		config: SimulatedBluetoothConfiguration? = globalConfig.copy(),
+		config: SimulatedBluetoothConfiguration = globalConfig.copy(),
 	): SimulatedBluetoothDevice = createDevice(
 		address = address,
 		name = null,
-		config = config ?: globalConfig.copy(),
+		config = config,
 		useAndroidState = true,
 	)
 
 	public fun createDevice(
 		address: String = generateAddress(),
 		name: String? = null,
-		config: SimulatedBluetoothConfiguration? = globalConfig.copy(),
+		config: SimulatedBluetoothConfiguration = globalConfig.copy(),
 	): SimulatedBluetoothDevice = createDevice(
 		address = address,
 		name = name,
-		config = config ?: globalConfig.copy(),
+		config = config,
 		useAndroidState = false,
 	)
 
@@ -101,18 +101,19 @@ public class SimulatedBluetoothEnvironment internal constructor(
 
 		val logger = createLogger(BluetoothDevice.Address(address))
 
+		val simulatedAndroidHelper = SimulatedAndroidHelper(
+			config = config,
+			context = context,
+		)
 		val events = SimulatedLapisBluetoothEvents(
 			context = context,
 			logger = logger,
+			androidHelper = simulatedAndroidHelper
 		)
 		val adapter = SimulatedLapisBluetoothAdapter(
 			bluetoothEvents = events,
 			config = config,
 			environment = this,
-			context = context,
-		)
-		val simulatedAndroidHelper = SimulatedAndroidHelper(
-			config = config,
 			context = context,
 		)
 

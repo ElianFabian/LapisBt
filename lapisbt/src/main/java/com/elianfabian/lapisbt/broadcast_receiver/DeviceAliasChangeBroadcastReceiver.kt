@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt.broadcast_receiver
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,7 @@ internal class DeviceAliasChangeBroadcastReceiver(
 	private val onAliasChanged: (androidDevice: AndroidBluetoothDevice, newAlias: String?) -> Unit,
 ) : BroadcastReceiver() {
 
+	@SuppressLint("NewApi")
 	@Suppress("DEPRECATION")
 	override fun onReceive(context: Context, intent: Intent) {
 		if (Build.VERSION.SDK_INT < 35) {

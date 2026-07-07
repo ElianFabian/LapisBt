@@ -45,43 +45,59 @@ internal class SimulatedLapisBluetoothSocket(
 		remoteDevice.environment.registerSocket(this)
 	}
 
+	private val config get() = remoteDevice.environment.getDeviceConfig(remoteDevice.requesterAddress)!!
+
 
 	override fun connect() {
 		if (_connectDelayMs > 0) {
 			_queue.poll(_connectDelayMs, TimeUnit.MILLISECONDS)
-		}
-		if (_isClosed) {
-			throw IOException("Socket is already closed.")
-		}
-		if (!connectSuccess) {
-			throw IOException("Failed to connect to the Bluetooth device.")
 		}
 
 		if (isClient && serviceUuid != null) {
 			var serverEntry: SimulatedBluetoothEnvironment.ServerEntry? = null
 			var attempts = 0
 			while (attempts < 50) { // 5 seconds timeout
-				if (_isClosed) throw IOException("Connection cancelled.")
 				serverEntry = remoteDevice.environment.getServer(remoteDevice.address, serviceUuid)
-				if (serverEntry != null) break
+
+				if (config.pairingResult != SimulatedBluetoothConfiguration.PairingResult.Success) {
+					// I'm not sure if this is the error we have to throw, but we'll leave it like this for now
+					serverEntry?.socket?.cancel()
+					println("$$$ socket = ${serverEntry?.socket}")
+					throw IOException("Secure connection failed: Devices not bonded.")
+				}
+				if (_isClosed) {
+					serverEntry?.socket?.cancel()
+					throw IOException("Socket is already closed.")
+				}
+				if (!connectSuccess) {
+					serverEntry?.socket?.cancel()
+					throw IOException("Failed to connect to the Bluetooth device.")
+				}
+				if (serverEntry != null) {
+					break
+				}
 
 				_queue.poll(100, TimeUnit.MILLISECONDS)
 				attempts++
 			}
 
 			if (_isClosed) {
+				serverEntry?.socket?.cancel()
 				throw IOException("Connection cancelled.")
 			}
 
 			if (serverEntry == null) {
-				throw IOException("Service ${serviceUuid} not found on device ${remoteDevice.address}")
+				throw IOException("Service $serviceUuid not found on device ${remoteDevice.address}")
 			}
 
 			// If either side is secure, the connection is secure.
 			val finalIsSecure = isSecure || serverEntry.isSecure
+			println("$$$ isSecure: $isSecure, serverEntry.isSecure: ${serverEntry.isSecure}")
 			this.isSecure = finalIsSecure
 
 			if (finalIsSecure) {
+				remoteDevice.environment.bondDevices(remoteDevice.address, remoteDevice.requesterAddress)
+
 				// Automatically initiate pairing if not bonded
 				if (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address)) {
 					println("Secure connection requested: automatically initiating pairing between ${remoteDevice.requesterAddress} and ${remoteDevice.address}")
@@ -91,6 +107,7 @@ internal class SimulatedLapisBluetoothSocket(
 				var bondAttempts = 0
 				while (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address) && bondAttempts < 20) {
 					if (_isClosed) {
+						serverEntry.socket.cancel()
 						throw IOException("Connection cancelled.")
 					}
 					_queue.poll(100, TimeUnit.MILLISECONDS)
@@ -98,11 +115,8 @@ internal class SimulatedLapisBluetoothSocket(
 				}
 
 				if (_isClosed) {
+					serverEntry.socket.cancel()
 					throw IOException("Connection cancelled.")
-				}
-
-				if (!remoteDevice.environment.isBonded(remoteDevice.requesterAddress, remoteDevice.address)) {
-					throw IOException("Secure connection failed: Devices not bonded.")
 				}
 			}
 

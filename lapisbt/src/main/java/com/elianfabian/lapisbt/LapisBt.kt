@@ -322,6 +322,7 @@ public interface LapisBt {
 
 		public data class ConnectionEstablished(val device: BluetoothDevice) : ConnectionResult
 		public data object BluetoothDisabled : ConnectionResult
+		public data object BluetoothNotSupported : ConnectionResult
 		public data object MissingPermission : ConnectionResult
 		public data object CouldNotConnect : ConnectionResult
 	}
@@ -441,13 +442,15 @@ public interface LapisBt {
 		): LapisBt {
 			val appContext = context.applicationContext
 			val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+			val androidHelper = AndroidHelperImpl(appContext)
 
 			return LapisBtImpl(
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
-				androidHelper = AndroidHelperImpl(appContext),
+				androidHelper = androidHelper,
 				bluetoothEvents = LapisBluetoothEventsImpl(
 					context = appContext,
 					logger = logger,
+					androidHelper = androidHelper,
 				),
 				logger = logger,
 			)

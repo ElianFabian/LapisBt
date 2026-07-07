@@ -1,7 +1,6 @@
 package com.elianfabian.lapisbt
 
 import android.bluetooth.BluetoothAdapter
-import android.os.Build
 import com.elianfabian.lapisbt.abstraction.AndroidHelper
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothAdapter
 import com.elianfabian.lapisbt.abstraction.LapisBluetoothEvents
@@ -18,6 +17,7 @@ import com.elianfabian.lapisbt.logger.LapisLogger.Companion.warning
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.util.AndroidBluetoothDevice
+import com.elianfabian.lapisbt.util.AndroidInternalConstants
 import com.elianfabian.lapisbt.util.KeyedMutex
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import com.elianfabian.lapisbt.util.convertToScanMode
@@ -225,10 +225,10 @@ internal class LapisBtImpl(
 			return LapisBt.ScanResult.ScanAlreadyInProgress
 		}
 
-		val currentSdk = Build.VERSION.SDK_INT
+		val apiLevel = androidHelper.getApiLevel()
 
 		when {
-			currentSdk >= 31 -> {
+			apiLevel >= 31 -> {
 				// Because your manifest uses 'neverForLocation' and maxSdkVersion="30" for location,
 				// Android 12+ DOES NOT require any location permission for background scans.
 				// Just BLUETOOTH_SCAN is enough!
@@ -242,7 +242,7 @@ internal class LapisBtImpl(
 					return LapisBt.ScanResult.BackgroundScanRestricted
 				}
 			}
-			currentSdk in 29..30 -> {
+			apiLevel in 29..30 -> {
 				// Foreground location check (Mandatory for API 29-30)
 				if (!androidHelper.isAccessFineLocationGranted()) {
 					return LapisBt.ScanResult.MissingLocationPermission
@@ -254,7 +254,7 @@ internal class LapisBtImpl(
 					return LapisBt.ScanResult.MissingBackgroundLocationPermission
 				}
 			}
-			currentSdk in 23..28 -> {
+			apiLevel in 23..28 -> {
 				// Legacy check (Coarse or Fine covers both foreground and background)
 				if (!androidHelper.isAccessCoarseLocationGranted() && !androidHelper.isAccessFineLocationGranted()) {
 					return LapisBt.ScanResult.MissingLocationPermission
@@ -265,7 +265,7 @@ internal class LapisBtImpl(
 		try {
 			if (!lapisAdapter.startDiscovery()) {
 				// On most devices location is required to scan, but others like Realme 6 API 30 don't require it
-				if (currentSdk in 23..30 && !androidHelper.isLocationEnabled()) {
+				if (apiLevel in 23..30 && !androidHelper.isLocationEnabled()) {
 					return LapisBt.ScanResult.LocationDisabled
 				}
 				return LapisBt.ScanResult.UnknownError
@@ -1395,6 +1395,9 @@ internal class LapisBtImpl(
 		serviceUuid: UUID,
 		insecure: Boolean = false,
 	): LapisBt.ConnectionResult {
+		if (!androidHelper.isBluetoothClassicSupported()) {
+			return LapisBt.ConnectionResult.BluetoothNotSupported
+		}
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			return LapisBt.ConnectionResult.MissingPermission
 		}
@@ -1469,6 +1472,9 @@ internal class LapisBtImpl(
 		maxRetries: Int,
 		retryDelay: Duration,
 	): LapisBt.ConnectionResult {
+		if (!androidHelper.isBluetoothClassicSupported()) {
+			return LapisBt.ConnectionResult.BluetoothNotSupported
+		}
 		if (!androidHelper.isBluetoothConnectGranted()) {
 			return LapisBt.ConnectionResult.MissingPermission
 		}
@@ -1787,24 +1793,5 @@ internal class LapisBtImpl(
 		fun checkBluetoothAddress(address: String): Boolean {
 			return checkBluetoothAddressInternal(address)
 		}
-	}
-
-	private object AndroidInternalConstants {
-
-		const val PAIRING_VARIANT_CONSENT = 3
-		const val PAIRING_VARIANT_DISPLAY_PASSKEY = 4
-		const val PAIRING_VARIANT_DISPLAY_PIN = 5
-		const val PAIRING_VARIANT_OOB_CONSENT = 6
-		const val PAIRING_VARIANT_PIN_16_DIGITS = 7
-
-		const val UNBOND_REASON_AUTH_FAILED = 1
-		const val UNBOND_REASON_AUTH_REJECTED = 2
-		const val UNBOND_REASON_AUTH_CANCELED = 3
-		const val UNBOND_REASON_REMOTE_DEVICE_DOWN = 4
-		const val UNBOND_REASON_DISCOVERY_IN_PROGRESS = 5
-		const val UNBOND_REASON_AUTH_TIMEOUT = 6
-		const val UNBOND_REASON_REPEATED_ATTEMPTS = 7
-		const val UNBOND_REASON_REMOTE_AUTH_CANCELED = 8
-		const val UNBOND_REASON_REMOVED = 9
 	}
 }
