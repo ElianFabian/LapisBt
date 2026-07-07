@@ -4,10 +4,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
-public class KeyedMutex<K : Any> {
+internal class KeyedMutex<K : Any> {
 	private val locks = ConcurrentHashMap<K, Mutex>()
 
-	public suspend fun <T> withLock(key: K, block: suspend () -> T): T {
+	suspend fun <T> withLock(key: K, block: suspend () -> T): T {
 		val mutex = locks.getOrPut(key) { Mutex() }
 		return mutex.withLock { block() }
 	}

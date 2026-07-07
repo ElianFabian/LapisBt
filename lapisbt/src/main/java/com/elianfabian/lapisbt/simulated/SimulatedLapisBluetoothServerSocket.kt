@@ -5,7 +5,7 @@ import com.elianfabian.lapisbt.abstraction.LapisBluetoothSocket
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
+import kotlin.concurrent.Volatile
 
 internal class SimulatedLapisBluetoothServerSocket(
 	private val environment: SimulatedBluetoothEnvironment,
@@ -13,14 +13,22 @@ internal class SimulatedLapisBluetoothServerSocket(
 	private val serviceUuid: UUID,
 ) : LapisBluetoothServerSocket {
 
-	private val _pendingConnections = LinkedBlockingQueue<LapisBluetoothSocket>()
+	private sealed interface QueueEntry {
+		class Connection(val socket: LapisBluetoothSocket) : QueueEntry
+		object Disconnect : QueueEntry
+	}
+
+	private val _pendingConnections = LinkedBlockingQueue<QueueEntry>()
+
+	@Volatile
 	private var _isClosed = false
 
-	/**
-	 * Enqueues a socket to be returned by [accept].
-	 */
+
 	fun enqueueIncomingConnection(socket: LapisBluetoothSocket) {
-		_pendingConnections.put(socket)
+		if (_isClosed) {
+			return
+		}
+		_pendingConnections.put(QueueEntry.Connection(socket))
 	}
 
 	override fun accept(): LapisBluetoothSocket {
@@ -28,14 +36,23 @@ internal class SimulatedLapisBluetoothServerSocket(
 			throw IOException("Server socket closed")
 		}
 
-		val clientSocket = _pendingConnections.poll(Long.MAX_VALUE, TimeUnit.SECONDS)
-			?: throw IOException("Accept timed out")
-
-		if (clientSocket is SimulatedLapisBluetoothSocket) {
-			clientSocket.setConnected(true)
+		return when (val entry = _pendingConnections.take()) {
+			is QueueEntry.Disconnect -> {
+				throw IOException("Socket closed or cancelled")
+			}
+			is QueueEntry.Connection -> {
+				val clientSocket = entry.socket
+				if (clientSocket is SimulatedLapisBluetoothSocket) {
+					clientSocket.setConnected(true)
+				}
+				clientSocket
+			}
 		}
+	}
 
-		return clientSocket
+	fun cancel() {
+		_pendingConnections.clear()
+		_pendingConnections.offer(QueueEntry.Disconnect)
 	}
 
 	override fun close() {
@@ -44,6 +61,7 @@ internal class SimulatedLapisBluetoothServerSocket(
 		}
 		_isClosed = true
 		_pendingConnections.clear()
+		_pendingConnections.offer(QueueEntry.Disconnect)
 		environment.unregisterServer(address, serviceUuid)
 	}
 }

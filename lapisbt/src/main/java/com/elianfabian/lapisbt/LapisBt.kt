@@ -8,17 +8,19 @@ import com.elianfabian.lapisbt.abstraction.impl.LapisBluetoothEventsImpl
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.annotation.NotReliableBluetoothApi
 import com.elianfabian.lapisbt.logger.LapisLogConfig
+import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.model.ScannedBluetoothDevice
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothConfiguration
 import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
-import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.util.checkBluetoothAddressInternal
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A high-level, "sanitized" abstraction for Bluetooth Classic on Android.
@@ -31,28 +33,81 @@ import java.util.UUID
  */
 public interface LapisBt {
 
+	/**
+	 * Emits the current global hardware state of the Bluetooth adapter.
+	 */
 	public val state: StateFlow<BluetoothState>
 
+	/**
+	 * A hot, asynchronous stream of one-off lifecycle notifications and transport-level events.
+	 */
 	public val events: SharedFlow<Event>
 
+	/**
+	 * Emits the list of currently bonded (paired) Bluetooth devices cached by the Android operating system.
+	 */
 	public val pairedDevices: StateFlow<List<BluetoothDevice>>
 
+	/**
+	 * Convenient state to represent the devices that have been scanned.
+	 *
+	 * Clear the state using [clearScannedDevices].
+	 *
+	 * In case you need a custom state for scanned devices consider observing the [Event.OnDeviceScanned] event
+	 * from the [events] property.
+	 *
+	 * @see clearScannedDevices
+	 */
 	public val scannedDevices: StateFlow<List<ScannedBluetoothDevice>>
 
 	// TODO: On Android we can only have 7 connected devices at once, maybe we could try to warn about it somehow
 	// TODO: maybe we could indicate which UUID is used for every connection
+	/**
+	 * Emits the list of remote devices that are actively connected via an open RFCOMM socket.
+	 *
+	 * **Platform Limitation:** The underlying Android Bluetooth stack (Bluedroid/Fluoride) enforces a strict
+	 * hardware limitation of up to 7 concurrent active classic connections. Attempting more will result in
+	 * connection failures.
+	 */
 	public val connectedDevices: StateFlow<List<BluetoothDevice>>
 
+	/**
+	 * Emits the friendly, user-visible Bluetooth name of the local adapter, or null if the adapter
+	 * is unavailable or disabled.
+	 *
+	 * @see setBluetoothDeviceName
+	 */
 	public val bluetoothDeviceName: StateFlow<String?>
 
+	/**
+	 * A read-only capability flag indicating whether the host Android device's chipset supports
+	 * Bluetooth Classic (BR/EDR).
+	 */
 	public val isBluetoothClassicSupported: Boolean
 
+	/**
+	 * Emits true if a heavyweight device discovery/scan process is currently in progress, and false otherwise.
+	 *
+	 * @see startScan
+	 * @see stopScan
+	 */
 	public val isScanning: StateFlow<Boolean>
 
+	/**
+	 * Emits the current discoverability and connectability mode of the local Bluetooth adapter.
+	 */
 	public val scanMode: StateFlow<ScanMode>
 
+	/**
+	 * Emits the list of unique service UUIDs representing the local RFCOMM server sockets currently open
+	 * and actively listening for incoming peer connection attempts.
+	 */
 	public val activeBluetoothServersUuids: StateFlow<List<UUID>>
 
+	/**
+	 * The internal logger configuration specifying thresholds, verbosity, and routing targets
+	 * for diagnostic logs emitted by the sync layer.
+	 */
 	public val logConfig: LapisLogConfig
 
 
@@ -60,29 +115,44 @@ public interface LapisBt {
 	 * Sets the bluetooth name of the device.
 	 *
 	 * NOTES:
-	 * - This doesn't work for all devices
-	 * - For devices that don't support this you will see that it apparently works
-	 * but when you go to bluetooth settings and go back to the app you will see
-	 * the previous name, it seems there's no reliable way to detect this.
+	 * - It doesn't work as expected in all devices, for some of them you will see that it apparently works,
+	 * it will persist across phone restarts, but when you go to bluetooth settings
+	 * and go back to the app you will see the previous name.
+	 *
+	 * @see bluetoothDeviceName
 	 */
 	public fun setBluetoothDeviceName(newName: String): Boolean
 
 	/**
-	 * Starts scanning devices.
+	 * Starts scanning for classic Bluetooth devices.
 	 *
 	 * Device scanning is a heavyweight procedure. New connections to remote Bluetooth devices
 	 * should not be attempted while scanning is in progress, and existing connections will
 	 * experience limited bandwidth and high latency.
 	 *
-	 * Use [stopScan] to cancel an ongoing scanning.
+	 * Use [stopScan] to cancel an ongoing scan.
 	 *
-	 * NOTES:
-	 * - For some devices if this returns false it may be because it needs to enable the location
-	 * in order to work.
+	 * ### Platform and Permission Requirements:
+	 * - **Android 12 (API 31) and higher:** Requires [android.Manifest.permission.BLUETOOTH_SCAN].
+	 * - **Android 6 to 9 (API 23-28):** Requires either [android.Manifest.permission.ACCESS_COARSE_LOCATION]
+	 * or [android.Manifest.permission.ACCESS_FINE_LOCATION] (prefer [android.Manifest.permission.ACCESS_FINE_LOCATION] since
+	 * it works in a wider range of API levels).
+	 * - **Android 10 to 11 (API 29-30):** Requires [android.Manifest.permission.ACCESS_FINE_LOCATION] only.
+	 * ### OEM Quirks & Location Services:
+	 * For devices running APIs 23 to 30, system-wide location services must generally be enabled.
+	 * However, due to vendor-specific customization (e.g., Realme), some devices do not strictly enforce
+	 * this. This method diagnoses this reactively: if the underlying discovery fails and location services
+	 * are disabled, it returns [ScanResult.LocationDisabled].
 	 *
+	 * When scanning in the background Android 6+ removes programmatic access to the device’s local hardware identifier
+	 * for apps using the Bluetooth API.
+	 * Check this link for more information: https://developer.android.com/about/versions/marshmallow/android-6.0-changes#behavior-hardware-id
+	 *
+	 * @return A [ScanResult] detailing the outcome of the initialization (e.g., [ScanResult.Success],
+	 * [ScanResult.MissingBluetoothScanPermission], [ScanResult.LocationDisabled], etc.).
 	 * @see stopScan
 	 */
-	public fun startScan(): Boolean
+	public fun startScan(): ScanResult
 
 	/**
 	 * Cancel the current scanning process.
@@ -134,32 +204,51 @@ public interface LapisBt {
 	public fun stopBluetoothServer(serviceUuid: UUID)
 
 	/**
-	 * Tries to connect with the given device and service uuid.
+	 * Tries to establish a secure RFCOMM connection with the specified remote device and service UUID.
 	 *
-	 * NOTES:
-	 * - Sometimes even when everything is okay the connection attempt will fail, in that case
-	 * just try calling the function again.
+	 * If the target device is not already paired, this call will automatically trigger the system's
+	 * pairing dialog overlay (provided the underlying connection mechanism requires authentication).
+	 *
+	 * ### Retry Mechanism:
+	 * Bluetooth socket establishment on Android can occasionally fail due to internal issues
+	 * (e.g., "read failed, socket might be closed or timeout").
+	 * This function automatically handles these flaky scenarios under the hood by retrying up to [maxRetries] times,
+	 * backing off by [retryDelay] between attempts to give the Bluetooth controller time to stabilize.
 	 *
 	 * @see startBluetoothServer
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDevice(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDevice(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int = 3,
+		retryDelay: Duration = 250.milliseconds,
+	): ConnectionResult
 
 	/**
-	 * Tries to connect with the given device and service uuid without pairing.
+	 * Tries to establish an insecure, unauthenticated RFCOMM connection with the specified remote device
+	 * and service UUID without triggering a system pairing prompt.
 	 *
-	 * This will only work if the other device connects with us by calling startBluetoothServerWithoutPairing(...).
+	 * **Crucial Constraint:** This unencrypted channel will only succeed if the remote peer is actively
+	 * listening for incoming unauthenticated connections via `startBluetoothServerWithoutPairing(...)`.
 	 *
-	 * NOTES:
-	 * - Sometimes even when everything is okay the connection attempt will fail, in that case
-	 * just try calling the function again.
+	 * ### Retry Mechanism:
+	 * Bluetooth socket establishment on Android can occasionally fail due to internal issues
+	 * (e.g., "read failed, socket might be closed or timeout").
+	 * This function automatically handles these flaky scenarios under the hood by retrying up to [maxRetries] times,
+	 * backing off by [retryDelay] between attempts to give the Bluetooth controller time to stabilize.
 	 *
 	 * @see startBluetoothServerWithoutPairing
 	 * @see disconnectFromDevice
 	 * @see cancelConnectionAttempt
 	 */
-	public suspend fun connectToDeviceWithoutPairing(deviceAddress: BluetoothDevice.Address, serviceUuid: UUID): ConnectionResult
+	public suspend fun connectToDeviceWithoutPairing(
+		deviceAddress: BluetoothDevice.Address,
+		serviceUuid: UUID,
+		maxRetries: Int = 3,
+		retryDelay: Duration = 250.milliseconds,
+	): ConnectionResult
 
 	/**
 	 * Disconnects from the remote device.
@@ -285,33 +374,65 @@ public interface LapisBt {
 	public sealed interface ConnectionResult {
 
 		public data class ConnectionEstablished(val device: BluetoothDevice) : ConnectionResult
+		public data object BluetoothDisabled : ConnectionResult
+		public data object BluetoothNotSupported : ConnectionResult
+		public data object MissingPermission : ConnectionResult
 		public data object CouldNotConnect : ConnectionResult
 	}
 
 	public sealed interface Event {
 
+		/**
+		 * The target remote [BluetoothDevice] associated with this event.
+		 */
 		public val device: BluetoothDevice
 
 
+		/**
+		 * Triggered when an RFCOMM connection is successfully established with a remote device.
+		 *
+		 * @property device The newly connected remote device model.
+		 * @property connectedLocally Indicates the connection's origin. True if this client initiated the connection via
+		 * `connectToDevice`, or false if it was accepted by a local server instance.
+		 */
 		public data class OnDeviceConnected(
 			override val device: BluetoothDevice,
-			// This indicates whether you connected to a device as a server or intentionally chose which one to connect to
 			val connectedLocally: Boolean,
 		) : Event
 
+		/**
+		 * Triggered when an active RFCOMM connection is terminated.
+		 *
+		 * @property device The remote device that was disconnected.
+		 * @property disconnectedLocally True only if the local user explicitly initiated the tear-down.
+		 * Note that if the local user intends to disconnect but the remote peer drops the link first,
+		 * this will evaluate to false.
+		 */
 		public data class OnDeviceDisconnected(
 			override val device: BluetoothDevice,
-			// This indicates if was the current user who intentionally disconnected the device
-			// In the case the user intentionally disconnects from the device, but it was the other device
-			// who disconnected from us, it will count as not manually disconnected
 			public val disconnectedLocally: Boolean,
 		) : Event
 
+		/**
+		 * Triggered whenever a classic Bluetooth device is discovered during an active scan.
+		 *
+		 * @property device The discovered remote device containing its current cached snapshot state.
+		 * @property rssi The Received Signal Strength Indication (RSSI) in dBm, representing signal strength.
+		 */
 		public data class OnDeviceScanned(
 			override val device: BluetoothDevice,
 			val rssi: Short,
 		) : Event
 
+		/**
+		 * Triggered when the Android OS intercepts or requests a low-level bonding (pairing) handshake
+		 * that requires user verification.
+		 *
+		 * @property device The remote device requesting authentication.
+		 * @property pairingKey The passkey or PIN code (if applicable to the [pairingVariant]) to display or confirm.
+		 * @property pairingVariant The visual or behavioral style of confirmation dialog requested by the OS.
+		 * @property initiatedLocally True if the local device started the pairing sequence, false if responding to a remote peer.
+		 */
 		public data class OnPairingRequest(
 			override val device: BluetoothDevice,
 			val pairingKey: Int,
@@ -342,6 +463,17 @@ public interface LapisBt {
 		// but the pairing just randomly failed, the dialog didn't even show up.
 		// - Value Removed (9) was received by the remote device when it canceled the request and also
 		// when a device unbonded another device.
+
+		/**
+		 * Triggered when an ongoing bonding (pairing) handshake fails or is aborted.
+		 *
+		 * **Warning:** This event relies on undocumented or internal Android API hooks and telemetry behavior
+		 * across different API levels. Use it with caution as its payload consistency varies by vendor,
+		 * and it may be deprecated or overhauled in future releases.
+		 *
+		 * @property device The remote device whose bonding sequence failed.
+		 * @property reason The diagnosed root cause inferred from the OS broadcast flags.
+		 */
 		public data class OnPairingFailed(
 			override val device: BluetoothDevice,
 
@@ -376,6 +508,16 @@ public interface LapisBt {
 		) : Event
 	}
 
+	public sealed interface ScanResult {
+		public data object Success : ScanResult
+		public data object BluetoothNotSupported : ScanResult
+		public data object BluetoothDisabled : ScanResult
+		public data object MissingBluetoothScanPermission : ScanResult
+		public data object MissingLocationPermission : ScanResult
+		public data object LocationDisabled : ScanResult
+		public data object ScanAlreadyInProgress : ScanResult
+		public data object UnknownError : ScanResult
+	}
 
 	public companion object {
 
@@ -391,13 +533,15 @@ public interface LapisBt {
 		): LapisBt {
 			val appContext = context.applicationContext
 			val bluetoothManager = appContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+			val androidHelper = AndroidHelperImpl(appContext)
 
 			return LapisBtImpl(
 				lapisAdapter = LapisBluetoothAdapterImpl(bluetoothManager.adapter),
-				androidHelper = AndroidHelperImpl(appContext),
+				androidHelper = androidHelper,
 				bluetoothEvents = LapisBluetoothEventsImpl(
 					context = appContext,
 					logger = logger,
+					androidHelper = androidHelper,
 				),
 				logger = logger,
 			)
@@ -406,8 +550,8 @@ public interface LapisBt {
 		public fun newSimulatedBluetoothEnvironment(
 			seed: Long = 1L,
 			context: Context? = null,
-			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
 			createLogger: (deviceAddress: BluetoothDevice.Address) -> LapisLogger = { LapisLogger.console() },
+			globalConfig: SimulatedBluetoothConfiguration = SimulatedBluetoothConfiguration(),
 		): SimulatedBluetoothEnvironment {
 			return SimulatedBluetoothEnvironment(
 				context = context,

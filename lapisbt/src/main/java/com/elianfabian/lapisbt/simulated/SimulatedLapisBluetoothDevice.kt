@@ -80,14 +80,14 @@ internal data class SimulatedLapisBluetoothDevice(
 	override fun createRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
 		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = true) ?: SimulatedLapisBluetoothSocket(
 			remoteDevice = this,
-			connectSuccess = false
+			connectSuccess = false,
 		)
 	}
 
 	override fun createInsecureRfcommSocketToServiceRecord(uuid: UUID): LapisBluetoothSocket {
 		return environment.requestConnection(requesterAddress, address, uuid, isSecureRequest = false) ?: SimulatedLapisBluetoothSocket(
 			remoteDevice = this,
-			connectSuccess = false
+			connectSuccess = false,
 		)
 	}
 }
