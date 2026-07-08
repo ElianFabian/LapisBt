@@ -51,6 +51,7 @@ import java.io.OutputStream
 import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.log
 import kotlin.time.Duration
 
 internal class LapisBtImpl(
@@ -336,7 +337,7 @@ internal class LapisBtImpl(
 		)
 	}
 
-	override fun stopBluetoothServer(serviceUuid: UUID) {
+	override fun stopBluetoothServer(serviceUuid: UUID): Boolean {
 		checkIsNotDisposed()
 
 		logger.info(TAG) {
@@ -344,14 +345,19 @@ internal class LapisBtImpl(
 		}
 
 		if (serviceUuid !in _bluetoothServerSocketByServiceUuid) {
-			throw IllegalStateException("Attempted to stop a Bluetooth server that was not registered or already stopped (UUID: $serviceUuid).")
+			logger.warning(TAG) {
+				"Attempted to stop a Bluetooth server that was not registered or already stopped (UUID: $serviceUuid)."
+			}
+			return false
 		}
 
-		val serverSocket = _bluetoothServerSocketByServiceUuid[serviceUuid] ?: return
+		val serverSocket = _bluetoothServerSocketByServiceUuid[serviceUuid] ?: return false
 		_activeBluetoothServersUuids.update { activeBluetoothServersUuids ->
 			activeBluetoothServersUuids.filter { uuid -> uuid != serviceUuid }
 		}
 		serverSocket.close()
+
+		return true
 	}
 
 	override suspend fun connectToDevice(

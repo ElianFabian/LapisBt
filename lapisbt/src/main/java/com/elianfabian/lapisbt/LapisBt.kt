@@ -199,9 +199,9 @@ public interface LapisBt {
 	/**
 	 * Stops waiting for a connection for a given serviceUuid.
 	 *
-	 * @throws IllegalStateException if there's no such service uuid.
+	 * @return true on success, false if there's no such service uuid.
 	 */
-	public fun stopBluetoothServer(serviceUuid: UUID)
+	public fun stopBluetoothServer(serviceUuid: UUID): Boolean
 
 	/**
 	 * Tries to establish a secure RFCOMM connection with the specified remote device and service UUID.
