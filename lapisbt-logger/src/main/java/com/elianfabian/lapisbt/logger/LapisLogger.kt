@@ -154,10 +154,7 @@ internal class ConsoleLogger(
 	override fun verbose(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Verbose.value) {
 			val prefix = prefix()
-			val actualPrefix = if (prefix.isNotBlank()) {
-				"${prefix}|"
-			}
-			else ""
+			val actualPrefix = prefix.ifBlank { "" }
 			println("${GRAY}V/$actualPrefix$tag: $message$RESET")
 		}
 	}
@@ -165,10 +162,7 @@ internal class ConsoleLogger(
 	override fun debug(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Debug.value) {
 			val prefix = prefix()
-			val actualPrefix = if (prefix.isNotBlank()) {
-				"${prefix}|"
-			}
-			else ""
+			val actualPrefix = prefix.ifBlank { "" }
 			println("${CYAN}D/$actualPrefix$tag: $message$RESET")
 		}
 	}
@@ -176,10 +170,7 @@ internal class ConsoleLogger(
 	override fun info(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Info.value) {
 			val prefix = prefix()
-			val actualPrefix = if (prefix.isNotBlank()) {
-				"${prefix}|"
-			}
-			else ""
+			val actualPrefix = prefix.ifBlank { "" }
 			println("${GREEN}I/$actualPrefix$tag: $message$RESET")
 		}
 	}
@@ -187,10 +178,7 @@ internal class ConsoleLogger(
 	override fun warning(tag: String, message: String) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Warn.value) {
 			val prefix = prefix()
-			val actualPrefix = if (prefix.isNotBlank()) {
-				"${prefix}|"
-			}
-			else ""
+			val actualPrefix = prefix.ifBlank { "" }
 			println("${YELLOW}W/$actualPrefix$tag: $message$RESET")
 		}
 	}
@@ -198,10 +186,7 @@ internal class ConsoleLogger(
 	override fun error(tag: String, message: String, throwable: Throwable?) {
 		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
 			val prefix = prefix()
-			val actualPrefix = if (prefix.isNotBlank()) {
-				"${prefix}|"
-			}
-			else ""
+			val actualPrefix = prefix.ifBlank { "" }
 			println("${RED}E/$actualPrefix$tag: $message$RESET")
 			throwable?.printStackTrace()
 		}
