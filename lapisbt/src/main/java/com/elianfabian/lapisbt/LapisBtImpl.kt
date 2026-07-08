@@ -133,7 +133,7 @@ internal class LapisBtImpl(
 	private val _activeBluetoothServersUuids = MutableStateFlow(emptyList<UUID>())
 	override val activeBluetoothServersUuids = _activeBluetoothServersUuids.asStateFlow()
 
-	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
+	private val _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<BluetoothDevice.Address, LapisBluetoothSocket> = ConcurrentHashMap()
 	private val _readMutex = KeyedMutex<BluetoothDevice.Address>()
 	private val _writeMutex = KeyedMutex<BluetoothDevice.Address>()
