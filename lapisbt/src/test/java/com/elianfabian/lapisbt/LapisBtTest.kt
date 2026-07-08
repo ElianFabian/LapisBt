@@ -32,7 +32,7 @@ class LapisBtTest {
 			createLogger = { address ->
 				LapisLogger.console(
 					prefix = {
-						"$address"
+						"$address|"
 					}
 				)
 			}
