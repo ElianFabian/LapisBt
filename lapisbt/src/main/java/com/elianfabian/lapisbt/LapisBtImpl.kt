@@ -25,7 +25,6 @@ import com.elianfabian.lapisbt.util.toModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -136,7 +135,6 @@ internal class LapisBtImpl(
 
 	private var _bluetoothServerSocketByServiceUuid: MutableMap<UUID, LapisBluetoothServerSocket> = ConcurrentHashMap()
 	private val _clientSocketByAddress: MutableMap<BluetoothDevice.Address, LapisBluetoothSocket> = ConcurrentHashMap()
-	private val _clientJobByAddress: MutableMap<BluetoothDevice.Address, Job> = ConcurrentHashMap()
 	private val _readMutex = KeyedMutex<BluetoothDevice.Address>()
 	private val _writeMutex = KeyedMutex<BluetoothDevice.Address>()
 
@@ -497,26 +495,9 @@ internal class LapisBtImpl(
 		try {
 			clientSocket.close()
 			_clientSocketByAddress.remove(deviceAddress)
-			_clientJobByAddress[deviceAddress]?.cancel()
-			_clientJobByAddress.remove(deviceAddress)
 
-			_pairedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-					}
-					else device
-				}
-			}
-			_scannedDevices.update { devices ->
-				devices.map { scannedDevice ->
-					if (scannedDevice.device.address == deviceAddress) {
-						scannedDevice.copy(
-							device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-						)
-					}
-					else scannedDevice
-				}
+			updateDeviceInAllLists(deviceAddress) { device ->
+				device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
 			}
 		}
 		catch (_: IOException) {
@@ -570,23 +551,8 @@ internal class LapisBtImpl(
 		val device = lapisAdapter.getRemoteDevice(deviceAddress.value)
 
 		if (device.createBond()) {
-			_scannedDevices.update { devices ->
-				devices.map { scannedDevice ->
-					if (scannedDevice.device.address == deviceAddress) {
-						scannedDevice.copy(
-							device = scannedDevice.device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
-						)
-					}
-					else scannedDevice
-				}
-			}
-			_connectedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(pairingState = BluetoothDevice.PairingState.Pairing)
-					}
-					else device
-				}
+			updateDeviceInAllLists(deviceAddress) { device ->
+				device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
 			}
 
 			logger.debug(TAG) {
@@ -800,8 +766,6 @@ internal class LapisBtImpl(
 		}
 		_clientSocketByAddress.clear()
 
-		_clientJobByAddress.clear()
-
 		bluetoothEvents.dispose()
 	}
 
@@ -845,31 +809,8 @@ internal class LapisBtImpl(
 		}
 		_scope.launch {
 			bluetoothEvents.deviceAliasChangeFlow.collect { lapisDevice ->
-				_pairedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address.value == lapisDevice.address) {
-							device.copy(alias = lapisDevice.alias)
-						}
-						else device
-					}
-				}
-				_scannedDevices.update { devices ->
-					devices.map { scannedDevice ->
-						if (scannedDevice.device.address.value == lapisDevice.address) {
-							scannedDevice.copy(
-								device = scannedDevice.device.copy(alias = lapisDevice.alias)
-							)
-						}
-						else scannedDevice
-					}
-				}
-				_connectedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address.value == lapisDevice.address) {
-							device.copy(alias = lapisDevice.alias)
-						}
-						else device
-					}
+				updateDeviceInAllLists(BluetoothDevice.Address(lapisDevice.address)) { device ->
+					device.copy(alias = lapisDevice.alias)
 				}
 			}
 		}
@@ -923,9 +864,6 @@ internal class LapisBtImpl(
 					}
 					_pairedDevices.update { devices ->
 						val existingDevice = devices.firstOrNull { it.address.value == bondStateChangeLapisDevice.address }
-						logger.verbose(TAG) {
-							"bondStateChange.existing: $existingDevice"
-						}
 						if (existingDevice != null) {
 							lapisAdapter.getBondedDevices().orEmpty().map { lapisDevice ->
 								val connectionState = if (existingDevice.connectionState == BluetoothDevice.ConnectionState.Connecting) {
@@ -1091,31 +1029,8 @@ internal class LapisBtImpl(
 
 				val lapisDevice = event.androidDevice
 
-				_pairedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address == targetDeviceAddress) {
-							device.copy(uuids = lapisDevice.uuids)
-						}
-						else device
-					}
-				}
-				_scannedDevices.update { devices ->
-					devices.map { scannedDevice ->
-						if (scannedDevice.device.address == targetDeviceAddress) {
-							scannedDevice.copy(
-								device = scannedDevice.device.copy(uuids = lapisDevice.uuids)
-							)
-						}
-						else scannedDevice
-					}
-				}
-				_connectedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address == targetDeviceAddress) {
-							device.copy(uuids = lapisDevice.uuids)
-						}
-						else device
-					}
+				updateDeviceInAllLists(targetDeviceAddress) { device ->
+					device.copy(uuids = lapisDevice.uuids)
 				}
 			}
 		}
@@ -1266,23 +1181,9 @@ internal class LapisBtImpl(
 
 				val targetDeviceAddress = BluetoothDevice.Address(event.androidDevice.address)
 
-				_pairedDevices.update { devices ->
-					devices.map { device ->
-						if (device.address == targetDeviceAddress) {
-							device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-						}
-						else device
-					}
-				}
-				_scannedDevices.update { devices ->
-					devices.map { scannedDevice ->
-						if (scannedDevice.device.address == targetDeviceAddress) {
-							scannedDevice.copy(
-								device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-							)
-						}
-						else scannedDevice
-					}
+				updateDeviceInAllLists(targetDeviceAddress) { device ->
+					// A pairing request will force the device to be disconnected
+					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
 				}
 
 				val pairingVariant = when (val pairingVariant = event.pairingVariant) {
@@ -1508,7 +1409,6 @@ internal class LapisBtImpl(
 		val connectedAndroidDevice = clientSocket.remoteDevice
 		_clientSocketByAddress[BluetoothDevice.Address(connectedAndroidDevice.address)] = clientSocket
 
-
 		logger.debug(TAG) {
 			"connectToDeviceInternal($deviceAddress): attempting to connect socket..."
 		}
@@ -1533,23 +1433,8 @@ internal class LapisBtImpl(
 		if (!isConnectionSuccessFull) {
 			_bluetoothServerSocketByServiceUuid.remove(serviceUuid)
 
-			_pairedDevices.update { devices ->
-				devices.map { device ->
-					if (device.address == deviceAddress) {
-						device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-					}
-					else device
-				}
-			}
-			_scannedDevices.update { devices ->
-				devices.map { scannedDevice ->
-					if (scannedDevice.device.address == deviceAddress) {
-						scannedDevice.copy(
-							device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-						)
-					}
-					else scannedDevice
-				}
+			updateDeviceInAllLists(deviceAddress) { device ->
+				device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
 			}
 
 			_skipDisconnectionEventForDevices.add(deviceAddress)
@@ -1625,7 +1510,6 @@ internal class LapisBtImpl(
 			logger.info(TAG) {
 				"tryAccept: accepted incoming connection from $address"
 			}
-			_clientSocketByAddress[address] = clientSocket
 
 			return@withContext clientSocket
 		}
@@ -1729,27 +1613,10 @@ internal class LapisBtImpl(
 			return false
 		}
 
-		_clientJobByAddress[deviceAddress]?.cancel()
-		_clientJobByAddress.remove(deviceAddress)
+		updateDeviceInAllLists(deviceAddress) { device ->
+			device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
+		}
 
-		_pairedDevices.update { devices ->
-			devices.map { device ->
-				if (device.address == deviceAddress) {
-					device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-				}
-				else device
-			}
-		}
-		_scannedDevices.update { devices ->
-			devices.map { scannedDevice ->
-				if (scannedDevice.device.address == deviceAddress) {
-					scannedDevice.copy(
-						device = scannedDevice.device.copy(connectionState = BluetoothDevice.ConnectionState.Disconnected)
-					)
-				}
-				else scannedDevice
-			}
-		}
 		_connectedDevices.update { devices ->
 			logger.verbose(TAG) {
 				"handleDisconnectedDevice($deviceAddress): filtering out device from connected list"
@@ -1767,6 +1634,27 @@ internal class LapisBtImpl(
 	private fun checkIsNotDisposed() {
 		check(!_isDisposed) {
 			"Can't no longer use this ${LapisBt::class.simpleName} since it was disposed."
+		}
+	}
+
+	// TODO: add unit tests for this, now if we empty the function body the tests still pass
+	private fun updateDeviceInAllLists(
+		address: BluetoothDevice.Address,
+		transform: (BluetoothDevice) -> BluetoothDevice,
+	) {
+		_pairedDevices.update { devices ->
+			devices.map { device -> if (device.address == address) transform(device) else device }
+		}
+		_scannedDevices.update { scannedDevices ->
+			scannedDevices.map { scannedDevice ->
+				if (scannedDevice.device.address == address) {
+					scannedDevice.copy(device = transform(scannedDevice.device))
+				}
+				else scannedDevice
+			}
+		}
+		_connectedDevices.update { devices ->
+			devices.map { device -> if (device.address == address) transform(device) else device }
 		}
 	}
 
