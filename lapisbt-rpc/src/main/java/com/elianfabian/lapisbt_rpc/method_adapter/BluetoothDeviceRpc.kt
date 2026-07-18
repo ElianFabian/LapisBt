@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc.method_adapter
 
+import com.elianfabian.LapisBtRpcConfig
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.logger.LapisLogger.Companion.debug
@@ -58,6 +59,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -72,6 +74,7 @@ import kotlin.time.Duration.Companion.seconds
 
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: BluetoothDevice.Address,
+	private val config: LapisBtRpcConfig,
 	private val lapisBt: LapisBt,
 	private val lapisRpc: LapisBtRpc,
 	private val interceptor: LapisInterceptor,
@@ -571,10 +574,18 @@ internal class BluetoothDeviceRpc(
 
 
 	private suspend fun processRequest(rawRequest: LapisRpcPacket.Request) {
-		val serverImplementation = lapisRpc.getBluetoothServerServiceByName(
-			deviceAddress = deviceAddress,
-			serviceName = rawRequest.serviceName,
-		)
+		val serverImplementation = withTimeoutOrNull(config.serverServiceRegistrationTimeout) {
+			lapisRpc.awaitBluetoothServerServiceByName(
+				deviceAddress = deviceAddress,
+				serviceName = rawRequest.serviceName,
+			)
+		}
+
+		if (serverImplementation == null) {
+			val message = "No server implementation found for service: ${rawRequest.serviceName} in device $deviceAddress after ${config.serverServiceRegistrationTimeout}"
+			sendErrorMessage(requestId = rawRequest.requestId, message = message)
+			return
+		}
 
 		logger.verbose(TAG) {
 			"Found server implementation for service ${rawRequest.serviceName}: ${serverImplementation::class.qualifiedName}, impl: $serverImplementation"

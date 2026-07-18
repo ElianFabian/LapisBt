@@ -21,6 +21,7 @@ public interface LapisLogger : LapisLogConfig {
 	public fun info(tag: String, message: String)
 	public fun warning(tag: String, message: String)
 	public fun error(tag: String, message: String, throwable: Throwable? = null)
+	public fun error(tag: String, throwable: Throwable? = null)
 
 	public companion object {
 		/**
@@ -56,6 +57,7 @@ public interface LapisLogger : LapisLogConfig {
 			override fun info(tag: String, message: String) {}
 			override fun warning(tag: String, message: String) {}
 			override fun error(tag: String, message: String, throwable: Throwable?) {}
+			override fun error(tag: String, throwable: Throwable?) {}
 		}
 
 		public inline fun LapisLogger.verbose(tag: String, message: () -> String) {
@@ -132,6 +134,12 @@ internal class AndroidLogger(
 			Log.e(tag, message, throwable)
 		}
 	}
+
+	override fun error(tag: String, throwable: Throwable?) {
+		if (enabled && minLevel <= LapisLogger.Level.Error) {
+			Log.e(tag, throwable?.message ?: "Unknown error", throwable)
+		}
+	}
 }
 
 
@@ -188,6 +196,15 @@ internal class ConsoleLogger(
 			val prefix = prefix()
 			val actualPrefix = prefix.ifBlank { "" }
 			println("${RED}E/$actualPrefix$tag: $message$RESET")
+			throwable?.printStackTrace()
+		}
+	}
+
+	override fun error(tag: String, throwable: Throwable?) {
+		if (enabled && minLevel.value <= LapisLogger.Level.Error.value) {
+			val prefix = prefix()
+			val actualPrefix = prefix.ifBlank { "" }
+			println("${RED}E/$actualPrefix$tag: ${throwable?.message ?: "Unknown error"}$RESET")
 			throwable?.printStackTrace()
 		}
 	}

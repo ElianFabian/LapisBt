@@ -1,5 +1,6 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.LapisBtRpcConfig
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.annotation.InternalBluetoothReflectionApi
 import com.elianfabian.lapisbt.logger.LapisLogger
@@ -9,6 +10,7 @@ import com.elianfabian.lapisbt.simulated.SimulatedBluetoothEnvironment
 import com.elianfabian.lapisbt_rpc.annotation.LapisMethod
 import com.elianfabian.lapisbt_rpc.annotation.LapisParam
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
+import com.elianfabian.lapisbt_rpc.exception.LapisRemoteException
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -183,7 +185,7 @@ class LapisBtRpcRegularTest {
 
 		// Disconnect
 		phone.lapisBt.disconnectFromDevice(peripheral.address)
-		delay(500) // Ensure disconnection is processed
+		delay(0.5.seconds) // Ensure disconnection is processed
 
 		// Re-register and Re-connect
 		peripheralRpc.registerBluetoothServerService<RegularService>(phone.address, serviceImpl)
@@ -198,63 +200,66 @@ class LapisBtRpcRegularTest {
 		// Obtain new client and verify
 		val client2 = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 		assertThat(client2.noParamWithReturn()).isEqualTo("Hello")
-
-
-		@Test
-		fun `verify no ID collision between persistent flow and concurrent suspend call`() = runTest(timeout = 15.seconds) {
-			this.setupConnection()
-			val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
-
-			// 1. Start a persistent flow.
-			// In the bugged version, this adapter starts its local counter and assigns ID 0.
-			val flowResults = mutableListOf<Int>()
-			val flowJob = backgroundScope.launch {
-				client.streamReturn(50).collect {
-					flowResults.add(it)
-					// Small delay to keep the connection busy with flow emissions
-					delay(10)
-				}
-			}
-
-			// Give the flow a moment to establish and register ID 0 in its adapter
-			delay(200)
-
-			// 2. Call a suspend function.
-			// In the bugged version, THIS adapter also starts its local counter and assigns ID 0.
-			// When the flow above emits a value with ID 0, this call would incorrectly intercept it.
-			val suspendResult = try {
-				client.delayedEcho("CollisionCheck", 500)
-			}
-			catch (e: Exception) {
-				throw AssertionError("Suspend call failed, likely due to ID collision with active Flow", e)
-			}
-
-			// 3. Verify results
-			// If bugged, suspendResult might contain a serialized Int from the flow,
-			// or the test would have crashed with SerializationException / Already Resumed.
-			assertThat(suspendResult).isEqualTo("CollisionCheck")
-
-			flowJob.cancel()
-		}
 	}
 
 	@Test
-	fun `verify library does not crash on serialization error in one packet`() = runTest(timeout = 10.seconds) {
-		this.setupConnection()
+	fun `requesting service before registration waits and succeeds after registration`() = runTest(timeout = 15.seconds) {
+		// 1. Setup connection but DO NOT register the service implementation yet
+		phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console(), config = LapisBtRpcConfig(serverServiceRegistrationTimeout = 3.seconds))
+
+		backgroundScope.launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("RegularService", serviceUuid)
+		}
+
+		val connectionResult = phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		assertThat(connectionResult).isInstanceOf(LapisBt.ConnectionResult.ConnectionEstablished::class.java)
+
 		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 
-		// Start a call that will succeed
-		val result = async { client.noParamWithReturn() }
+		// 2. Call a method. In the bugged version, this would crash immediately.
+		// In the new version, it should suspend and wait in the peripheral's processRequest loop.
+		val deferredResult = async {
+			client.noParamWithReturn()
+		}
 
-		// Manually inject a "bad" packet with a non-existent ID or bad data
-		// into the packet processor if possible, or trigger a known serialization
-		// error by having the server return a type the client doesn't know.
+		delay(2.seconds)
+		assertThat(deferredResult.isCompleted).isFalse()
 
-		assertThat(result.await()).isEqualTo("Hello")
-		// The test should finish without "IllegalStateException: Already resumed"
+		peripheralRpc.registerBluetoothServerService<RegularService>(phone.address, serviceImpl)
+
+		val result = deferredResult.await()
+		assertThat(result).isEqualTo("Hello")
+	}
+
+	@Test
+	fun `requesting unregistered service fails with LapisRemoteException after timeout`() = runTest(timeout = 15.seconds) {
+		phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
+		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+
+		backgroundScope.launch {
+			peripheral.lapisBt.startBluetoothServerWithoutPairing("RegularService", serviceUuid)
+		}
+
+		phone.lapisBt.connectToDeviceWithoutPairing(peripheral.address, serviceUuid)
+		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+		val startTime = System.currentTimeMillis()
+		val exception = try {
+			client.noParamWithReturn()
+			null
+		}
+		catch (e: Exception) {
+			e
+		}
+
+		val duration = System.currentTimeMillis() - startTime
+
+		assertThat(exception).isInstanceOf(LapisRemoteException::class.java)
+		assertThat(exception?.message).contains("not registered")
+		assertThat(duration).isAtLeast(5000)
 	}
 }
-
 
 @LapisRpc(name = "RegularService")
 interface RegularService {

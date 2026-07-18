@@ -1,9 +1,10 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.LapisBtRpcConfig
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.logger.LapisLogConfig
-import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt.logger.LapisLogger
+import com.elianfabian.lapisbt.model.BluetoothDevice
 import kotlin.reflect.KClass
 
 /**
@@ -53,6 +54,12 @@ public interface LapisBtRpc {
 
 	public fun getBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any
 
+	/**
+	 * Suspends until the service is registered for the given address.
+	 * If already registered, returns immediately.
+	 */
+	public suspend fun awaitBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any
+
 	public fun <T : Any> unregisterBluetoothServerService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>)
 
 	public fun <T : Any> unregisterBluetoothServerServicesByAddress(deviceAddress: BluetoothDevice.Address)
@@ -88,6 +95,7 @@ public interface LapisBtRpc {
 		 */
 		public fun newInstance(
 			lapisBt: LapisBt,
+			config: LapisBtRpcConfig = LapisBtRpcConfig(),
 			serializationStrategy: LapisSerializationStrategy? = null,
 			interceptor: LapisInterceptor? = null,
 			metadataProvider: LapisMetadataProvider<Any?>? = null,
@@ -96,6 +104,7 @@ public interface LapisBtRpc {
 		): LapisBtRpc {
 			return LapisBtRpcImpl(
 				lapisBt = lapisBt,
+				config = config,
 				serializationStrategy = serializationStrategy?.withDefaultFallback() ?: DefaultSerializationStrategy,
 				interceptor = interceptor ?: NoOpLapisInterceptor,
 				metadataProvider = metadataProvider ?: NoOpLapisMetadataProvider,

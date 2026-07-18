@@ -1,11 +1,13 @@
 package com.elianfabian.lapisbt_rpc
 
+import com.elianfabian.LapisBtRpcConfig
 import com.elianfabian.lapisbt.LapisBt
 import com.elianfabian.lapisbt.logger.LapisLogConfig
 import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.annotation.LapisRpc
 import com.elianfabian.lapisbt_rpc.method_adapter.BluetoothDeviceRpc
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,10 +16,12 @@ import kotlinx.coroutines.launch
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 internal class LapisBtRpcImpl(
+	private val config: LapisBtRpcConfig,
 	private val lapisBt: LapisBt,
 	private val serializationStrategy: LapisSerializationStrategy,
 	private val interceptor: LapisInterceptor,
@@ -33,6 +37,8 @@ internal class LapisBtRpcImpl(
 	private val _bluetoothClientServicesByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
 	private val _bluetoothServerServiceByAddress = ConcurrentHashMap<BluetoothDevice.Address, ConcurrentHashMap<KClass<*>, Any>>()
 	private val _bluetoothDeviceRpcByAddress = ConcurrentHashMap<BluetoothDevice.Address, BluetoothDeviceRpc>()
+
+	private val _serviceWaiters = ConcurrentHashMap<Pair<BluetoothDevice.Address, String>, MutableList<CompletableDeferred<Any>>>()
 
 	@Volatile
 	private var _isDisposed = false
@@ -76,6 +82,7 @@ internal class LapisBtRpcImpl(
 
 			BluetoothDeviceRpc(
 				deviceAddress = deviceAddress,
+				config = config,
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
 				serializationStrategy = serializationStrategy,
@@ -161,6 +168,11 @@ internal class LapisBtRpcImpl(
 		else {
 			serverApiByClass[serviceInterface] = server
 
+			val key = deviceAddress to serviceInterface.java.getAnnotation(LapisRpc::class.java)!!.name
+			_serviceWaiters.remove(key)?.forEach { waiter ->
+				waiter.complete(server)
+			}
+
 			if (server is LapisBtRpc.Registered) {
 				server.onLapisServiceRegistered(deviceAddress)
 			}
@@ -171,6 +183,7 @@ internal class LapisBtRpcImpl(
 
 			BluetoothDeviceRpc(
 				deviceAddress = deviceAddress,
+				config = config,
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
 				serializationStrategy = serializationStrategy,
@@ -193,6 +206,35 @@ internal class LapisBtRpcImpl(
 		}?.value ?: throw IllegalStateException("There's no server service registered for address '$deviceAddress' and service name '$serviceName'")
 
 		return serverService
+	}
+
+	override suspend fun awaitBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any {
+		try {
+			return getBluetoothServerServiceByName(deviceAddress, serviceName)
+		}
+		catch (e: Exception) {
+			logger.error(TAG, e)
+		}
+
+		val deferred = CompletableDeferred<Any>()
+		val key = deviceAddress to serviceName
+
+		_serviceWaiters.getOrPut(key) { Collections.synchronizedList(mutableListOf()) }.add(deferred)
+
+		try {
+			val serverService = getBluetoothServerServiceByName(deviceAddress, serviceName)
+			deferred.complete(serverService)
+		}
+		catch (e: Exception) {
+			logger.error(TAG, e)
+		}
+
+		return try {
+			deferred.await()
+		}
+		finally {
+			_serviceWaiters[key]?.remove(deferred)
+		}
 	}
 
 	override fun <T : Any> unregisterBluetoothServerService(deviceAddress: BluetoothDevice.Address, serviceInterface: KClass<T>) {
@@ -230,6 +272,7 @@ internal class LapisBtRpcImpl(
 
 			BluetoothDeviceRpc(
 				deviceAddress = deviceAddress,
+				config = config,
 				lapisBt = lapisBt,
 				lapisRpc = this@LapisBtRpcImpl,
 				serializationStrategy = serializationStrategy,
@@ -295,6 +338,7 @@ internal class LapisBtRpcImpl(
 	}
 
 	companion object {
+		private val TAG = LapisBtRpcImpl::class.java.simpleName
 	}
 }
 
