@@ -31,7 +31,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.reflect.KClass
 
@@ -46,8 +45,6 @@ internal class FlowMethodAdapter(
 
 	private val _pendingChannelsByRequestId = ConcurrentHashMap<Int, SendChannel<Any?>>()
 	private val _activeServerJobs = ConcurrentHashMap<Int, Job>()
-
-	private val _nextId = AtomicInteger(0)
 
 	private val _flowEnd = Any()
 
@@ -74,10 +71,10 @@ internal class FlowMethodAdapter(
 	override fun shouldIntercept(method: Method): Boolean = method.returnType.kotlin == Flow::class
 
 	override fun functionCall(
+		requestId: Int,
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-		onGenerateRequestId: (requestId: Int) -> Unit,
 	): Any {
 
 		// We convert it to a SharedFlow so that we don't waste resources creating multiple requests
@@ -87,10 +84,6 @@ internal class FlowMethodAdapter(
 		// The user of this library can call the "shareIn(...)" operator again and set the parameters
 		// according to their needs
 		return callbackFlow {
-			val requestId = generateId()
-
-			onGenerateRequestId(requestId)
-
 			_pendingChannelsByRequestId[requestId] = this@callbackFlow
 
 			bluetoothDeviceRpc.sendRequest(
@@ -235,8 +228,6 @@ internal class FlowMethodAdapter(
 		_activeServerJobs.clear()
 	}
 
-
-	private fun generateId() = _nextId.getAndIncrement()
 
 	companion object {
 		private val TAG = FlowMethodAdapter::class.simpleName!!

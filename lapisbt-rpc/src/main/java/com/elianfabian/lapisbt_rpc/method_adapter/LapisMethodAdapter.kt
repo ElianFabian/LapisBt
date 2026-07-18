@@ -12,10 +12,10 @@ internal interface LapisMethodAdapter {
 	fun shouldIntercept(method: Method): Boolean
 
 	fun functionCall(
+		requestId: Int,
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-		onGenerateRequestId: (requestId: Int) -> Unit,
 	): Any
 
 	suspend fun onReceiveRequest(request: LapisRequest, server: LapisServerService)

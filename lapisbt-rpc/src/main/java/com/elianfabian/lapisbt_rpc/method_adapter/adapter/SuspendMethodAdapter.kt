@@ -25,7 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
@@ -45,8 +44,6 @@ internal class SuspendMethodAdapter(
 
 	private val _pendingContinuationsByRequestId = ConcurrentHashMap<Int, Continuation<Any?>>()
 	private val _activeServerJobs = ConcurrentHashMap<Int, Job>()
-
-	private val _nextId = AtomicInteger(0)
 
 
 	override fun dispose() {
@@ -78,20 +75,16 @@ internal class SuspendMethodAdapter(
 	override fun shouldIntercept(method: Method): Boolean = method.isSuspend()
 
 	override fun functionCall(
+		requestId: Int,
 		serviceInterface: Class<*>,
 		method: Method,
 		args: Array<out Any?>?,
-		onGenerateRequestId: (requestId: Int) -> Unit,
 	): Any {
 		@Suppress("UNCHECKED_CAST")
 		val continuation = args.orEmpty().last() as Continuation<Any?>
 		return try {
 
 			val rpcBlock = suspend {
-				val requestId = generateId()
-
-				onGenerateRequestId(requestId)
-
 				suspendCancellableCoroutine { cancellableContinuation ->
 					_pendingContinuationsByRequestId[requestId] = cancellableContinuation
 
@@ -238,9 +231,6 @@ internal class SuspendMethodAdapter(
 		}
 		_activeServerJobs.clear()
 	}
-
-
-	private fun generateId() = _nextId.getAndIncrement()
 
 
 	companion object {

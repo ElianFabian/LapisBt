@@ -259,13 +259,15 @@ internal class BluetoothDeviceRpc(
 
 		val adapter = getMethodAdapter(method)
 
+		val requestId = generateId()
+
+		_pendingClientMethodByRequestId[requestId] = method
+
 		val result = adapter.functionCall(
+			requestId = requestId,
 			serviceInterface = serviceInterface,
 			method = method,
 			args = args,
-			onGenerateRequestId = { requestId ->
-				_pendingClientMethodByRequestId[requestId] = method
-			}
 		)
 
 		return result

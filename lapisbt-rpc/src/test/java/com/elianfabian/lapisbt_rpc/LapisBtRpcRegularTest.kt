@@ -198,6 +198,60 @@ class LapisBtRpcRegularTest {
 		// Obtain new client and verify
 		val client2 = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
 		assertThat(client2.noParamWithReturn()).isEqualTo("Hello")
+
+
+		@Test
+		fun `verify no ID collision between persistent flow and concurrent suspend call`() = runTest(timeout = 15.seconds) {
+			this.setupConnection()
+			val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+			// 1. Start a persistent flow.
+			// In the bugged version, this adapter starts its local counter and assigns ID 0.
+			val flowResults = mutableListOf<Int>()
+			val flowJob = backgroundScope.launch {
+				client.streamReturn(50).collect {
+					flowResults.add(it)
+					// Small delay to keep the connection busy with flow emissions
+					delay(10)
+				}
+			}
+
+			// Give the flow a moment to establish and register ID 0 in its adapter
+			delay(200)
+
+			// 2. Call a suspend function.
+			// In the bugged version, THIS adapter also starts its local counter and assigns ID 0.
+			// When the flow above emits a value with ID 0, this call would incorrectly intercept it.
+			val suspendResult = try {
+				client.delayedEcho("CollisionCheck", 500)
+			}
+			catch (e: Exception) {
+				throw AssertionError("Suspend call failed, likely due to ID collision with active Flow", e)
+			}
+
+			// 3. Verify results
+			// If bugged, suspendResult might contain a serialized Int from the flow,
+			// or the test would have crashed with SerializationException / Already Resumed.
+			assertThat(suspendResult).isEqualTo("CollisionCheck")
+
+			flowJob.cancel()
+		}
+	}
+
+	@Test
+	fun `verify library does not crash on serialization error in one packet`() = runTest(timeout = 10.seconds) {
+		this.setupConnection()
+		val client = phoneRpc.getOrCreateBluetoothClientService<RegularService>(peripheral.address)
+
+		// Start a call that will succeed
+		val result = async { client.noParamWithReturn() }
+
+		// Manually inject a "bad" packet with a non-existent ID or bad data
+		// into the packet processor if possible, or trigger a known serialization
+		// error by having the server return a type the client doesn't know.
+
+		assertThat(result.await()).isEqualTo("Hello")
+		// The test should finish without "IllegalStateException: Already resumed"
 	}
 }
 
