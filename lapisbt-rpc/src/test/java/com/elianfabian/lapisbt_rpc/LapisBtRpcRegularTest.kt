@@ -31,6 +31,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class, InternalBluetoothReflectionApi::class)
@@ -339,7 +340,7 @@ class RegularServiceImpl : RegularService {
 	}
 
 	override suspend fun delayedEcho(message: String, delayMs: Long): String {
-		delay(delayMs)
+		delay(delayMs.milliseconds)
 		return message
 	}
 }

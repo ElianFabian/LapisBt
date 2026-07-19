@@ -14,6 +14,22 @@ import com.elianfabian.lapisbt_rpc.model.LapisResponse
 public interface LapisInterceptor {
 
 	/**
+	 * Called when a secure handshake is successfully completed with a remote device.
+	 *
+	 * This is particularly useful for implementing "Trust On First Use" (TOFU) by
+	 * capturing and storing the [remotePublicKeyBytes] for future pinning, or
+	 * for generating human-readable "Safety Numbers" from the [sessionKey].
+	 */
+	public suspend fun interceptHandshakeSuccess(
+		deviceAddress: BluetoothDevice.Address,
+		remotePublicKeyBytes: ByteArray,
+		sharedSecret: ByteArray,
+		sessionKey: ByteArray?,
+	) {
+		// no-op
+	}
+
+	/**
 	 * Called when an RPC request is received from a remote device.
 	 */
 	public suspend fun interceptIncomingRequest(

@@ -35,6 +35,7 @@ import com.elianfabian.lapisbt_rpc.model.LapisResponse
 import com.elianfabian.lapisbt_rpc.model.LapisRpcPacket
 import com.elianfabian.lapisbt_rpc.serializer.LapisPacketSerializer
 import com.elianfabian.lapisbt_rpc.serializer.LapisSerializer
+import com.elianfabian.lapisbt_rpc.util.HkdfUtil
 import com.elianfabian.lapisbt_rpc.util.LapisKeyExchange
 import com.elianfabian.lapisbt_rpc.util.extractFirstGenericArgument
 import com.elianfabian.lapisbt_rpc.util.invokeSuspend
@@ -71,6 +72,7 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
 
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: BluetoothDevice.Address,
@@ -150,37 +152,49 @@ internal class BluetoothDeviceRpc(
 		}
 		_scope.launch {
 			while (isActive && !_isDisposed) {
-				lapisBt.sendData(deviceAddress) { stream ->
-					packetProcessor.sendData(stream)
-				}
+				try {
+					lapisBt.sendData(deviceAddress) { stream ->
+						packetProcessor.sendData(stream)
+					}
 
-				logger.debug(TAG) {
-					"$deviceAddress: sendData failed - device is not connected. Waiting for connection..."
+					logger.debug(TAG) {
+						"$deviceAddress: sendData failed - device is not connected. Waiting for connection..."
+					}
+					if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
+						lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
+					}
+					else {
+						// small delay to avoid a busy loop
+						delay(100.milliseconds)
+					}
 				}
-				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
-					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
-				}
-				else {
-					// small delay to avoid a busy loop
-					delay(100)
+				catch (e: IllegalStateException) {
+					if (_isDisposed) break
+					throw e
 				}
 			}
 		}
 		_scope.launch {
 			while (isActive && !_isDisposed) {
-				lapisBt.receiveData(deviceAddress) { stream ->
-					packetProcessor.receiveData(stream)
-				}
+				try {
+					lapisBt.receiveData(deviceAddress) { stream ->
+						packetProcessor.receiveData(stream)
+					}
 
-				logger.debug(TAG) {
-					"$deviceAddress: receiveData failed - device is not connected. Waiting for connection..."
+					logger.debug(TAG) {
+						"$deviceAddress: receiveData failed - device is not connected. Waiting for connection..."
+					}
+					if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
+						lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
+					}
+					else {
+						// small delay to avoid a busy loop
+						delay(100.milliseconds)
+					}
 				}
-				if (lapisBt.getRemoteDevice(deviceAddress).connectionState != BluetoothDevice.ConnectionState.Connected) {
-					lapisBt.events.first { it is LapisBt.Event.OnDeviceConnected && it.device.address == deviceAddress }
-				}
-				else {
-					// small delay to avoid a busy loop
-					delay(100)
+				catch (e: IllegalStateException) {
+					if (_isDisposed) break
+					throw e
 				}
 			}
 		}
@@ -428,6 +442,7 @@ internal class BluetoothDeviceRpc(
 	fun setEncryption(encryption: LapisEncryption?) {
 		if (encryption is AutomaticEncryptionMarker) {
 			_encryptionMarker = encryption
+			_handshakeKeyPair = encryption.keyPair
 			_handshakeReady = null // Reset handshake if encryption is set again
 		}
 		else {
@@ -510,6 +525,24 @@ internal class BluetoothDeviceRpc(
 					return@launch
 				}
 
+				marker.pinnedPublicKeyHash?.let { pinnedHash ->
+					val actualHash = MessageDigest.getInstance("SHA-256").digest(packet.publicKey)
+					if (!actualHash.contentEquals(pinnedHash)) {
+						logger.error(TAG) {
+							"$deviceAddress: Handshake failed - Remote public key hash mismatch!"
+						}
+						val ex = LapisHandshakeException("Pinned public key verification failed")
+
+						val ready = _handshakeReady
+						ready?.completeExceptionally(ex)
+						internalAllRequestsFailed(ex)
+						return@launch
+					}
+					logger.debug(TAG) {
+						"$deviceAddress: Remote public key hash verified successfully"
+					}
+				}
+
 				val myKeyPair = _handshakeKeyPair ?: LapisKeyExchange.generateKeyPair().also { _handshakeKeyPair = it }
 
 				val ready = _handshakeReady
@@ -525,13 +558,25 @@ internal class BluetoothDeviceRpc(
 
 					val sharedSecret = LapisKeyExchange.deriveSharedSecret(myKeyPair.private, packet.publicKey)
 
+					var sessionKey: ByteArray? = null
 					val encryptionImpl = marker.factory?.invoke(sharedSecret) ?: run {
-						val hashedSecret = MessageDigest.getInstance("SHA-256").digest(sharedSecret)
-						LapisEncryption.aesGcm(hashedSecret)
+						val derived = HkdfUtil.deriveKey(
+							inputKeyingMaterial = sharedSecret,
+							info = "LapisBT-RPC-v1".toByteArray(),
+							targetLength = 32, // 256-bit AES
+						)
+						sessionKey = derived
+						LapisEncryption.aesGcm(derived)
 					}
 
 					packetProcessor.encryption = encryptionImpl
 					_handshakeReady?.complete(Unit)
+					interceptor.interceptHandshakeSuccess(
+						deviceAddress = deviceAddress,
+						remotePublicKeyBytes = packet.publicKey,
+						sharedSecret = sharedSecret,
+						sessionKey = sessionKey,
+					)
 					logger.debug(TAG) {
 						"$deviceAddress: Handshake completed successfully"
 					}

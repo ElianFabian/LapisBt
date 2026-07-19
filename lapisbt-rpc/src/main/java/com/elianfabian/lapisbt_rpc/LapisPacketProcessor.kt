@@ -211,10 +211,13 @@ internal class DefaultLapisPacketProcessor(
 		}
 		else payload
 
-		val encrypted = encryption != null && type != CompleteBluetoothPacket.Type.Handshake.byteValue
+		val packetId = generateId()
+
+		val encrypted = encryption != null && (type != CompleteBluetoothPacket.Type.Handshake.byteValue)
 		if (encrypted) {
 			actualPayload = try {
-				encryption!!.encrypt(actualPayload)
+				val associatedData = createAssociatedData(packetId, type)
+				encryption!!.encrypt(actualPayload, associatedData)
 			}
 			catch (e: GeneralSecurityException) {
 				throw LapisEncryptionException("Failed to encrypt packet payload", e)
@@ -231,8 +234,6 @@ internal class DefaultLapisPacketProcessor(
 			0
 		}
 		else (remainingPayloadSize + FRAGMENT_PAYLOAD_CAPACITY - 1) / FRAGMENT_PAYLOAD_CAPACITY
-
-		val packetId = generateId()
 
 		val firstFragment = BluetoothPacket.FirstFragment(
 			packetId = packetId,
@@ -381,7 +382,8 @@ internal class DefaultLapisPacketProcessor(
 										throw ex
 									}
 									actualPayload = try {
-										enc.decrypt(actualPayload)
+										val associatedData = createAssociatedData(packet.packetId, packet.type)
+										enc.decrypt(actualPayload, associatedData)
 									}
 									catch (e: GeneralSecurityException) {
 										val ex = LapisEncryptionException("Failed to decrypt packet payload", e)
@@ -447,7 +449,8 @@ internal class DefaultLapisPacketProcessor(
 										throw ex
 									}
 									actualPayload = try {
-										enc.decrypt(actualPayload)
+										val associatedData = createAssociatedData(firstPacket.packetId, firstPacket.type)
+										enc.decrypt(actualPayload, associatedData)
 									}
 									catch (e: GeneralSecurityException) {
 										val ex = LapisEncryptionException("Failed to decrypt packet payload", e)
@@ -492,6 +495,13 @@ internal class DefaultLapisPacketProcessor(
 				}
 			}
 		}
+	}
+
+	private fun createAssociatedData(packetId: Int, type: Byte): ByteArray {
+		return ByteBuffer.allocate(5)
+			.putInt(packetId)
+			.put(type)
+			.array()
 	}
 
 	private fun generateId(): Int = _nextPacketId.getAndIncrement()

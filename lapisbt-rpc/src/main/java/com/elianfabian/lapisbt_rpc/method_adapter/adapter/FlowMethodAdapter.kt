@@ -2,6 +2,7 @@ package com.elianfabian.lapisbt_rpc.method_adapter.adapter
 
 import com.elianfabian.lapisbt.logger.LapisLogger
 import com.elianfabian.lapisbt.logger.LapisLogger.Companion.debug
+import com.elianfabian.lapisbt.logger.LapisLogger.Companion.error
 import com.elianfabian.lapisbt.logger.LapisLogger.Companion.verbose
 import com.elianfabian.lapisbt.model.BluetoothDevice
 import com.elianfabian.lapisbt_rpc.LapisRequestInfoContext
@@ -99,7 +100,14 @@ internal class FlowMethodAdapter(
 				}
 				_pendingChannelsByRequestId.remove(requestId)
 				_scope.launch {
-					bluetoothDeviceRpc.cancel(requestId = requestId)
+					try {
+						bluetoothDeviceRpc.cancel(requestId = requestId)
+					}
+					catch (e: Exception) {
+						logger.error(TAG, e) {
+							"Failed to send cancellation for $requestId"
+						}
+					}
 				}
 			}
 		}
@@ -126,42 +134,67 @@ internal class FlowMethodAdapter(
 		}
 
 		val job = _scope.launch(LapisRequestInfoContext(getLapisRequestInfo())) {
-			val flow = server.invokeMethod() as Flow<Any?>
+			try {
+				val flow = server.invokeMethod() as Flow<Any?>
 
-			flow
-				.onCompletion { throwable ->
-					when (throwable) {
-						null -> {
-							_activeServerJobs.remove(request.requestId)
-						}
-						is RemoteCancellationException -> {
-							// no-op
-						}
-						is CancellationException -> {
-							bluetoothDeviceRpc.cancel(requestId = request.requestId)
-						}
-						is LocalException -> {
-							throw throwable.cause!!
-						}
-						else -> {
-							bluetoothDeviceRpc.sendErrorMessage(
-								requestId = request.requestId,
-								message = throwable.message.toString(),
-							)
+				flow
+					.onCompletion { throwable ->
+						when (throwable) {
+							null -> {
+								_activeServerJobs.remove(request.requestId)
+							}
+							is RemoteCancellationException -> {
+								// no-op
+							}
+							is CancellationException -> {
+								_scope.launch {
+									try {
+										bluetoothDeviceRpc.cancel(requestId = request.requestId)
+									}
+									catch (e: Exception) {
+										logger.error(TAG, e) {
+											"Failed to send cancellation for ${request.requestId}"
+										}
+									}
+								}
+							}
+							is LocalException -> {
+								throw throwable.cause!!
+							}
+							else -> {
+								_scope.launch {
+									try {
+										bluetoothDeviceRpc.sendErrorMessage(
+											requestId = request.requestId,
+											message = throwable.message.toString(),
+										)
+									}
+									catch (e: Exception) {
+										logger.error(TAG, e) {
+											"Failed to send error message for ${request.requestId}"
+										}
+									}
+								}
+							}
 						}
 					}
-				}
-				.collect { value ->
-					bluetoothDeviceRpc.sendResult(
-						requestId = request.requestId,
-						result = value,
-					)
+					.collect { value ->
+						bluetoothDeviceRpc.sendResult(
+							requestId = request.requestId,
+							result = value,
+						)
 
-					logger.debug(TAG) {
-						"FlowMethodAdapter: Emitting value for request ${request.requestId} (isActive=${coroutineContext.isActive})"
+						logger.debug(TAG) {
+							"FlowMethodAdapter: Emitting value for request ${request.requestId} (isActive=${coroutineContext.isActive})"
+						}
 					}
+				bluetoothDeviceRpc.sendEnd(requestId = request.requestId)
+			}
+			catch (e: Exception) {
+				logger.error(TAG, e) {
+					"Error processing Flow request ${request.requestId}: ${e.message}"
 				}
-			bluetoothDeviceRpc.sendEnd(requestId = request.requestId)
+			}
 		}
 
 		_activeServerJobs[request.requestId] = job
@@ -205,27 +238,31 @@ internal class FlowMethodAdapter(
 	}
 
 	override fun onDeviceDisconnected(deviceAddress: BluetoothDevice.Address) {
-		_pendingChannelsByRequestId.forEach { (_, channel) ->
-			channel.close(CancellationException("Device '$deviceAddress' disconnected"))
-		}
+		val channels = _pendingChannelsByRequestId.values.toList()
 		_pendingChannelsByRequestId.clear()
-
-		_activeServerJobs.forEach { (_, job) ->
-			job.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+		channels.forEach {
+			it.close(CancellationException("Device '$deviceAddress' disconnected"))
 		}
+
+		val jobs = _activeServerJobs.values.toList()
 		_activeServerJobs.clear()
+		jobs.forEach {
+			it.cancel(CancellationException("Device '$deviceAddress' disconnected"))
+		}
 	}
 
 	override suspend fun onAllRequestsFailed(throwable: Throwable) {
-		_pendingChannelsByRequestId.forEach { (_, channel) ->
-			channel.close(throwable)
-		}
+		val channels = _pendingChannelsByRequestId.values.toList()
 		_pendingChannelsByRequestId.clear()
-
-		_activeServerJobs.forEach { (_, job) ->
-			job.cancel(CancellationException("Internal error", throwable))
+		channels.forEach {
+			it.close(throwable)
 		}
+
+		val jobs = _activeServerJobs.values.toList()
 		_activeServerJobs.clear()
+		jobs.forEach {
+			it.cancel(CancellationException("Internal error", throwable))
+		}
 	}
 
 
