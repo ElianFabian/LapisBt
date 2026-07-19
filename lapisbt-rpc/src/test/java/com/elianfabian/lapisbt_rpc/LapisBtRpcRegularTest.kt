@@ -235,7 +235,7 @@ class LapisBtRpcRegularTest {
 	@Test
 	fun `requesting unregistered service fails with LapisRemoteException after timeout`() = runTest(timeout = 15.seconds) {
 		phoneRpc = LapisBtRpc.newInstance(phone.lapisBt, logger = LapisLogger.console())
-		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console())
+		peripheralRpc = LapisBtRpc.newInstance(peripheral.lapisBt, logger = LapisLogger.console(), config = LapisBtRpcConfig(serverServiceRegistrationTimeout = 3.seconds))
 
 		backgroundScope.launch {
 			peripheral.lapisBt.startBluetoothServerWithoutPairing("RegularService", serviceUuid)
@@ -256,8 +256,8 @@ class LapisBtRpcRegularTest {
 		val duration = System.currentTimeMillis() - startTime
 
 		assertThat(exception).isInstanceOf(LapisRemoteException::class.java)
-		assertThat(exception?.message).contains("not registered")
-		assertThat(duration).isAtLeast(5000)
+		assertThat(exception?.message).contains("after 3s")
+		assertThat(duration).isAtLeast(3000)
 	}
 }
 

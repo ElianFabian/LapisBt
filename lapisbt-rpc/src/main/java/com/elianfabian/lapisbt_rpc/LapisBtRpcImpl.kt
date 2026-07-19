@@ -45,9 +45,16 @@ internal class LapisBtRpcImpl(
 
 
 	init {
+		lapisBt.connectedDevices.value.forEach { device ->
+			getOrCreateBluetoothDeviceRpc(device.address)
+		}
+
 		_scope.launch {
 			lapisBt.events.collect { event ->
 				when (event) {
+					is LapisBt.Event.OnDeviceConnected -> {
+						getOrCreateBluetoothDeviceRpc(event.device.address)
+					}
 					is LapisBt.Event.OnDeviceDisconnected -> {
 						handleDeviceDisconnected(event.device.address)
 					}
@@ -77,21 +84,7 @@ internal class LapisBtRpcImpl(
 			}
 		}
 
-		val bluetoothDeviceRpc = _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
-			val packetProcessor = createPacketProcessor(deviceAddress)
-
-			BluetoothDeviceRpc(
-				deviceAddress = deviceAddress,
-				config = config,
-				lapisBt = lapisBt,
-				lapisRpc = this@LapisBtRpcImpl,
-				serializationStrategy = serializationStrategy,
-				interceptor = interceptor,
-				metadataProvider = metadataProvider,
-				packetProcessor = packetProcessor,
-				logger = logger,
-			)
-		}
+		val bluetoothDeviceRpc = getOrCreateBluetoothDeviceRpc(deviceAddress)
 
 		@Suppress("UNCHECKED_CAST")
 		val newClientService = Proxy.newProxyInstance(
@@ -178,21 +171,7 @@ internal class LapisBtRpcImpl(
 			}
 		}
 
-		_bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
-			val packetProcessor = createPacketProcessor(deviceAddress)
-
-			BluetoothDeviceRpc(
-				deviceAddress = deviceAddress,
-				config = config,
-				lapisBt = lapisBt,
-				lapisRpc = this@LapisBtRpcImpl,
-				serializationStrategy = serializationStrategy,
-				interceptor = interceptor,
-				metadataProvider = metadataProvider,
-				packetProcessor = packetProcessor,
-				logger = logger,
-			)
-		}
+		getOrCreateBluetoothDeviceRpc(deviceAddress)
 	}
 
 	override fun getBluetoothServerServiceByName(deviceAddress: BluetoothDevice.Address, serviceName: String): Any {
@@ -267,21 +246,7 @@ internal class LapisBtRpcImpl(
 
 	override fun setEncryption(deviceAddress: BluetoothDevice.Address, encryption: LapisEncryption?) {
 		checkIsNotDisposed()
-		val rpc = _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
-			val packetProcessor = createPacketProcessor(deviceAddress)
-
-			BluetoothDeviceRpc(
-				deviceAddress = deviceAddress,
-				config = config,
-				lapisBt = lapisBt,
-				lapisRpc = this@LapisBtRpcImpl,
-				serializationStrategy = serializationStrategy,
-				interceptor = interceptor,
-				metadataProvider = metadataProvider,
-				packetProcessor = packetProcessor,
-				logger = logger,
-			)
-		}
+		val rpc = getOrCreateBluetoothDeviceRpc(deviceAddress)
 		rpc.setEncryption(encryption)
 	}
 
@@ -312,11 +277,30 @@ internal class LapisBtRpcImpl(
 	}
 
 
+	private fun getOrCreateBluetoothDeviceRpc(deviceAddress: BluetoothDevice.Address): BluetoothDeviceRpc {
+		return _bluetoothDeviceRpcByAddress.getOrPut(deviceAddress) {
+			val packetProcessor = createPacketProcessor(deviceAddress)
+
+			BluetoothDeviceRpc(
+				deviceAddress = deviceAddress,
+				config = config,
+				lapisBt = lapisBt,
+				lapisRpc = this@LapisBtRpcImpl,
+				serializationStrategy = serializationStrategy,
+				interceptor = interceptor,
+				metadataProvider = metadataProvider,
+				packetProcessor = packetProcessor,
+				logger = logger,
+			)
+		}
+	}
+
 	private fun tryCleanupResources(deviceAddress: BluetoothDevice.Address) {
 		val hasClients = _bluetoothClientServicesByAddress[deviceAddress]?.isNotEmpty() == true
 		val hasServers = _bluetoothServerServiceByAddress[deviceAddress]?.isNotEmpty() == true
+		val isConnected = lapisBt.connectedDevices.value.any { it.address == deviceAddress }
 
-		if (!hasClients && !hasServers) {
+		if (!hasClients && !hasServers && !isConnected) {
 			val bridge = _bluetoothDeviceRpcByAddress.remove(deviceAddress)
 
 			bridge?.dispose()
