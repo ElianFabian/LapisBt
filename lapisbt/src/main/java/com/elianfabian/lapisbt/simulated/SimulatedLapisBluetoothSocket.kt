@@ -92,7 +92,6 @@ internal class SimulatedLapisBluetoothSocket(
 
 			// If either side is secure, the connection is secure.
 			val finalIsSecure = isSecure || serverEntry.isSecure
-			println("$$$ isSecure: $isSecure, serverEntry.isSecure: ${serverEntry.isSecure}")
 			this.isSecure = finalIsSecure
 
 			if (finalIsSecure) {
