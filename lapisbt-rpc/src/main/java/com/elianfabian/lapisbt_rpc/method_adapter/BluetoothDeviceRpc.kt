@@ -44,6 +44,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -70,7 +71,6 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.Duration.Companion.seconds
 
 internal class BluetoothDeviceRpc(
 	private val deviceAddress: BluetoothDevice.Address,
@@ -83,7 +83,6 @@ internal class BluetoothDeviceRpc(
 	private val metadataProvider: LapisMetadataProvider<Any?>,
 	private val logger: LapisLogger,
 ) {
-
 	private val _scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
 	private var _isDisposed = false
@@ -448,46 +447,30 @@ internal class BluetoothDeviceRpc(
 
 				_scope.launch {
 					try {
-						withTimeout(5.seconds) {
-							logger.debug(TAG) {
-								"ensureEncryptionReady.timeout1: ${hashCode()}"
-							}
+						withTimeout(config.handshakeTimeout) {
 							startHandshake()
-							logger.debug(TAG) {
-								"ensureEncryptionReady.timeout2: ${hashCode()}"
-							}
 							deferred.await()
-							logger.debug(TAG) {
-								"ensureEncryptionReady.timeout3: ${hashCode()}"
-							}
 						}
+					}
+					catch (e: TimeoutCancellationException) {
+						logger.error(TAG, e) {
+							"Handshake timed out"
+						}
+						val handshakeEx = LapisHandshakeException("Encryption handshake timed out", e)
+						internalAllRequestsFailed(handshakeEx)
 					}
 					catch (e: Exception) {
 						logger.error(TAG, e) {
 							"Handshake failed"
 						}
-						val handshakeEx = e as? LapisHandshakeException ?: LapisHandshakeException("Encryption handshake failed or timed out", e)
+						val handshakeEx = e as? LapisHandshakeException ?: LapisHandshakeException("Encryption handshake failed", e)
 						internalAllRequestsFailed(handshakeEx)
-					}
-					finally {
-						// This ensures that if for some reason the above launch is the only thing keeping the test alive,
-						// we don't hang if it's already failed.
 					}
 				}
 				deferred.await()
-
-				logger.debug(TAG) {
-					"ensureEncryptionReady.timeout5: ${hashCode()}"
-				}
 			}
 			else {
-				logger.debug(TAG) {
-					"ensureEncryptionReady.timeout6: ${hashCode()}"
-				}
 				ready.await()
-				logger.debug(TAG) {
-					"ensureEncryptionReady.timeout7: ${hashCode()}"
-				}
 			}
 		}
 	}

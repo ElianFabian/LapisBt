@@ -1585,9 +1585,6 @@ internal class LapisBtImpl(
 		deviceAddress: BluetoothDevice.Address,
 		socket: LapisBluetoothSocket? = null,
 	): Boolean {
-		val callerMethodName = Throwable().stackTrace.map { it.methodName }.takeIf { it.isNotEmpty() } ?: "Unknown"
-		logger.debug(TAG) { "handleDisconnectedDevice called by: $callerMethodName" }
-
 		if (socket != null) {
 			val currentSocket = _clientSocketByAddress[deviceAddress]
 			// We check if the socket that triggered the disconnection is the same one currently stored in the map.
