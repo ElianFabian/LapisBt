@@ -14,6 +14,8 @@ import javax.crypto.spec.SecretKeySpec
  */
 internal class AesLapisEncryption(private val key: ByteArray) : LapisEncryption {
 
+	override val sessionKey: ByteArray get() = key
+
 	companion object {
 		private const val ALGORITHM = "AES/GCM/NoPadding"
 		private const val IV_LENGTH_BYTES = 12

@@ -558,15 +558,21 @@ internal class BluetoothDeviceRpc(
 
 					val sharedSecret = LapisKeyExchange.deriveSharedSecret(myKeyPair.private, packet.publicKey)
 
-					var sessionKey: ByteArray? = null
-					val encryptionImpl = marker.factory?.invoke(sharedSecret) ?: run {
-						val derived = HkdfUtil.deriveKey(
-							inputKeyingMaterial = sharedSecret,
-							info = "LapisBT-RPC-v1".toByteArray(),
-							targetLength = 32, // 256-bit AES
-						)
-						sessionKey = derived
-						LapisEncryption.aesGcm(derived)
+					val encryptionImpl = when {
+						marker.factory != null -> marker.factory.invoke(sharedSecret)
+						marker.deriveKey != null -> {
+							val key = marker.deriveKey.invoke(sharedSecret)
+							LapisEncryption.aesGcm(key)
+						}
+						else -> {
+							val info = marker.hkdfInfo ?: "LapisBT-RPC-v1"
+							val sessionKey = HkdfUtil.deriveKey(
+								inputKeyingMaterial = sharedSecret,
+								info = info.toByteArray(),
+								targetLength = 32, // 256-bit AES
+							)
+							LapisEncryption.aesGcm(sessionKey)
+						}
 					}
 
 					packetProcessor.encryption = encryptionImpl
@@ -575,7 +581,7 @@ internal class BluetoothDeviceRpc(
 						deviceAddress = deviceAddress,
 						remotePublicKeyBytes = packet.publicKey,
 						sharedSecret = sharedSecret,
-						sessionKey = sessionKey,
+						sessionKey = encryptionImpl.sessionKey,
 					)
 					logger.debug(TAG) {
 						"$deviceAddress: Handshake completed successfully"
