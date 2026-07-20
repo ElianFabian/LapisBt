@@ -57,10 +57,6 @@ internal data class SimulatedLapisBluetoothDevice(
 		return true
 	}
 
-	override fun isBondingInitiatedLocally(): Boolean {
-		return false
-	}
-
 	override fun isConnected(): Boolean {
 		return _isConnected
 	}

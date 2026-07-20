@@ -32,9 +32,6 @@ public interface LapisBluetoothDevice {
 	public fun cancelBondProcess(): Boolean
 
 	@InternalBluetoothReflectionApi
-	public fun isBondingInitiatedLocally(): Boolean
-
-	@InternalBluetoothReflectionApi
 	public fun isConnected(): Boolean
 
 	@InternalBluetoothReflectionApi

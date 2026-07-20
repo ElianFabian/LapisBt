@@ -98,18 +98,6 @@ internal class LapisBluetoothDeviceImpl(
 	}
 
 	@InternalBluetoothReflectionApi
-	override fun isBondingInitiatedLocally(): Boolean {
-		try {
-			val method = device.javaClass.getMethod("isBondingInitiatedLocally")
-
-			return method.invoke(device) as Boolean
-		}
-		catch (_: Exception) {
-			return false
-		}
-	}
-
-	@InternalBluetoothReflectionApi
 	override fun isConnected(): Boolean {
 		try {
 			val method = device.javaClass.getMethod("isConnected")
