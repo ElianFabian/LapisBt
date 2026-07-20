@@ -97,6 +97,7 @@ internal class LapisBluetoothDeviceImpl(
 		}
 	}
 
+	// TODO: I'm not sure if this may be useful, we'll probably end up removing it
 	@InternalBluetoothReflectionApi
 	override fun isConnected(): Boolean {
 		try {
@@ -109,6 +110,7 @@ internal class LapisBluetoothDeviceImpl(
 		}
 	}
 
+	// TODO: we should test this and see if it could be useful
 	@InternalBluetoothReflectionApi
 	override fun isEncrypted(): Boolean {
 		try {
