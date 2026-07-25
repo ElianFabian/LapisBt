@@ -21,6 +21,7 @@ import java.io.OutputStream
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * A high-level, "sanitized" abstraction for Bluetooth Classic on Android.
@@ -335,18 +336,24 @@ public interface LapisBt {
 	 * Performs a service discovery on the remote device via SDP (Service Discovery Protocol)
 	 * to fetch its supported UUIDs.
 	 *
-	 * This function suspends until the discovery process completes, times out, or fails to initiate.
+	 * This function suspends until the SDP discovery process completes, times out, or fails to initiate.
+	 *
+	 * **Important Note on Scanning:**
+	 * Bluetooth Classic hardware cannot reliably perform SDP queries during active device discovery.
+	 * If a scan (`startDiscovery`) is currently running, this function will suspend and wait for
+	 * the scan to finish before issuing the SDP request to prevent radio contention and timeouts.
 	 *
 	 * **Side Effects:**
 	 * * Successful discoveries will automatically update the internal caches for paired,
 	 * scanned, and connected device flows.
 	 *
 	 * @param deviceAddress The Bluetooth address of the target device.
+	 * @param timeout The maximum duration to wait for the SDP transaction to complete.
 	 * @return A list of discovered [UUID]s. Returns an **empty list** if the discovery succeeds
 	 * but zero services are exposed. Returns **null** if the operation times out or the hardware
 	 * fails to initiate the request.
 	 */
-	public suspend fun getUuidsWithSdp(deviceAddress: BluetoothDevice.Address): List<UUID>?
+	public suspend fun getUuidsWithSdp(deviceAddress: BluetoothDevice.Address, timeout: Duration = 6.seconds): List<UUID>?
 
 	/**
 	 * Releases all resources held by this instance.
