@@ -24,8 +24,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
+import java.io.DataInputStream
+import java.io.InputStreamReader
 import java.util.UUID
 
+// TODO: finish the chat logic, I don't remember how this end up being incomplete
 class ManualBluetoothCommunicationViewModel(
 	private val lapisBt: LapisBt,
 	private val bluetoothPermissionController: MultiplePermissionController,
@@ -316,6 +320,19 @@ class ManualBluetoothCommunicationViewModel(
 
 					when (result) {
 						is LapisBt.ConnectionResult.ConnectionEstablished -> {
+							lapisBt.receiveData(device.address) { stream ->
+								//val dataStream = DataInputStream(stream)
+
+								val reader = BufferedReader(InputStreamReader(stream, Charsets.UTF_8))
+
+								// readLine() reads plain text until it finds \n or \r\n
+
+								while (true) {
+									val message: String? = reader.readLine()
+
+									println("$$$ Received message: $message")
+								}
+							}
 						}
 						else -> Unit
 					}
@@ -540,7 +557,8 @@ class ManualBluetoothCommunicationViewModel(
 
 
 	companion object {
-		private val ConnectionUuid = UUID.fromString("afd70479-c800-4e92-b626-1474e450c08e")
+		//private val ConnectionUuid = UUID.fromString("afd70479-c800-4e92-b626-1474e450c08e")
+		private val ConnectionUuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 		private const val ConnectionName = "ManualBluetoothCommunicationService"
 	}
 }
