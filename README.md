@@ -148,7 +148,7 @@ class MyServiceServer : MyService {
     }
 }
 
-// In your Activity/Service:
+// In your ViewModel/Service:
 val lapisBt = LapisBt.newInstance(context)
 val lapisBtRpc = LapisBtRpc.newInstance(lapisBt)
 
