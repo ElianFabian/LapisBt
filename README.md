@@ -129,7 +129,7 @@ interface MyService {
     suspend fun greet(
       @LapisParam("name")
       name: String
-	): String
+    ): String
 
     @LapisMethod("sensorData")
     fun sensorData(): Flow<Float>
